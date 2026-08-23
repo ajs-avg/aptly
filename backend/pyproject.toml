@@ -1,0 +1,61 @@
+[project]
+name = "aptly-api"
+version = "0.1.0"
+description = "Aptly backend — ingest, tailor, remember."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    # web
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "python-multipart>=0.0.20",
+    "sse-starlette>=2.1",
+    "httpx>=0.28",
+    # config + models
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+    # database
+    # The same models run on both: SQLite locally so the app works with no
+    # account and no network, Postgres in Supabase when there is one. Nothing in
+    # the schema is dialect-specific, so switching is a change of URL.
+    "sqlalchemy[asyncio]>=2.0.36",
+    "aiosqlite>=0.20",
+    "asyncpg>=0.30",
+    "alembic>=1.14",
+    # auth
+    # No [crypto] extra: Supabase signs its access tokens with HS256, which pyjwt
+    # verifies on its own. The extra would drag in `cryptography`, whose current
+    # release has no wheel for macOS 12 x86_64 and falls back to a Rust build.
+    "pyjwt>=2.10",
+    # llm
+    "google-genai>=1.0",
+    # document pipeline
+    "python-docx>=1.1",
+    # pdfminer.six rather than pdfplumber: pdfplumber pulls in pypdfium2, whose
+    # wheels are built for macOS 13+ and will not install on this machine
+    # (12.7.6). pdfminer.six is pure Python, MIT, and exposes per-character
+    # font/size/colour/bbox — exactly what the PDF style profile needs, so the
+    # wrapper was never buying us much here.
+    "pdfminer.six>=20240706",
+    # pdfminer.six pulls in cryptography for encrypted PDFs. From v49 upstream
+    # ships only `macosx_11_0_arm64` wheels — no x86_64 build — so on an Intel
+    # Mac pip falls back to compiling the Rust extension, which fails. v48 still
+    # ships `macosx_10_9_universal2`. Safe to relax once this is off Intel.
+    "cryptography<49",
+    # Typst, not WeasyPrint, for PDF rendering. WeasyPrint needs system Pango,
+    # cairo and gdk-pixbuf, and Homebrew ships no bottle for macOS 12 — it would
+    # mean a multi-hour source build of ~45 dependencies against 6 GB of free
+    # disk, and the same libraries again inside any deploy image. Typst is a
+    # single ~20 MB self-contained wheel with no system dependencies at all.
+    "typst>=0.13",
+    # scheduling
+    "apscheduler>=3.11",
+    # observability
+    "structlog>=24.4",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/aptly"]

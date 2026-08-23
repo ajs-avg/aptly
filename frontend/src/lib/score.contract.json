@@ -1,0 +1,428 @@
+{
+  "card": {
+    "rules": [
+      {
+        "id": "r0",
+        "requirement": "Hands-on Airflow",
+        "essential": true,
+        "terms": [
+          {
+            "label": "Airflow",
+            "aliases": [
+              "airflow"
+            ]
+          }
+        ],
+        "combine": "any",
+        "fixed": null
+      },
+      {
+        "id": "r1",
+        "requirement": "Python and SQL",
+        "essential": true,
+        "terms": [
+          {
+            "label": "Python",
+            "aliases": [
+              "python"
+            ]
+          },
+          {
+            "label": "SQL",
+            "aliases": [
+              "sql"
+            ]
+          }
+        ],
+        "combine": "all",
+        "fixed": null
+      },
+      {
+        "id": "r2",
+        "requirement": "A cloud warehouse",
+        "essential": true,
+        "terms": [
+          {
+            "label": "Snowflake",
+            "aliases": [
+              "snowflake"
+            ]
+          },
+          {
+            "label": "BigQuery",
+            "aliases": [
+              "bigquery"
+            ]
+          }
+        ],
+        "combine": "any",
+        "fixed": null
+      },
+      {
+        "id": "r3",
+        "requirement": "Three years in data engineering",
+        "essential": true,
+        "terms": [],
+        "combine": "any",
+        "fixed": "partial"
+      }
+    ],
+    "baseline": 17,
+    "semantic": true
+  },
+  "cases": [
+    {
+      "name": "nothing",
+      "text": "Built dashboards in JavaScript and CSS.",
+      "expected": {
+        "score": 13,
+        "baseline": 17,
+        "results": [
+          {
+            "id": "r0",
+            "requirement": "Hands-on Airflow",
+            "essential": true,
+            "status": "missing",
+            "present": [],
+            "absent": [
+              "Airflow"
+            ]
+          },
+          {
+            "id": "r1",
+            "requirement": "Python and SQL",
+            "essential": true,
+            "status": "missing",
+            "present": [],
+            "absent": [
+              "Python",
+              "SQL"
+            ]
+          },
+          {
+            "id": "r2",
+            "requirement": "A cloud warehouse",
+            "essential": true,
+            "status": "missing",
+            "present": [],
+            "absent": [
+              "Snowflake",
+              "BigQuery"
+            ]
+          },
+          {
+            "id": "r3",
+            "requirement": "Three years in data engineering",
+            "essential": true,
+            "status": "partial",
+            "present": [],
+            "absent": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "python only",
+      "text": "Wrote Python scripts.",
+      "expected": {
+        "score": 25,
+        "baseline": 17,
+        "results": [
+          {
+            "id": "r0",
+            "requirement": "Hands-on Airflow",
+            "essential": true,
+            "status": "missing",
+            "present": [],
+            "absent": [
+              "Airflow"
+            ]
+          },
+          {
+            "id": "r1",
+            "requirement": "Python and SQL",
+            "essential": true,
+            "status": "partial",
+            "present": [
+              "Python"
+            ],
+            "absent": [
+              "SQL"
+            ]
+          },
+          {
+            "id": "r2",
+            "requirement": "A cloud warehouse",
+            "essential": true,
+            "status": "missing",
+            "present": [],
+            "absent": [
+              "Snowflake",
+              "BigQuery"
+            ]
+          },
+          {
+            "id": "r3",
+            "requirement": "Three years in data engineering",
+            "essential": true,
+            "status": "partial",
+            "present": [],
+            "absent": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "python and sql",
+      "text": "Wrote Python and SQL for the nightly job.",
+      "expected": {
+        "score": 38,
+        "baseline": 17,
+        "results": [
+          {
+            "id": "r0",
+            "requirement": "Hands-on Airflow",
+            "essential": true,
+            "status": "missing",
+            "present": [],
+            "absent": [
+              "Airflow"
+            ]
+          },
+          {
+            "id": "r1",
+            "requirement": "Python and SQL",
+            "essential": true,
+            "status": "covered",
+            "present": [
+              "Python",
+              "SQL"
+            ],
+            "absent": []
+          },
+          {
+            "id": "r2",
+            "requirement": "A cloud warehouse",
+            "essential": true,
+            "status": "missing",
+            "present": [],
+            "absent": [
+              "Snowflake",
+              "BigQuery"
+            ]
+          },
+          {
+            "id": "r3",
+            "requirement": "Three years in data engineering",
+            "essential": true,
+            "status": "partial",
+            "present": [],
+            "absent": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "everything",
+      "text": "Scheduled it in Airflow, wrote Python and SQL against BigQuery.",
+      "expected": {
+        "score": 88,
+        "baseline": 17,
+        "results": [
+          {
+            "id": "r0",
+            "requirement": "Hands-on Airflow",
+            "essential": true,
+            "status": "covered",
+            "present": [
+              "Airflow"
+            ],
+            "absent": []
+          },
+          {
+            "id": "r1",
+            "requirement": "Python and SQL",
+            "essential": true,
+            "status": "covered",
+            "present": [
+              "Python",
+              "SQL"
+            ],
+            "absent": []
+          },
+          {
+            "id": "r2",
+            "requirement": "A cloud warehouse",
+            "essential": true,
+            "status": "covered",
+            "present": [
+              "BigQuery"
+            ],
+            "absent": [
+              "Snowflake"
+            ]
+          },
+          {
+            "id": "r3",
+            "requirement": "Three years in data engineering",
+            "essential": true,
+            "status": "partial",
+            "present": [],
+            "absent": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "nosql trap",
+      "text": "Used NoSQL stores and Python.",
+      "expected": {
+        "score": 25,
+        "baseline": 17,
+        "results": [
+          {
+            "id": "r0",
+            "requirement": "Hands-on Airflow",
+            "essential": true,
+            "status": "missing",
+            "present": [],
+            "absent": [
+              "Airflow"
+            ]
+          },
+          {
+            "id": "r1",
+            "requirement": "Python and SQL",
+            "essential": true,
+            "status": "partial",
+            "present": [
+              "Python"
+            ],
+            "absent": [
+              "SQL"
+            ]
+          },
+          {
+            "id": "r2",
+            "requirement": "A cloud warehouse",
+            "essential": true,
+            "status": "missing",
+            "present": [],
+            "absent": [
+              "Snowflake",
+              "BigQuery"
+            ]
+          },
+          {
+            "id": "r3",
+            "requirement": "Three years in data engineering",
+            "essential": true,
+            "status": "partial",
+            "present": [],
+            "absent": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "punctuation",
+      "text": "Python, SQL; Airflow \u2014 all of it.",
+      "expected": {
+        "score": 63,
+        "baseline": 17,
+        "results": [
+          {
+            "id": "r0",
+            "requirement": "Hands-on Airflow",
+            "essential": true,
+            "status": "covered",
+            "present": [
+              "Airflow"
+            ],
+            "absent": []
+          },
+          {
+            "id": "r1",
+            "requirement": "Python and SQL",
+            "essential": true,
+            "status": "covered",
+            "present": [
+              "Python",
+              "SQL"
+            ],
+            "absent": []
+          },
+          {
+            "id": "r2",
+            "requirement": "A cloud warehouse",
+            "essential": true,
+            "status": "missing",
+            "present": [],
+            "absent": [
+              "Snowflake",
+              "BigQuery"
+            ]
+          },
+          {
+            "id": "r3",
+            "requirement": "Three years in data engineering",
+            "essential": true,
+            "status": "partial",
+            "present": [],
+            "absent": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "casing",
+      "text": "PYTHON and sql and AirFlow",
+      "expected": {
+        "score": 63,
+        "baseline": 17,
+        "results": [
+          {
+            "id": "r0",
+            "requirement": "Hands-on Airflow",
+            "essential": true,
+            "status": "covered",
+            "present": [
+              "Airflow"
+            ],
+            "absent": []
+          },
+          {
+            "id": "r1",
+            "requirement": "Python and SQL",
+            "essential": true,
+            "status": "covered",
+            "present": [
+              "Python",
+              "SQL"
+            ],
+            "absent": []
+          },
+          {
+            "id": "r2",
+            "requirement": "A cloud warehouse",
+            "essential": true,
+            "status": "missing",
+            "present": [],
+            "absent": [
+              "Snowflake",
+              "BigQuery"
+            ]
+          },
+          {
+            "id": "r3",
+            "requirement": "Three years in data engineering",
+            "essential": true,
+            "status": "partial",
+            "present": [],
+            "absent": []
+          }
+        ]
+      }
+    }
+  ]
+}

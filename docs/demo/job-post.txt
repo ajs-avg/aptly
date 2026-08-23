@@ -1,0 +1,42 @@
+Data Engineer — Meridian Analytics (Bengaluru, hybrid)
+
+About us
+Meridian Analytics builds the reporting layer for mid-market retailers across
+India and South-East Asia. We move a lot of data, and our customers make
+buying decisions on the back of it, so correctness matters more here than
+almost anywhere else.
+
+The role
+You will own ingestion and transformation for a set of customer accounts. That
+means building the pipelines that bring raw sales, inventory and supplier data
+in, modelling it into something analysts can query without asking us questions,
+and keeping it all running. You will work closely with two analytics engineers
+and report to the Head of Data.
+
+What you will do
+- Build and maintain batch pipelines in Airflow, from source system to warehouse
+- Model data in dbt so downstream tables are documented, tested and trusted
+- Write performant SQL against large tables and know why a query is slow
+- Own data quality: freshness checks, row-count reconciliation, alerting
+- Handle streaming ingestion through Kafka for our near-real-time accounts
+- Tune Spark jobs when a batch outgrows a single machine
+
+What we need
+- 3+ years in a data engineering role
+- Strong SQL, including window functions and query plan reading
+- Production Python, particularly for data work — Pandas, or PySpark
+- Hands-on Airflow, or another orchestrator you can argue about
+- Dimensional modelling: facts, dimensions, slowly changing dimensions
+- Experience with a cloud warehouse — Snowflake, BigQuery or Redshift
+- Comfort on AWS: S3, IAM, and enough networking to unblock yourself
+
+Nice to have
+- dbt in production
+- Kafka or another streaming platform
+- Terraform, or any infrastructure-as-code
+- Experience in retail or e-commerce data
+
+What we offer
+Competitive salary, health cover for you and your dependants, a hardware budget,
+and three days a week in our Indiranagar office. We run a four-week onboarding
+where you ship a small pipeline end to end in your first fortnight.

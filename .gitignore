@@ -1,0 +1,39 @@
+# python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# node
+node_modules/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+
+# env — never commit real keys
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# build artefacts
+dist/
+build/
+
+# local databases — these hold real CVs, job records and profiles
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# scratch
+tmp/
+.DS_Store
+
+# tectonic cache
+.tectonic-cache/

@@ -1,0 +1,51 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=0.75in]{geometry}
+\usepackage[scaled]{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{titlesec}
+\titleformat{\section}{\large\bfseries}{}{0em}{}[\titlerule]
+\setlist[itemize]{leftmargin=*,itemsep=1pt,topsep=2pt}
+\pagestyle{empty}
+
+\begin{document}
+
+\begin{center}
+{\LARGE \textbf{Arjun Patel}} \\[3pt]
+Machine Learning Engineer \\[2pt]
+arjun.patel@example.com $\cdot$ +91 98200 55510 $\cdot$ Bengaluru, India \\
+github.com/arjunpatel-ml $\cdot$ arjunpatel.io
+\end{center}
+
+\section{Summary}
+ML engineer building retrieval and ranking systems. I like problems where latency and quality are both non-negotiable.
+
+\section{Experience}
+\textbf{Machine Learning Engineer}, Cordant AI \hfill Jun 2022 – Present
+
+\begin{itemize}
+  \item Built the retrieval layer serving 18 million queries a day at a p95 of 40ms.
+  \item Improved top-3 relevance by 11\% by replacing lexical search with a hybrid dense-sparse retriever.
+  \item Cut inference cost per query by 62\% through distillation and batching.
+\end{itemize}
+
+\textbf{Data Engineer}, Vayu Logistics \hfill Jul 2019 – May 2022
+
+\begin{itemize}
+  \item Built the feature store backing 14 production models.
+  \item Reduced pipeline failures by 70\% by moving from cron to a dependency-aware scheduler.
+\end{itemize}
+
+\section{Education}
+\textbf{B.Tech Computer Science}, IIT Bombay \hfill 2015 – 2019
+
+\section{Projects}
+\begin{itemize}
+  \item \textbf{Open-source vector index benchmark} --- Benchmarked 6 ANN libraries on recall and latency; 900 GitHub stars.
+\end{itemize}
+
+\section{Skills}
+Python $\cdot$ PyTorch $\cdot$ FAISS $\cdot$ Ray $\cdot$ Kubernetes $\cdot$ Spark $\cdot$ MLflow
+
+\end{document}

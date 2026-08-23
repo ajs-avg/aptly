@@ -1,0 +1,46 @@
+RAHUL MENON
+Frontend Developer
+rahul.menon@example.com | +91 98450 21134 | Bengaluru, India
+github.com/rahulmenon-dev | rahulmenon.dev
+
+PROFESSIONAL SUMMARY
+Frontend developer with three years building customer-facing web applications.
+Comfortable owning a feature from design handoff through to production, and
+happiest when a page is fast and an interface is obvious. Some exposure to
+backend work through the APIs I consume and the small internal tools I have
+written.
+
+TECHNICAL SKILLS
+Languages: JavaScript, TypeScript, Python, HTML5, CSS3
+Frameworks: React, Next.js, Redux, Tailwind CSS
+Backend & Data: Node.js, Express.js, REST APIs, PostgreSQL, SQL
+Tools: Git, GitHub Actions, Figma, Webpack, Jest, Chrome DevTools
+
+WORK EXPERIENCE
+
+Frontend Developer, Kalyra Commerce - Bengaluru - Aug 2023 - Present
+- Rebuilt the product listing page in Next.js, cutting time to first paint from
+  4.1 seconds to 1.3 and lifting add-to-cart rate by 8%.
+- Built the internal pricing dashboard end to end, writing the SQL queries that
+  pull from PostgreSQL and the React interface that displays them, now used
+  daily by 22 people in the merchandising team.
+- Wrote a Python script that reconciles the nightly product feed against the
+  catalogue and reports mismatches, replacing a manual check that took an
+  analyst two hours every morning.
+- Introduced Jest and Playwright coverage on the checkout flow, taking
+  regression escapes from 6 per quarter to 1.
+
+Junior Frontend Developer, Tessellate Studio - Bengaluru - Jun 2022 - Jul 2023
+- Delivered 14 client marketing sites in React and Tailwind CSS, all scoring
+  above 90 on Lighthouse performance.
+- Built a reusable component library adopted across 5 client projects, cutting
+  new-project setup from 3 days to under 1.
+- Automated deployment with GitHub Actions, removing a release step that had
+  caused 3 outages in the previous year.
+
+EDUCATION
+B.E. Computer Science, Visvesvaraya Technological University - 2018 - 2022
+CGPA 8.1
+
+CERTIFICATIONS
+Meta Front-End Developer Professional Certificate - 2023

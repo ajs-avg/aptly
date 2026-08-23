@@ -1,0 +1,50 @@
+YASHWINI RAO
+
+Phone: 7013391227      Email: yashwini.rao@example.com
+LinkedIn: linkedin.com/in/yashwini-rao-92a736328
+
+PROFESSIONAL SUMMARY
+AI & ML undergraduate with strong foundation in Machine Learning, Data Structures &
+Algorithms, Full-Stack Development, and Data Science. Experienced in building
+Retrieval-Augmented Generation (RAG) systems, predictive healthcare models, and
+responsive web applications. Proficient in Python, SQL, and modern web technologies.
+
+TECHNICAL SKILLS
+Programming: Python, C, C++, Java, SQL
+Core CS: Data Structures & Algorithms, OOP, DBMS, Operating Systems
+Web Development: HTML5, CSS3, JavaScript, React.js, Node.js, Express.js, REST API
+Databases: MySQL, MongoDB
+Machine Learning & Data Science:
+Supervised Learning, Feature Engineering, Model Evaluation, Exploratory Data Analysis (EDA)
+Tools: Git, GitHub, VS Code, GoogleColab
+Concepts: CRUD Operations, Authentication (Basics), Version Control, Problem Solving
+
+KEY PROJECTS
+- AI Academic Assistant (RAG System) - Designed and implemented a Retrieval-Augmented
+  Generation pipeline using Llama3 (Ollama). Built semantic search with document chunking,
+  similarity-based retrieval, and prompt optimization. Developed interactive Gradio interface
+  for real time response streaming.
+- Parkinson's Disease Detection using Machine Learning - Built predictive healthcare model
+  using biomedical voice dataset. Performed data preprocessing, feature selection, and EDA.
+  Implemented Logistic Regression, SVM, and Random Forest classifiers. Evaluated using
+  accuracy, precision, recall, F1-score, and confusion matrix.
+- Railway Information & Contact Optimization Web Portal - Developed responsive multi-page
+  web application using HTML, CSS, and JavaScript. Implemented structured UI/UX design,
+  improved information architecture, and enhanced digital communication workflows.
+
+INTERNSHIP EXPERIENCE
+- Data Science Intern - CSC India (APSCHE-AICTE): Conducted data cleaning, preprocessing,
+  and exploratory data analysis. Developed end-to-end ML workflows and performed model
+  validation using Python (Pandas, NumPy, Matplotlib).
+- Web Development Intern - Apexplanet Software Pvt. Ltd: Built responsive websites and
+  ecommerce mini shop. Implemented DOM manipulation, form validation, dynamic filtering,
+  and optimized frontend performance.
+
+EDUCATION
+B.Tech - Computer Science & Engineering (AI & ML)
+Gayatri Vidya Parishad College of Engineering for Women (2023-2027) : GPA: 8.75
+Class XII - 91.8%
+Class X - 100%
+
+CERTIFICATIONS
+Software Engineering Job Simulation - Goldman Sachs | AWS Academy Graduate - Cloud Foundations

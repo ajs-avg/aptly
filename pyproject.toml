@@ -1,0 +1,67 @@
+[project]
+name = "aptly"
+version = "0.1.0"
+description = "Aptly — tailor every application, be ready when they call."
+requires-python = ">=3.12,<3.13"
+dependencies = ["aptly-api"]
+
+[tool.uv.workspace]
+members = ["backend"]
+
+[tool.uv.sources]
+aptly-api = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    # Fixture generation only. We need PDF test files with realistic mixed
+    # fonts, sizes and colours to exercise the style profiler; reportlab is
+    # pure Python and BSD, so it installs anywhere the tests run.
+    "reportlab>=4.2",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = [
+    "E501",
+    # This codebase exists to read documents written by humans in Word, Google
+    # Docs and LaTeX, which are full of en dashes, curly quotes and bullet
+    # dingbats. Matching those characters literally is the job, so the
+    # ambiguous-unicode rules flag our most deliberate code.
+    "RUF001",
+    "RUF002",
+    "RUF003",
+]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI declares request parsing by calling these in argument defaults. It is
+# the framework's documented idiom, not the mutable-default trap B008 is for.
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Query",
+    "fastapi.Body",
+    "fastapi.Header",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["backend/tests"]
+# `backend/src` puts the package on the path; `backend` lets the suite import
+# its own fixtures as `tests.fixtures.…`.
+pythonpath = ["backend/src", "backend"]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+ignore_missing_imports = true

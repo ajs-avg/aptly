@@ -1,0 +1,455 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Aptly design system
+
+   Tokens come straight from the product & design doc (p.8). The palette is a
+   deliberate choice, not a default: teal-green reads as "verified and ready",
+   amber acts like an editor's highlighter on the exact words to change.
+
+   Rule for this file: every colour has one job. If you cannot name the job,
+   the colour does not belong here.
+
+   ── How theming works here ────────────────────────────────────────────────
+
+   Every colour is defined twice — once light, once dark — and *nothing* else
+   in the codebase knows which is in force. Components only ever say `bg-paper`
+   or `text-ink`; those compile to `var(--color-paper)`, and this file decides
+   what that means right now.
+
+   The viewer has three states, not two:
+
+     1. explicit light   → <html data-theme="light">
+     2. explicit dark    → <html data-theme="dark">
+     3. system (default) → no attribute at all; only the media query separates
+                           light from dark
+
+   State 3 is the common case, so a rule written only against `[data-theme]`
+   would never fire for most people. Hence the pattern below: `:root` carries
+   the complete light palette, the media query redefines it for a dark OS but
+   is guarded by `:not([data-theme="light"])` so an explicit light choice still
+   wins, and `[data-theme="dark"]` redefines it again so the toggle wins in the
+   other direction too.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Light: the complete palette. Every token gets its value here. ────────── */
+
+:root {
+  color-scheme: light;
+
+  --paper: #fbfbfa; /* calm background, softer than white                */
+  --raised: #ffffff; /* cards lifted above paper                          */
+  --sunken: #f3f3f1; /* wells, inactive drop zones                        */
+  --mist: #f2f2f0; /* the ground the white cards sit on                 */
+
+  --ink: #16181d; /* headlines and primary text     17.1:1 on paper    */
+  --ink-soft: #3a3f49; /* sub-headings that sit under Ink                   */
+  --slate: #5a6270; /* secondary text and labels       5.9:1             */
+  --hairline: #e2e6e8; /* quiet dividers and table lines                    */
+
+  --signal: #14655c; /* primary actions, ready/verified 6.7:1             */
+  --signal-hover: #0f5049;
+  --signal-soft: #e9f1ef; /* verified-state tint backgrounds                   */
+
+  /* Amber fails WCAG AA for normal text (3.15:1, needs 4.5), so it marks and
+     underlines but never carries words. `amber-ink` is the only amber allowed
+     on body-sized text. */
+  --amber: #c0821f;
+  --amber-ink: #8f6114; /* 4.9:1                                             */
+  --amber-soft: #fdf3e2; /* highlighter wash behind changed text              */
+
+  --danger: #9b2c2c; /* destructive only — never decorative               */
+  --danger-soft: #fbeaea;
+
+  --panel: #1a1c21; /* dark inset showing product detail                 */
+  --panel-soft: #24272d;
+  --panel-ink: #f4f5f3; /* text on that inset                                */
+
+  /* Shadows are paper stacking on paper, so they are cast in the ink colour
+     rather than pure black. Kept as a raw triple so opacity can vary per
+     elevation without redefining the hue each time. */
+  --shadow-rgb: 22 24 29;
+  --shadow-strength: 1;
+
+  /* How the 3D scene should light itself. Read by the WebGL layer, which
+     cannot see Tailwind classes — see components/story/theme.ts. */
+  --scene-ground: #fbfbfa;
+  --scene-paper: #ffffff;
+  --scene-ambient: 1.3;
+  --scene-key: 2.6;
+  --scene-fill: 1.3;
+}
+
+/* ── Dark: only the tokens change. No component knows this block exists. ─── */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    /* Not a neutral grey. The dark ground carries the same faint blue-slate
+       bias that Ink has, so the two themes read as one family rather than as a
+       product and its inverted screenshot. */
+    --paper: #0f1115;
+    --raised: #171a1f;
+    --sunken: #0a0c0f;
+    --mist: #131519;
+
+    --ink: #edeeea; /* warm off-white; pure white glares on a dark ground */
+    --ink-soft: #c7cbd2;
+    --slate: #99a1ad; /* 7.3:1 on paper                                    */
+    --hairline: #272c34;
+
+    /* The teal has to gain light to survive on a dark ground. Same hue, same
+       job — a dimmer version would read as disabled. */
+    --signal: #45bfac; /* 8.5:1                                             */
+    --signal-hover: #63d4c1;
+    --signal-soft: #10322d;
+
+    --amber: #d99a34;
+    --amber-ink: #e8b45c; /* 10:1 — on dark, the lighter amber is the readable one */
+    --amber-soft: #2c2214;
+
+    --danger: #e4756f;
+    --danger-soft: #33191a;
+
+    /* The inset panel inverts its role. In light it is the one dark object on
+       the page; in dark it has to sit *above* paper or it disappears into it. */
+    --panel: #1e222a;
+    --panel-soft: #272c35;
+    --panel-ink: #edeeea;
+
+    /* A drop shadow does almost nothing on a dark ground — depth there comes
+       from the surface getting lighter, not from a darker shadow. Kept for the
+       largest elevations only, and cast in true black. */
+    --shadow-rgb: 0 0 0;
+    --shadow-strength: 2.2;
+
+    /* Paper in a dark room, not paper under a lamp. The sheets carry three
+       lights on top of this base colour, so a value that looks middling here
+       still renders as a glaring white rectangle — the first dark pass set
+       #d8dae0 and the swarm read as cut-out card floating over the headline.
+       The lights come down with it, or the shading flattens out. */
+    --scene-ground: #0f1115;
+    --scene-paper: #454b57;
+    --scene-ambient: 0.5;
+    --scene-key: 1.15;
+    --scene-fill: 0.55;
+  }
+}
+
+/* ── Explicit dark, so a toggle beats a light OS. ─────────────────────────── */
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --paper: #0f1115;
+  --raised: #171a1f;
+  --sunken: #0a0c0f;
+  --mist: #131519;
+
+  --ink: #edeeea;
+  --ink-soft: #c7cbd2;
+  --slate: #99a1ad;
+  --hairline: #272c34;
+
+  --signal: #45bfac;
+  --signal-hover: #63d4c1;
+  --signal-soft: #10322d;
+
+  --amber: #d99a34;
+  --amber-ink: #e8b45c;
+  --amber-soft: #2c2214;
+
+  --danger: #e4756f;
+  --danger-soft: #33191a;
+
+  --panel: #1e222a;
+  --panel-soft: #272c35;
+  --panel-ink: #edeeea;
+
+  --shadow-rgb: 0 0 0;
+  --shadow-strength: 2.2;
+
+  --scene-ground: #0f1115;
+  --scene-paper: #454b57;
+  --scene-ambient: 0.5;
+  --scene-key: 1.15;
+  --scene-fill: 0.55;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   The theme, as Tailwind sees it
+
+   `@theme inline` rather than `@theme`: it makes the generated utilities emit
+   `var(--paper)` at the point of use instead of copying the value at build
+   time. That indirection is the whole mechanism — without it, `bg-paper` would
+   bake in whichever value happened to be defined first and the dark blocks
+   above would be dead CSS.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-raised: var(--raised);
+  --color-sunken: var(--sunken);
+  --color-mist: var(--mist);
+
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-slate: var(--slate);
+  --color-hairline: var(--hairline);
+
+  --color-signal: var(--signal);
+  --color-signal-hover: var(--signal-hover);
+  --color-signal-soft: var(--signal-soft);
+
+  --color-amber: var(--amber);
+  --color-amber-ink: var(--amber-ink);
+  --color-amber-soft: var(--amber-soft);
+
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+
+  --color-panel: var(--panel);
+  --color-panel-soft: var(--panel-soft);
+  --color-panel-ink: var(--panel-ink);
+}
+
+@theme {
+  /* ── Type: three voices, three jobs (design doc, p.9) ───────────────── */
+  --font-display: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "SF Mono", monospace;
+
+  /* ── Scale ──────────────────────────────────────────────────────────── */
+  --text-2xs: 0.6875rem; /* 11px — meta, timestamps                       */
+  --text-2xs--line-height: 1rem;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.125rem;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 0.9375rem; /* 15px — denser than default; this is a tool   */
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.0625rem;
+  --text-lg--line-height: 1.625rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.625rem;
+  --text-2xl--line-height: 2rem;
+  --text-3xl: 2.125rem;
+  --text-3xl--line-height: 2.5rem;
+  --text-4xl: 2.75rem;
+  --text-4xl--line-height: 3rem;
+  --text-5xl: 3.5rem;
+  --text-5xl--line-height: 3.75rem;
+
+  /* ── Radii: precise, not bubbly. A career tool, not a toy. ──────────── */
+  --radius-xs: 3px;
+  --radius-sm: 5px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* The landing page carries more air and softer edges than the app: a
+     floating nav, large rounded cards, and dark inset panels that let a
+     screenshot of the product read as an object sitting on the page. */
+  --radius-2xl: 22px;
+  --radius-3xl: 30px;
+  --radius-pill: 999px;
+
+  /* ── Breakpoints ────────────────────────────────────────────────────
+     Two beyond Tailwind's defaults, both earning their place:
+
+     `xs` because the narrowest phones in use are 320–360px, and a two-column
+     stat row that works at 390 is unreadable at 320.
+
+     `ultra` because past roughly 1900px the problem inverts: nothing is too
+     small, the eye simply has too far to travel. Layouts widen to a point and
+     then stop, and this is where they stop. */
+  --breakpoint-xs: 24rem; /* 384px */
+  --breakpoint-ultra: 120rem; /* 1920px */
+
+  /* ── Layout: one ladder of measures, so pages agree with each other ──
+     Hand-picked max-widths per page are how a product ends up with three
+     different content columns that almost line up. */
+  --spacing-measure: 46rem; /* long-form reading column                */
+  --spacing-content: 78rem; /* standard page content                   */
+  --spacing-wide: 96rem; /* the app's working surface               */
+  --spacing-ultra: 112rem; /* the ceiling on an ultra-wide display    */
+
+  /* ── Elevation: paper stacking on paper. Never a glow. ──────────────── */
+  --shadow-hairline: 0 0 0 1px rgb(var(--shadow-rgb) / calc(7% * var(--shadow-strength)));
+  --shadow-raised:
+    0 1px 2px rgb(var(--shadow-rgb) / calc(5% * var(--shadow-strength))),
+    0 1px 1px rgb(var(--shadow-rgb) / calc(4% * var(--shadow-strength)));
+  --shadow-lifted:
+    0 2px 4px rgb(var(--shadow-rgb) / calc(5% * var(--shadow-strength))),
+    0 6px 14px -4px rgb(var(--shadow-rgb) / calc(9% * var(--shadow-strength)));
+  --shadow-card:
+    0 4px 8px -2px rgb(var(--shadow-rgb) / calc(7% * var(--shadow-strength))),
+    0 16px 32px -8px rgb(var(--shadow-rgb) / calc(12% * var(--shadow-strength)));
+  --shadow-float:
+    0 1px 2px rgb(var(--shadow-rgb) / calc(4% * var(--shadow-strength))),
+    0 8px 24px -6px rgb(var(--shadow-rgb) / calc(10% * var(--shadow-strength))),
+    0 24px 48px -12px rgb(var(--shadow-rgb) / calc(10% * var(--shadow-strength)));
+  --shadow-hero:
+    0 2px 4px rgb(var(--shadow-rgb) / calc(4% * var(--shadow-strength))),
+    0 20px 40px -8px rgb(var(--shadow-rgb) / calc(12% * var(--shadow-strength))),
+    0 48px 96px -24px rgb(var(--shadow-rgb) / calc(16% * var(--shadow-strength)));
+
+  /* ── Motion: calm and quick. Nothing bounces for decoration. ────────── */
+  --ease-out-quiet: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out-quiet: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Base
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+    /* Anchor links and in-page navigation glide rather than jump — but only
+       for people who have not asked motion to stop. */
+    scroll-behavior: smooth;
+  }
+
+  body {
+    /* Paper is the ground everywhere. A page that puts a WebGL scene behind its
+       content overrides this on its own wrapper — see the landing page. */
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* A theme switch should read as the lights changing, not as a page
+       reloading. Backgrounds and text cross-fade; nothing else does, because
+       transitioning `all` here catches every hover state on the page. */
+    transition:
+      background-color 260ms var(--ease-out-quiet),
+      color 260ms var(--ease-out-quiet);
+  }
+
+  /* Labels and headlines take the geometric voice. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.011em;
+    color: var(--color-ink);
+    /* Headlines break where the meaning breaks, not where the box ends. */
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Numbers must line up in the coverage meter and every table. */
+  table,
+  time,
+  [data-numeric] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    background-color: var(--color-amber-soft);
+    color: var(--color-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-signal);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
+
+  /* Nothing on a touch screen should sit under a thumb at less than 44px, and
+     nothing should flash blue when tapped. */
+  @media (pointer: coarse) {
+    button,
+    a[role="button"],
+    [data-tap] {
+      min-height: 44px;
+      -webkit-tap-highlight-color: transparent;
+    }
+  }
+
+  /* The 3D hero and every motion flourish must yield to this. */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Utilities that encode a design rule rather than a style
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@utility hairline-b {
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+@utility hairline-t {
+  border-top: 1px solid var(--color-hairline);
+}
+
+@utility hairline-r {
+  border-right: 1px solid var(--color-hairline);
+}
+
+/* The highlighter. Marks the exact words to change — never used for text
+   colour, only as a wash behind it. */
+@utility mark-change {
+  background-color: var(--color-amber-soft);
+  box-shadow: inset 2px 0 0 var(--color-amber);
+}
+
+/* Literal CV text inside a change card: exact, quotable. (Design doc, p.9) */
+@utility cv-literal {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  letter-spacing: -0.01em;
+}
+
+/* One gutter rule for the whole product, so every page's content starts on the
+   same vertical line. Grows with the viewport and then stops — past a point,
+   more margin is just a longer walk for the eye. */
+@utility gutter {
+  padding-inline: 1.25rem;
+
+  @media (width >= 40rem) {
+    padding-inline: 2rem;
+  }
+
+  @media (width >= 64rem) {
+    padding-inline: 3rem;
+  }
+
+  @media (width >= 120rem) {
+    padding-inline: 4rem;
+  }
+}
+
+/* Content that is scrollable sideways must scroll *itself*. A table or a code
+   block that widens the page body is the single most common way a layout
+   breaks on a phone. */
+@utility scroll-x {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
