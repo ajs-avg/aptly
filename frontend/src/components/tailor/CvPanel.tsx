@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 
+import { ChangeSummary } from "./ChangeSummary";
 import { ScoreDial } from "./ScoreDial";
 import { EditableCv } from "./EditableCv";
 import { EASE, SPRING } from "@/components/motion/primitives";
@@ -75,6 +76,7 @@ export function CvPanel({
   busy = false,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const pending = state.changes.filter((change) => change.status === "pending").length;
   const applied = state.changes.filter((change) => change.status === "applied").length;
 
@@ -135,17 +137,32 @@ export function CvPanel({
           {pending > 0 && (
             <button
               type="button"
-              onClick={onApplyAll}
+              onClick={() => {
+                onApplyAll();
+                // Straight after, so the person sees what it did rather than a
+                // number that may not have moved and no explanation of why.
+                setSummaryOpen(true);
+              }}
               className="inline-flex h-8 items-center rounded-pill bg-signal px-3.5 font-display text-xs font-medium text-paper transition-colors hover:bg-signal-hover"
             >
               Apply all {pending}
             </button>
           )}
 
-          <span className="text-2xs text-slate" data-numeric>
-            {applied} applied
-            {pending > 0 && ` · ${pending} waiting`}
-          </span>
+          {applied > 0 ? (
+            <button
+              type="button"
+              onClick={() => setSummaryOpen(true)}
+              className="text-2xs text-signal underline decoration-signal/30 underline-offset-2 transition-colors hover:decoration-signal"
+              data-numeric
+            >
+              {applied} applied — what changed?
+            </button>
+          ) : (
+            <span className="text-2xs text-slate" data-numeric>
+              {pending} waiting
+            </span>
+          )}
 
           <div className="ml-auto flex items-center gap-2">
             <div className="relative">
@@ -264,6 +281,14 @@ export function CvPanel({
           </ul>
         </div>
       )}
+
+      <ChangeSummary
+        open={summaryOpen}
+        onClose={() => setSummaryOpen(false)}
+        applied={applied}
+        score={score}
+        before={baseline}
+      />
 
       {!expanded && (
         <button

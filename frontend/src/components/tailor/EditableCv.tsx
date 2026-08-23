@@ -191,8 +191,10 @@ function Line({
             />
           ) : (
             <motion.p
-              // Amber on arrival, then settling to ink: the highlighter mark
-              // fading as the change becomes part of the document.
+              // Amber flash on arrival, then a permanent left rule. The flash
+              // alone faded to nothing, so a minute later there was no way to
+              // see which lines had been changed — and the undo underneath them
+              // read as belonging to the whole document rather than that line.
               key={node.text}
               initial={applied ? { backgroundColor: "var(--color-amber-soft)" } : false}
               animate={{ backgroundColor: "rgba(0,0,0,0)" }}
@@ -200,6 +202,7 @@ function Line({
               onClick={canType ? () => setDraft(node.text) : undefined}
               className={cn(
                 "rounded-sm text-sm leading-relaxed text-ink",
+                applied && "mark-change pl-2",
                 canType &&
                   "cursor-text px-1.5 py-0.5 transition-colors hover:bg-sunken hover:ring-1 hover:ring-hairline",
               )}
@@ -257,14 +260,24 @@ function Line({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={SPRING}
-            className={cn("pt-0.5", bullet && "ml-4")}
+            className={cn("flex flex-wrap items-baseline gap-x-2 pt-1", bullet && "ml-4")}
           >
+            <span className="font-display text-2xs font-medium uppercase tracking-[0.08em] text-amber-ink">
+              Changed
+            </span>
+            {/* The line it replaced, struck through. Undo is far more useful
+                when you can see what you are undoing to. */}
+            <span className="cv-literal text-2xs text-slate line-through decoration-slate/40">
+              {change.previousText.length > 90
+                ? `${change.previousText.slice(0, 90)}…`
+                : change.previousText}
+            </span>
             <button
               type="button"
               onClick={() => onUndo(node.id, change.previousText!)}
-              className="font-display text-2xs text-slate underline decoration-hairline underline-offset-2 transition-colors hover:text-ink"
+              className="font-display text-2xs text-signal underline decoration-signal/30 underline-offset-2 transition-colors hover:decoration-signal"
             >
-              Undo this change
+              Undo
             </button>
           </motion.div>
         )}

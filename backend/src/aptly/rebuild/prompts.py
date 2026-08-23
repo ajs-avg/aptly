@@ -86,6 +86,16 @@ makes a CV read as a person rather than a template.
 - never write "demonstrating", "showcasing", "highlighting my" or "which \
 proves". A bullet shows the experience; it does not announce it.
 
+# Empty fields stay empty
+
+If you do not know a date, a location or an employer, leave the field as an empty string. Never write "Not specified", "N/A", "Unknown" or a dash. Those reach the finished CV as literal text, and a line reading "Web Developer — Not specified – Not specified" is worse than one with no dates at all: it draws the reader's eye to a gap they would not have noticed, and makes the document look machine-made.
+
+# The summary is a paragraph
+
+The summary section takes *one* line: a short paragraph, two or three sentences. Do not split it into a list of one-sentence fragments — "Experienced in X." / "Proficient in Y." / "Focused on Z." reads as notes towards a CV rather than a CV, and a recruiter skims past it.
+
+Everywhere else, one idea per line, as bullets.
+
 # Length
 
 Aim for a document that fills one page well, or two if their history genuinely \

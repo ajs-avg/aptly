@@ -317,7 +317,44 @@ def to_document(result: RebuildResult, original: CVDocument) -> CVDocument:
     )
 
 
+#: What a model writes into a field it has no answer for. Every one of these
+#: reached the finished CV as literal text — "Web Development Intern · Anexplanet
+#: Software Pvt. Ltd. — Not specified – Not specified" — which is worse than an
+#: absent date, because it draws the eye to a gap the reader would not have
+#: noticed and makes the document look auto-generated.
+_PLACEHOLDERS = frozenset(
+    {
+        "not specified",
+        "not provided",
+        "not mentioned",
+        "not available",
+        "unspecified",
+        "unknown",
+        "n/a",
+        "na",
+        "none",
+        "-",
+        "—",
+        "tbd",
+        "present date",
+        "null",
+    }
+)
+
+
+def _stated(value: str | None) -> str:
+    """A field's value, or empty when the model was really saying "I do not know"."""
+    text = (value or "").strip()
+    return "" if text.lower().strip(".") in _PLACEHOLDERS else text
+
+
 def _entry_heading(entry) -> str:
+    entry.title = _stated(entry.title)
+    entry.organisation = _stated(entry.organisation)
+    entry.location = _stated(entry.location)
+    entry.start = _stated(entry.start)
+    entry.end = _stated(entry.end)
+
     left = " · ".join(part for part in (entry.title, entry.organisation) if part)
     when = " – ".join(part for part in (entry.start, entry.end) if part)
     if entry.location:
