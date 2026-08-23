@@ -45,12 +45,14 @@ services:
           name: aptly-db
           property: connectionString
 
-      # Not `production`. That flag switches on the Supabase auth path, and
-      # until SUPABASE_JWT_SECRET is set there is nothing behind it — the app
-      # refuses to start the development sign-in and every Library request
-      # fails. `staging` keeps the dev sign-in working, which is email-only and
-      # has no password, so this deployment is a demo rather than something to
-      # put real applications in. Set Supabase up, then switch this.
+      # Not `production`: that switches on the Supabase auth path, and until
+      # SUPABASE_JWT_SECRET is set there is nothing behind it — the app refuses
+      # to start the only sign-in it has and every Library request fails.
+      #
+      # `staging` means deployed but not production: HTTPS cookies and JSON
+      # logs, still on the development sign-in. That sign-in is email-only with
+      # no password, so this is a demo rather than somewhere to keep real
+      # applications. Configure Supabase, then switch this to `production`.
       - key: APTLY_ENV
         value: staging
 

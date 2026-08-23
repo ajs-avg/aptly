@@ -56,7 +56,7 @@ async def current_caller(
         max_age=TTL_SECONDS,
         httponly=True,
         samesite="lax",
-        secure=get_settings().is_production,
+        secure=get_settings().is_deployed,
     )
     log.info("anon.started", anon_id=str(anon.id))
     return Caller(owner_id=anon.id)
@@ -100,7 +100,7 @@ def set_session_cookie(response: Response, token: str) -> None:
         max_age=TTL_SECONDS,
         httponly=True,
         samesite="lax",
-        secure=get_settings().is_production,
+        secure=get_settings().is_deployed,
     )
 
 

@@ -33,7 +33,7 @@ def configure_logging() -> None:
 
     renderer = (
         structlog.processors.JSONRenderer()
-        if settings.is_production
+        if settings.is_deployed
         else structlog.dev.ConsoleRenderer(colors=True)
     )
 

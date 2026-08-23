@@ -22,7 +22,13 @@ class Settings(BaseSettings):
     )
 
     # ── environment ──────────────────────────────────────────────────────────
-    env: Literal["development", "test", "production"] = Field(
+    #: `staging` is a real deployment that is not production yet: served over
+    #: HTTPS, on a real database, but still using the development sign-in
+    #: because Supabase Auth has not been configured. Without it there is no way
+    #: to describe the first deploy — `production` refuses to start the only
+    #: auth provider available, and `development` tells the app it is on
+    #: localhost and hands out cookies without the Secure flag.
+    env: Literal["development", "test", "staging", "production"] = Field(
         default="development", alias="APTLY_ENV"
     )
     log_level: str = Field(default="INFO", alias="APTLY_LOG_LEVEL")
@@ -175,7 +181,21 @@ class Settings(BaseSettings):
 
     @property
     def is_production(self) -> bool:
+        """Production specifically — the environment that requires real auth."""
         return self.env == "production"
+
+    @property
+    def is_deployed(self) -> bool:
+        """Anywhere that is not somebody's laptop.
+
+        Separate from :attr:`is_production` because the two decide different
+        things and conflating them forces a bad trade on the first deploy. Real
+        authentication is a *production* requirement; serving cookies over HTTPS
+        is a requirement of being deployed at all. Answering both with one flag
+        meant a staging deploy either refused to start or issued session cookies
+        without the Secure flag, over HTTPS, on the public internet.
+        """
+        return self.env in {"staging", "production"}
 
 
 @lru_cache
