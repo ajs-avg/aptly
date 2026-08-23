@@ -48,7 +48,38 @@ def get_engine() -> AsyncEngine:
         pool_size=5,
         max_overflow=10,
         pool_pre_ping=True,  # Supabase closes idle connections; reconnect quietly.
+        connect_args=_connect_args(url),
     )
+
+
+#: Supabase's transaction pooler answers on 6543. Matched on the port alone:
+#: its *session* pooler shares the same hostname but holds one backend for the
+#: whole session, so prepared statements are safe there and disabling them would
+#: be a cost paid for nothing.
+_TRANSACTION_POOLER_PORT = ":6543"
+
+
+def _connect_args(url: str) -> dict[str, object]:
+    """Driver settings this particular Postgres needs.
+
+    asyncpg prepares every statement it runs, and a connection pooler in
+    *transaction* mode hands each statement to whichever backend is free — so
+    the prepared statement is created on one connection and executed on
+    another, which does not have it. It fails at runtime, under load, with
+    "prepared statement __asyncpg_stmt_1__ does not exist" and nothing pointing
+    at the pooler.
+
+    Turning the statement cache off is the documented fix. It is applied only
+    where it is needed: on a direct or session-mode connection the cache is a
+    free win, and giving it up everywhere to accommodate one connection mode
+    would be paying for a problem nobody had.
+    """
+    if _TRANSACTION_POOLER_PORT in url:
+        log.info("db.pooler_detected", statement_cache="disabled")
+        # `prepared_statement_cache_size` is SQLAlchemy's name for it; asyncpg
+        # calls the same thing `statement_cache_size`.
+        return {"statement_cache_size": 0, "prepared_statement_cache_size": 0}
+    return {}
 
 
 @lru_cache
