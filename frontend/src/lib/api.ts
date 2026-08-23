@@ -7,6 +7,7 @@
  * It is a dozen lines and it means change cards appear as they are produced.
  */
 
+import { accessToken } from "./supabase";
 import type {
   AuthSession,
   CVDocument,
@@ -163,8 +164,10 @@ export async function* streamTailor(
   input: TailorInput,
 ): AsyncGenerator<TailorEvent> {
   const response = await fetch(`${API}/api/tailor`, {
+    // Tailoring reads the signed-in person's career profile as source material,
+    // so an unauthenticated call here silently produces a thinner rebuild.
+    ...(await authed({ headers: { "Content-Type": "application/json" } })),
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     signal: input.signal,
     body: JSON.stringify({
       document: input.document,
@@ -230,11 +233,27 @@ function parseFrame(frame: string): TailorEvent | null {
 // ── library ───────────────────────────────────────────────────────────────
 
 /**
- * Every Library call sends cookies. The anonymous session lives in one, which
- * is what lets a stranger accumulate records before they have an account —
- * omit this and each request looks like a brand-new visitor.
+ * How a request says who it is from.
+ *
+ * Two mechanisms, both needed, for two different people:
+ *
+ * - **Cookies**, always. The anonymous session lives in one, and that visitor
+ *   is the person this product is designed around — they tailor a CV before
+ *   being asked for anything. Omit this and every request looks like a
+ *   brand-new visitor with an empty Library.
+ * - **A bearer token**, when Supabase is configured and somebody is signed in.
+ *   The API verifies the JWT and maps it to their profile.
+ *
+ * The token is read per request rather than captured once. Supabase rotates the
+ * access token roughly hourly, and a stale one is rejected — which would show
+ * up as the Library quietly going empty rather than as a prompt to sign in.
  */
-const withSession: RequestInit = { credentials: "include" };
+async function authed(init: RequestInit = {}): Promise<RequestInit> {
+  const token = await accessToken();
+  const headers = new Headers(init.headers);
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  return { ...init, credentials: "include", headers };
+}
 
 export interface SaveRecordInput {
   jobText: string;
@@ -251,7 +270,7 @@ export async function saveRecord(
   input: SaveRecordInput,
 ): Promise<RecordDetail> {
   const response = await fetch(`${API}/api/records`, {
-    ...withSession,
+    ...(await authed()),
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -280,13 +299,13 @@ export async function listRecords(
   if (params.status) search.set("status", params.status);
 
   const suffix = search.toString() ? `?${search}` : "";
-  const response = await fetch(`${API}/api/records${suffix}`, withSession);
+  const response = await fetch(`${API}/api/records${suffix}`, await authed());
   if (!response.ok) await fail(response);
   return response.json();
 }
 
 export async function getRecord(id: string): Promise<RecordDetail> {
-  const response = await fetch(`${API}/api/records/${id}`, withSession);
+  const response = await fetch(`${API}/api/records/${id}`, await authed());
   if (!response.ok) await fail(response);
   return response.json();
 }
@@ -301,7 +320,7 @@ export async function updateRecord(
   }>,
 ): Promise<RecordDetail> {
   const response = await fetch(`${API}/api/records/${id}`, {
-    ...withSession,
+    ...(await authed()),
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(patch),
@@ -312,7 +331,7 @@ export async function updateRecord(
 
 export async function deleteRecord(id: string): Promise<void> {
   const response = await fetch(`${API}/api/records/${id}`, {
-    ...withSession,
+    ...(await authed()),
     method: "DELETE",
   });
   if (!response.ok) await fail(response);
@@ -322,7 +341,7 @@ export async function deleteRecord(id: string): Promise<void> {
 
 export async function signIn(email: string): Promise<AuthSession> {
   const response = await fetch(`${API}/api/auth/sign-in`, {
-    ...withSession,
+    ...(await authed()),
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email }),
@@ -333,7 +352,7 @@ export async function signIn(email: string): Promise<AuthSession> {
 
 export async function signOut(): Promise<AuthSession> {
   const response = await fetch(`${API}/api/auth/sign-out`, {
-    ...withSession,
+    ...(await authed()),
     method: "POST",
   });
   if (!response.ok) await fail(response);
@@ -341,7 +360,7 @@ export async function signOut(): Promise<AuthSession> {
 }
 
 export async function getSession(): Promise<AuthSession> {
-  const response = await fetch(`${API}/api/auth/session`, withSession);
+  const response = await fetch(`${API}/api/auth/session`, await authed());
   if (!response.ok) await fail(response);
   return response.json();
 }

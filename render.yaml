@@ -15,11 +15,9 @@
 # run already takes over a minute, so on free the first one after a quiet spell
 # looks like the app has hung. Fine for showing somebody; not fine for real use.
 
-databases:
-  - name: aptly-db
-    plan: free
-    databaseName: aptly
-    user: aptly
+# No database here. Postgres is Supabase's, which is a separate account and a
+# secret this file must not carry — and Render's own free tier deletes itself
+# after ninety days, taking the Library with it.
 
 services:
   # ── API ───────────────────────────────────────────────────────────────────
@@ -38,12 +36,20 @@ services:
       - key: PYTHON_VERSION
         value: "3.12.7"
 
-      # Wired by Render from the database above. The app rewrites the scheme to
-      # postgresql+asyncpg:// on its own — see config.Settings._async_driver.
+      # Supabase's Postgres, not Render's — set by hand, because it lives in a
+      # different account. Session pooler (5432) or transaction pooler (6543)
+      # both work; the app disables asyncpg's statement cache for the latter,
+      # which would otherwise fail under load. The scheme is rewritten to
+      # postgresql+asyncpg:// on its own.
       - key: DATABASE_URL
-        fromDatabase:
-          name: aptly-db
-          property: connectionString
+        sync: false
+
+      # Real authentication. Setting this switches the API from the development
+      # sign-in — which is email-only, has no password, and refuses to run in
+      # production — to verifying Supabase's access tokens. Set it together with
+      # APTLY_ENV=production, not before.
+      - key: SUPABASE_JWT_SECRET
+        sync: false
 
       # Not `production`: that switches on the Supabase auth path, and until
       # SUPABASE_JWT_SECRET is set there is nothing behind it — the app refuses

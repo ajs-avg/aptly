@@ -7,6 +7,7 @@ import { AnimatePresence } from "motion/react";
 import { RecordPanel } from "@/components/library/RecordPanel";
 import { RecordRow } from "@/components/library/RecordRow";
 import { AppBar, BarLink } from "@/components/app/AppBar";
+import { authConfigured, signOutEverywhere } from "@/lib/supabase";
 import {
   ApiError,
   deleteRecord,
@@ -273,18 +274,29 @@ function TopBar({
 
         {session?.signed_in ? (
           <>
-            <span className="hidden px-1 text-2xs text-slate sm:inline">
-              {session.email}
-            </span>
+            <span className="hidden px-1 text-2xs text-slate sm:inline">{session.email}</span>
             <button
               type="button"
-              onClick={async () => onSignedOut(await signOut())}
+              onClick={async () => {
+                // Both, in this order. Supabase holds the token in local
+                // storage and the API holds the session cookie; clearing one
+                // and not the other leaves somebody signed in to half the
+                // product, which reads as a bug rather than as a sign-out.
+                if (authConfigured) await signOutEverywhere();
+                onSignedOut(await signOut());
+              }}
               className="inline-flex h-8 items-center rounded-pill px-3 font-display text-xs text-slate transition-colors hover:bg-sunken hover:text-ink"
             >
               Sign out
             </button>
           </>
+        ) : authConfigured ? (
+          // Real accounts: the sign-in page owns this, because a password field
+          // belongs on a page rather than in a toolbar.
+          <BarLink href="/sign-in?next=/library">Keep these</BarLink>
         ) : (
+          // No Supabase on this deployment — the development sign-in, which is
+          // email-only with no password and refuses to run in production.
           <form
             onSubmit={(event) => {
               event.preventDefault();
