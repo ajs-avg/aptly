@@ -166,9 +166,24 @@ class Settings(BaseSettings):
         """
         origins: list[str] = []
         for raw in self.cors_origins.split(","):
-            origin = raw.strip().rstrip("/")
+            # Angle brackets come from copying a value out of documentation
+            # that wrapped it in them. They are never part of an origin, and an
+            # origin carrying them matches nothing — silently, since a refused
+            # preflight looks identical to an unreachable server from the
+            # browser.
+            # Angle brackets anywhere, not just at the ends: the value people
+            # paste is often `https://<https://example.com/>`, where the scheme
+            # was typed in front of a documented placeholder that already
+            # carried one. Both mistakes are invisible in effect — a refused
+            # preflight and an unreachable server look identical from a
+            # browser — so they are cleaned rather than left to fail silently.
+            origin = raw.replace("<", "").replace(">", "").strip().rstrip("/")
             if not origin:
                 continue
+
+            while origin.lower().startswith(("http://http", "https://http")):
+                origin = origin.split("://", 1)[1]
+
             if "://" not in origin:
                 local = origin.startswith(("localhost", "127.0.0.1"))
                 origin = f"{'http' if local else 'https'}://{origin}"

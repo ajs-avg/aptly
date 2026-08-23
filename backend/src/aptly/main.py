@@ -52,9 +52,18 @@ app = FastAPI(
 
 _settings = get_settings()
 
+
+def _log_origins(origins: list[str]) -> list[str]:
+    get_logger(__name__).info("cors.configured", origins=origins)
+    return origins
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_settings.cors_origin_list,
+    # Logged at import, because a browser cannot tell a refused origin from an
+    # unreachable server — both surface as a bare network failure — so a wrong
+    # value here is otherwise invisible from either side.
+    allow_origins=_log_origins(_settings.cors_origin_list),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -61,3 +61,38 @@ def test_the_development_sign_in_still_refuses_production() -> None:
     """Email-only with no password. It must never be what guards real data."""
     with pytest.raises(ConfigurationError):
         LocalAuth(_settings("production"))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CORS origins, as people actually paste them
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.parametrize(
+    ("pasted", "expected"),
+    [
+        # The value as documentation shows it, with the placeholder brackets
+        # left in and a scheme typed in front of one that was already there.
+        ("https://<https://aptly.vercel.app/>", ["https://aptly.vercel.app"]),
+        ("<https://aptly.vercel.app>", ["https://aptly.vercel.app"]),
+        ("https://aptly.vercel.app/", ["https://aptly.vercel.app"]),
+        # Render hands one service's address to another without a scheme.
+        ("aptly.vercel.app", ["https://aptly.vercel.app"]),
+        ("localhost:3000", ["http://localhost:3000"]),
+        (
+            "https://aptly.vercel.app, http://localhost:3000",
+            ["https://aptly.vercel.app", "http://localhost:3000"],
+        ),
+    ],
+)
+def test_a_mistyped_origin_is_cleaned_rather_than_failing_silently(
+    pasted: str, expected: list[str]
+) -> None:
+    """A wrong origin here is invisible from both ends.
+
+    The browser cannot tell a refused preflight from an unreachable server —
+    both arrive as a bare network error — and the server sees a request it
+    never had to answer. So the value is repaired where it can be, and logged
+    at startup where it cannot.
+    """
+    assert Settings(CORS_ORIGINS=pasted).cors_origin_list == expected  # type: ignore[call-arg]
