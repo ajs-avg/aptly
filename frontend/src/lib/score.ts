@@ -155,13 +155,24 @@ export function evaluate(card: ScoreCard, text: string): ScoreResult {
     return { score: 0, baseline: card.baseline, results: [] };
   }
 
+  // Weighted exactly as the server weights it. A job post states a handful of
+  // conditions and then lists a dozen things it would like; counting them
+  // equally is how a CV that meets every stated requirement and half the wishes
+  // scores in the fifties, which is not what any recruiter reading it would say.
+  const weight = (essential: boolean) => (essential ? 1 : 0.34);
+  const credit = (status: GapStatus) =>
+    status === "covered" ? 1 : status === "partial" ? 0.5 : 0;
+
   const earned = results.reduce(
-    (total, item) => total + (item.status === "covered" ? 1 : item.status === "partial" ? 0.5 : 0),
+    (total, item) => total + weight(item.essential) * credit(item.status),
     0,
   );
+  const possible = results.reduce((total, item) => total + weight(item.essential), 0);
 
   return {
-    score: Math.round((100 * earned) / results.length),
+    // Half-up, matching `analyse/percent.py`. JavaScript's Math.round is
+    // already half-up; Python's round is not, which is why that module exists.
+    score: possible <= 0 ? 0 : Math.floor((100 * earned) / possible + 0.5),
     baseline: card.baseline,
     results,
   };

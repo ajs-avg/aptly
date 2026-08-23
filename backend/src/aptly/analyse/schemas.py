@@ -215,6 +215,16 @@ class Gap(BaseModel):
     literal: bool = False
 
 
+#: What a requirement is worth, by whether the post treats it as a condition.
+#: Three to one: enough that meeting every stated requirement carries the score,
+#: not so much that the wishes stop counting at all.
+WEIGHT = {True: 1.0, False: 0.34}
+
+#: What each verdict earns. Partial is half — thin evidence is worth less than
+#: unmistakable evidence, and rounding it up would be flattery.
+CREDIT = {"covered": 1.0, "partial": 0.5, "missing": 0.0}
+
+
 class GapMap(BaseModel):
     """Every requirement, scored."""
 
@@ -237,8 +247,35 @@ class GapMap(BaseModel):
 
     @property
     def score(self) -> int:
-        """Percentage of requirements the CV answers, half credit for partial."""
-        return percent(len(self.covered) + 0.5 * len(self.partial), len(self.gaps))
+        """How well this CV answers the post, weighted by what the post requires.
+
+        Not a plain count. A job post states a handful of conditions and then
+        lists a dozen things it would like, and counting them equally is how a
+        CV that meets every stated requirement and half the wishes scores in the
+        fifties — which is not what any recruiter reading it would say.
+
+        So a must-have is worth roughly three nice-to-haves. Partial credit is
+        half, as before: evidence that is present but thin is genuinely worth
+        less than evidence that is unmistakable, and rounding it up would be the
+        product flattering itself.
+        """
+        if not self.gaps:
+            return 0
+
+        earned = sum(WEIGHT[gap.essential] * CREDIT[gap.status] for gap in self.gaps)
+        return percent(earned, sum(WEIGHT[gap.essential] for gap in self.gaps))
+
+    @property
+    def essential_met(self) -> tuple[int, int]:
+        """Must-haves answered, out of must-haves asked for.
+
+        The number a person actually needs. A high percentage held up by
+        nice-to-haves while an essential requirement is missing is the shape of
+        application that gets rejected in six seconds, and the breakdown is what
+        makes that visible.
+        """
+        essential = [gap for gap in self.gaps if gap.essential]
+        return sum(1 for gap in essential if gap.status == "covered"), len(essential)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

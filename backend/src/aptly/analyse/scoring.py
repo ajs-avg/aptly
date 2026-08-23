@@ -43,7 +43,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from aptly.analyse.percent import percent
-from aptly.analyse.schemas import GapMap, GapStatus, JobAnalysis
+from aptly.analyse.schemas import CREDIT, WEIGHT, GapMap, GapStatus, JobAnalysis
 from aptly.analyse.terms import aliases_of, canonical, is_hard_name, is_nameable, names_any
 from aptly.model.document import normalize_text
 
@@ -163,11 +163,12 @@ def evaluate(card: ScoreCard, haystack: str) -> ScoreResult:
     if not results:
         return ScoreResult(score=0, baseline=card.baseline, results=[])
 
-    earned = sum(
-        1.0 if r.status == "covered" else 0.5 if r.status == "partial" else 0.0 for r in results
-    )
+    # Weighted exactly as `GapMap.score` weights it, so the figure that moves
+    # while somebody edits is on the same scale as the one a full re-analysis
+    # produces. Two numbers meaning almost the same thing is worse than one.
+    earned = sum(WEIGHT[r.essential] * CREDIT[r.status] for r in results)
     return ScoreResult(
-        score=percent(earned, len(results)),
+        score=percent(earned, sum(WEIGHT[r.essential] for r in results)),
         baseline=card.baseline,
         results=results,
     )

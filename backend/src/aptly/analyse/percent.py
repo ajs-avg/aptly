@@ -20,8 +20,13 @@ from __future__ import annotations
 import math
 
 
-def percent(earned: float, total: int) -> int:
-    """``earned`` out of ``total`` as a whole percentage, ties rounded up."""
+def percent(earned: float, total: float) -> int:
+    """``earned`` out of ``total`` as a whole percentage, ties rounded up.
+
+    ``total`` is a float because requirements are weighted — a must-have counts
+    for more than a nice-to-have — so the denominator is a sum of weights rather
+    than a count of rows.
+    """
     if total <= 0:
         return 0
     return math.floor(100 * earned / total + 0.5)

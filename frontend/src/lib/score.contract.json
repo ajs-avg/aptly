@@ -65,6 +65,21 @@
         "terms": [],
         "combine": "any",
         "fixed": "partial"
+      },
+      {
+        "id": "r4",
+        "requirement": "Terraform, or any infrastructure-as-code",
+        "essential": false,
+        "terms": [
+          {
+            "label": "Terraform",
+            "aliases": [
+              "terraform"
+            ]
+          }
+        ],
+        "combine": "any",
+        "fixed": null
       }
     ],
     "baseline": 17,
@@ -75,7 +90,7 @@
       "name": "nothing",
       "text": "Built dashboards in JavaScript and CSS.",
       "expected": {
-        "score": 13,
+        "score": 12,
         "baseline": 17,
         "results": [
           {
@@ -117,6 +132,16 @@
             "status": "partial",
             "present": [],
             "absent": []
+          },
+          {
+            "id": "r4",
+            "requirement": "Terraform, or any infrastructure-as-code",
+            "essential": false,
+            "status": "missing",
+            "present": [],
+            "absent": [
+              "Terraform"
+            ]
           }
         ]
       }
@@ -125,7 +150,7 @@
       "name": "python only",
       "text": "Wrote Python scripts.",
       "expected": {
-        "score": 25,
+        "score": 23,
         "baseline": 17,
         "results": [
           {
@@ -168,6 +193,16 @@
             "status": "partial",
             "present": [],
             "absent": []
+          },
+          {
+            "id": "r4",
+            "requirement": "Terraform, or any infrastructure-as-code",
+            "essential": false,
+            "status": "missing",
+            "present": [],
+            "absent": [
+              "Terraform"
+            ]
           }
         ]
       }
@@ -176,7 +211,7 @@
       "name": "python and sql",
       "text": "Wrote Python and SQL for the nightly job.",
       "expected": {
-        "score": 38,
+        "score": 35,
         "baseline": 17,
         "results": [
           {
@@ -218,6 +253,16 @@
             "status": "partial",
             "present": [],
             "absent": []
+          },
+          {
+            "id": "r4",
+            "requirement": "Terraform, or any infrastructure-as-code",
+            "essential": false,
+            "status": "missing",
+            "present": [],
+            "absent": [
+              "Terraform"
+            ]
           }
         ]
       }
@@ -226,7 +271,7 @@
       "name": "everything",
       "text": "Scheduled it in Airflow, wrote Python and SQL against BigQuery.",
       "expected": {
-        "score": 88,
+        "score": 81,
         "baseline": 17,
         "results": [
           {
@@ -269,6 +314,16 @@
             "status": "partial",
             "present": [],
             "absent": []
+          },
+          {
+            "id": "r4",
+            "requirement": "Terraform, or any infrastructure-as-code",
+            "essential": false,
+            "status": "missing",
+            "present": [],
+            "absent": [
+              "Terraform"
+            ]
           }
         ]
       }
@@ -277,7 +332,7 @@
       "name": "nosql trap",
       "text": "Used NoSQL stores and Python.",
       "expected": {
-        "score": 25,
+        "score": 23,
         "baseline": 17,
         "results": [
           {
@@ -320,6 +375,16 @@
             "status": "partial",
             "present": [],
             "absent": []
+          },
+          {
+            "id": "r4",
+            "requirement": "Terraform, or any infrastructure-as-code",
+            "essential": false,
+            "status": "missing",
+            "present": [],
+            "absent": [
+              "Terraform"
+            ]
           }
         ]
       }
@@ -328,7 +393,7 @@
       "name": "punctuation",
       "text": "Python, SQL; Airflow \u2014 all of it.",
       "expected": {
-        "score": 63,
+        "score": 58,
         "baseline": 17,
         "results": [
           {
@@ -370,6 +435,16 @@
             "status": "partial",
             "present": [],
             "absent": []
+          },
+          {
+            "id": "r4",
+            "requirement": "Terraform, or any infrastructure-as-code",
+            "essential": false,
+            "status": "missing",
+            "present": [],
+            "absent": [
+              "Terraform"
+            ]
           }
         ]
       }
@@ -378,7 +453,7 @@
       "name": "casing",
       "text": "PYTHON and sql and AirFlow",
       "expected": {
-        "score": 63,
+        "score": 58,
         "baseline": 17,
         "results": [
           {
@@ -420,6 +495,136 @@
             "status": "partial",
             "present": [],
             "absent": []
+          },
+          {
+            "id": "r4",
+            "requirement": "Terraform, or any infrastructure-as-code",
+            "essential": false,
+            "status": "missing",
+            "present": [],
+            "absent": [
+              "Terraform"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "wish only",
+      "text": "Managed infrastructure with Terraform.",
+      "expected": {
+        "score": 19,
+        "baseline": 17,
+        "results": [
+          {
+            "id": "r0",
+            "requirement": "Hands-on Airflow",
+            "essential": true,
+            "status": "missing",
+            "present": [],
+            "absent": [
+              "Airflow"
+            ]
+          },
+          {
+            "id": "r1",
+            "requirement": "Python and SQL",
+            "essential": true,
+            "status": "missing",
+            "present": [],
+            "absent": [
+              "Python",
+              "SQL"
+            ]
+          },
+          {
+            "id": "r2",
+            "requirement": "A cloud warehouse",
+            "essential": true,
+            "status": "missing",
+            "present": [],
+            "absent": [
+              "Snowflake",
+              "BigQuery"
+            ]
+          },
+          {
+            "id": "r3",
+            "requirement": "Three years in data engineering",
+            "essential": true,
+            "status": "partial",
+            "present": [],
+            "absent": []
+          },
+          {
+            "id": "r4",
+            "requirement": "Terraform, or any infrastructure-as-code",
+            "essential": false,
+            "status": "covered",
+            "present": [
+              "Terraform"
+            ],
+            "absent": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "must only",
+      "text": "Scheduled everything in Airflow.",
+      "expected": {
+        "score": 35,
+        "baseline": 17,
+        "results": [
+          {
+            "id": "r0",
+            "requirement": "Hands-on Airflow",
+            "essential": true,
+            "status": "covered",
+            "present": [
+              "Airflow"
+            ],
+            "absent": []
+          },
+          {
+            "id": "r1",
+            "requirement": "Python and SQL",
+            "essential": true,
+            "status": "missing",
+            "present": [],
+            "absent": [
+              "Python",
+              "SQL"
+            ]
+          },
+          {
+            "id": "r2",
+            "requirement": "A cloud warehouse",
+            "essential": true,
+            "status": "missing",
+            "present": [],
+            "absent": [
+              "Snowflake",
+              "BigQuery"
+            ]
+          },
+          {
+            "id": "r3",
+            "requirement": "Three years in data engineering",
+            "essential": true,
+            "status": "partial",
+            "present": [],
+            "absent": []
+          },
+          {
+            "id": "r4",
+            "requirement": "Terraform, or any infrastructure-as-code",
+            "essential": false,
+            "status": "missing",
+            "present": [],
+            "absent": [
+              "Terraform"
+            ]
           }
         ]
       }

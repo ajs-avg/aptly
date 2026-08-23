@@ -50,6 +50,15 @@ def card() -> ScoreCard:
                 ],
             ),
             LiveRule(id="r3", requirement="Three years in data engineering", fixed="partial"),
+            # A nice-to-have. Worth a third of a must-have, and present here so
+            # the weighting is exercised on both sides of the contract rather
+            # than only in Python.
+            LiveRule(
+                id="r4",
+                requirement="Terraform, or any infrastructure-as-code",
+                essential=False,
+                terms=[TermGroup(label="Terraform", aliases=["terraform"])],
+            ),
         ],
     )
 
@@ -98,8 +107,23 @@ def test_partial_counts_half() -> None:
     """The live figure and the one from a full re-analysis have to be on the
     same scale, or the score visibly jumps on approval and looks invented."""
     result = evaluate(card(), "Wrote Python scripts.")
-    # r1 partial, r3 partial, two missing → (0.5 + 0.5) / 4
-    assert result.score == 25
+    # Four must-haves — Airflow missing, Python-and-SQL partial, warehouse
+    # missing, the judged one partial — plus one nice-to-have, missing.
+    # Earned 0.5 + 0.5 = 1.0, of a possible 4 + 0.34.
+    assert result.score == 23
+
+
+def test_a_must_have_outweighs_a_wish() -> None:
+    """A post states a handful of conditions and then lists things it would
+    like. Counting them equally is how a CV that meets every stated requirement
+    scores in the fifties — which is not what a recruiter reading it would say.
+    """
+    subject = card()
+
+    wish_only = evaluate(subject, "Managed infrastructure with Terraform.").score
+    must_only = evaluate(subject, "Scheduled everything in Airflow.").score
+
+    assert must_only > wish_only
 
 
 def test_the_baseline_travels_with_the_card() -> None:
@@ -156,6 +180,8 @@ CASES: list[tuple[str, str]] = [
     ("nosql trap", "Used NoSQL stores and Python."),
     ("punctuation", "Python, SQL; Airflow — all of it."),
     ("casing", "PYTHON and sql and AirFlow"),
+    ("wish only", "Managed infrastructure with Terraform."),
+    ("must only", "Scheduled everything in Airflow."),
 ]
 
 

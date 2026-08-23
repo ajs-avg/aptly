@@ -423,8 +423,14 @@ def _requirements_of(job: JobAnalysis) -> list[_Requirement]:
         if not key or key in seen or any(key in existing for existing in seen):
             continue
         seen.add(key)
-        # A bare keyword is its own name to look up.
-        out.append(_Requirement(text=keyword.strip(), essential=True, keywords=[keyword.strip()]))
+        # A bare keyword is its own name to look up — and it is *not* a
+        # must-have. A job post's keyword list is where "Agile", "Git" and
+        # "communication" live: signals a reader scans for, not conditions of
+        # being considered. Marking them essential put a dozen of them beside
+        # the handful of things the employer actually requires, and every one
+        # they happened not to name dragged the score down as hard as a missing
+        # degree.
+        out.append(_Requirement(text=keyword.strip(), essential=False, keywords=[keyword.strip()]))
 
     return out
 
