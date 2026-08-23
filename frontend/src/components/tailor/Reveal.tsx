@@ -2,10 +2,11 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
+import { Breakdown } from "./Breakdown";
 import { ScoreDial } from "./ScoreDial";
 import { EASE, SPRING } from "@/components/motion/primitives";
 import { cn } from "@/lib/utils";
-import type { Analysis, Fit } from "@/lib/types";
+import type { Analysis, Fit, ScoreResult } from "@/lib/types";
 
 /**
  * The first thing the person sees after dropping their CV.
@@ -60,6 +61,8 @@ interface Props {
   baseline: number;
   fit: Fit | null;
   analysis: Analysis | null;
+  /** The per-requirement working behind the number. */
+  detail?: ScoreResult | null;
   onSkip?: () => void;
   /** True while the second CV and the call sheets are still being written. */
   working?: boolean;
@@ -71,6 +74,7 @@ export function RevealScreen({
   baseline,
   fit,
   analysis,
+  detail = null,
   onSkip,
   working = false,
 }: Props) {
@@ -188,6 +192,15 @@ export function RevealScreen({
                   {analysis.cv.positioning}
                 </motion.p>
               )}
+
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ ...EASE, delay: 1.15 }}
+                className="pt-7"
+              >
+                <Breakdown score={detail} />
+              </motion.div>
 
               {onSkip && (
                 <motion.div

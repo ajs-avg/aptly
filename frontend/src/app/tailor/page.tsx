@@ -242,6 +242,7 @@ function TailorScreen() {
               baseline={scores.baseline}
               fit={state.fit}
               analysis={state.analysis}
+              detail={scores.tailored}
               // Available as soon as the score exists, not when the run ends.
               // Everything behind this screen fills in live.
               onSkip={state.analysis ? () => setPastReveal(true) : undefined}

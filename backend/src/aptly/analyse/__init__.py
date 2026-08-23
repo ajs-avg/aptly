@@ -149,13 +149,25 @@ async def build_gap_map(
 
 
 def capability_requirements(document: CVDocument, job: JobAnalysis) -> list[str]:
-    """The requirements a literal lookup cannot settle, for the model to judge."""
+    """The requirements worth asking the model about.
+
+    Everything a literal lookup cannot settle, *plus* the named ones the CV
+    does not satisfy. The second group used to be excluded, on the reasoning
+    that a named product is a fact rather than a judgement — true, but it meant
+    a requirement was never even shown to the model once it contained a product
+    name, however much else it described.
+
+    Asking costs nothing extra: these travel on the CV-analysis call that
+    already runs. And the answer cannot promote a named requirement to covered
+    — only to partial, and only with a citation that survives checking.
+    """
     haystack = document.plain_text()
-    return [
-        item.text
-        for item in _requirements_of(job)
-        if not _literal_verdict(haystack, document, item).named
-    ]
+    out: list[str] = []
+    for item in _requirements_of(job):
+        verdict = _literal_verdict(haystack, document, item)
+        if not verdict.named or verdict.as_gap().status == "missing":
+            out.append(item.text)
+    return out
 
 
 async def analyse(
@@ -170,11 +182,10 @@ async def analyse(
     """
     job, job_usage = await analyse_job(job_text, client=client)
     requirements = _requirements_of(job)
-    to_judge = [
-        item.text
-        for item in requirements
-        if not _literal_verdict(document.plain_text(), document, item).named
-    ]
+    # Through the shared function, not a second copy of its rule. The two had
+    # already drifted: this one still excluded every named requirement, so
+    # widening what gets judged had no effect on the path that actually runs.
+    to_judge = capability_requirements(document, job)
 
     # Started before the CV read and awaited after it. The index depends only on
     # the requirement texts, so the embedding round-trip hides entirely inside
@@ -376,12 +387,30 @@ class _Verdict:
         gap = self.as_gap(score)
 
         if self.named:
-            # A named technology the CV does not name is missing. No similarity
-            # score and no judgement may promote that to covered — this is the
-            # rule the 100%-coverage bug existed for want of.
-            if gap.status == "missing" and match and match.suggestive:
-                gap.status = "partial"
-                gap.evidence_node_id, gap.evidence_quote = match.id, match.text
+            # A named technology the CV does not name is never *covered*. A CV
+            # that does not say Kafka may have used Kinesis, and no amount of
+            # reading around it makes that Kafka — this is the rule the
+            # 100%-coverage bug existed for want of.
+            #
+            # But "missing" was too strong. Requirements are rarely a bare
+            # product name: "Strong SQL, including window functions" contains
+            # one, so the whole requirement was settled by searching for the
+            # word "SQL" — and a CV reading "wrote complex queries against
+            # PostgreSQL" was scored as not having it. Every reader would
+            # disagree, which is most of why a CV a person calls a 90% match was
+            # coming out in the sixties.
+            #
+            # So a *cited* judgement can raise it to partial. It has to name a
+            # line and quote it, and the quote is verified against the document
+            # before it counts, so this is evidence rather than an opinion — it
+            # simply is not proof of the specific product.
+            if gap.status == "missing":
+                if judged is not None and judged.covered and judged.node_id:
+                    gap.status = "partial"
+                    gap.evidence_node_id, gap.evidence_quote = judged.node_id, judged.quote
+                elif match and match.suggestive:
+                    gap.status = "partial"
+                    gap.evidence_node_id, gap.evidence_quote = match.id, match.text
             return gap
 
         if judged is not None and judged.covered:
