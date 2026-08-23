@@ -142,8 +142,16 @@ function readable(message: string): string {
   if (text.includes("password") && text.includes("6")) {
     return "Passwords need at least six characters.";
   }
-  if (text.includes("rate limit") || text.includes("too many")) {
-    return "Too many attempts. Wait a minute and try again.";
+  // Almost always the email quota rather than a password-guessing limit:
+  // Supabase's built-in mailer sends only a handful an hour on the free tier,
+  // and every sign-up and magic link spends one. Saying "wait a minute" sent
+  // people back to try again into the same wall.
+  if (text.includes("rate limit") || text.includes("too many") || text.includes("for security")) {
+    return (
+      "Supabase is rate-limiting emails from this project — its free mailer only " +
+      "sends a few an hour. Sign in with a password instead, or turn off " +
+      "Authentication → Email → Confirm email in Supabase so no email is needed."
+    );
   }
   return message;
 }
