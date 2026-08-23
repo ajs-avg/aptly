@@ -69,6 +69,12 @@ Skills belong in a compact, scannable section, grouped, with what this post asks
 for first — but never dropping something they have because this post did not \
 ask for it. Another reader is looking for it.
 
+**Every term listed under "Terms this post is scored on" that appears anywhere \
+in their material must appear in your CV, spelled the same way.** Leaving one \
+out is the single most damaging thing you can do here: the document is scored on \
+whether those words are present, so dropping one you were given costs them the \
+requirement outright — and it is a requirement they actually meet.
+
 # Writing
 
 Do not sound like an AI CV. Never use: spearheaded, leveraged, utilised, \
@@ -146,6 +152,17 @@ def rebuild_user(
         ]
         lines += [f"- {item}" for item in missing]
 
+    scored = _scored_terms(analysis)
+    if scored:
+        lines += [
+            "",
+            "## Terms this post is scored on",
+            "Any of these that appears in their material below must appear in your "
+            "CV, spelled the same way. Do not add one that does not.",
+            "",
+            ", ".join(scored),
+        ]
+
     if analysis.cv.buried:
         lines += ["", "## Evidence a reader currently misses — bring it forward", ""]
         lines += [f"- {item}" for item in analysis.cv.buried]
@@ -174,6 +191,31 @@ def rebuild_user(
         "taken from the material above."
     )
     return "\n".join(lines)
+
+
+def _scored_terms(analysis: Analysis) -> list[str]:
+    """The exact names the gap map looks for.
+
+    The instruction not to drop a relevant skill was already in the system
+    prompt, and it could not be followed: the model was never told which terms
+    were being counted. It was guessing at a list it had never seen, and every
+    guess that trimmed one cost a requirement the person genuinely met — which
+    is most of why a purpose-written CV kept scoring below the one it replaced.
+    """
+    seen: set[str] = set()
+    terms: list[str] = []
+    for requirement in analysis.job.post.requirements:
+        for keyword in requirement.keywords:
+            key = keyword.strip().lower()
+            if key and key not in seen:
+                seen.add(key)
+                terms.append(keyword.strip())
+    for keyword in analysis.job.post.keywords:
+        key = keyword.strip().lower()
+        if key and key not in seen:
+            seen.add(key)
+            terms.append(keyword.strip())
+    return terms
 
 
 def _profile_block(profile: CareerProfile) -> str:

@@ -10,31 +10,25 @@ import type { RuleResult } from "@/lib/types";
 /**
  * What this job asks for, and what your CV shows.
  *
- * Met requirements are ticked and done. The unmet ones can be claimed — but a
- * tick alone does not claim them. Ticking opens one short question: *where did
- * you use this?*
+ * Met requirements are ticked and done. Ticking an unmet one adds it — one tap,
+ * no typing.
  *
- * That question is the whole design, and it is worth being explicit about why
- * it is there. A checkbox that inserts "Kubernetes" into a skills line, from a
- * list this product generated and labelled as the thing that would raise the
- * score, is this product writing a claim and asking somebody to sign it. That
- * the final tap is theirs does not move the responsibility; we built the list,
- * we said what it was worth, and we supplied the one-tap way to act on it. The
- * person who gets asked about it in an interview is them.
+ * Each row also offers a line about where the work happened, and the wording
+ * around it pushes towards writing one, because the bare term is the weak
+ * version of this claim in two ways. To an applicant tracking system a keyword
+ * with nothing behind it reads as stuffing, which is what those systems are
+ * built to catch. And in an interview it is the version with no answer behind
+ * it — "ran the nightly deploy on it across three environments" survives the
+ * follow-up question that "Kubernetes" does not.
  *
- * One sentence changes what the feature is. It becomes somebody remembering
- * work they did and forgot to write down — which is real, common, and the
- * reason the career profile exists. It also produces a better CV: a keyword in
- * a skills list is weak evidence, and "ran the deployment pipeline on
- * Kubernetes across three environments" is what actually gets read.
- *
- * What they write is theirs, is stored as their own assertion, and goes through
- * the same checks as everything else.
+ * It is optional because the person owns their CV and this is their call. What
+ * is not optional is that we never write the sentence for them: anything that
+ * lands on the page is a word they ticked or a line they typed.
  */
 
 export interface Claim {
   requirement: string;
-  /** The term itself, for the skills line. */
+  /** The term itself. What goes on the CV when no detail is given. */
   label: string;
   /** Where they used it, in their words. Never generated, never suggested. */
   evidence: string;
@@ -49,19 +43,30 @@ interface Props {
 }
 
 export function SkillGaps({ open, onClose, results, onClaim, busy = false }: Props) {
+  const [ticked, setTicked] = useState<Set<string>>(new Set());
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [openRow, setOpenRow] = useState<string | null>(null);
 
   const met = results.filter((r) => r.status === "covered");
   const gaps = results.filter((r) => r.status !== "covered");
 
+  const toggle = (id: string) =>
+    setTicked((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  // A ticked row with no detail contributes the term itself; with detail, the
+  // sentence. Either way it is the person's own word or their own line.
   const claims: Claim[] = gaps
-    .filter((row) => (drafts[row.id] ?? "").trim().length >= 12)
-    .map((row) => ({
-      requirement: row.requirement,
-      label: row.absent[0] ?? row.requirement,
-      evidence: drafts[row.id].trim(),
-    }));
+    .filter((row) => ticked.has(row.id))
+    .map((row) => {
+      const label = row.absent[0] ?? row.requirement;
+      const detail = (drafts[row.id] ?? "").trim();
+      return { requirement: row.requirement, label, evidence: detail || label };
+    });
 
   return (
     <AnimatePresence>
@@ -93,7 +98,7 @@ export function SkillGaps({ open, onClose, results, onClaim, busy = false }: Pro
               <p className="pt-1.5 text-sm leading-relaxed text-slate">
                 {gaps.length === 0
                   ? "Your CV shows all of it. Nothing to add."
-                  : "Ticked ones are already on your CV. For the rest — if you have done it, say where, and it goes on."}
+                  : "Ticked ones are already on your CV. Tick anything else you have actually done — and say where, if you can."}
               </p>
             </div>
 
@@ -124,7 +129,8 @@ export function SkillGaps({ open, onClose, results, onClaim, busy = false }: Pro
                     {gaps.map((row) => {
                       const isOpen = openRow === row.id;
                       const draft = drafts[row.id] ?? "";
-                      const ready = draft.trim().length >= 12;
+                      const ready = ticked.has(row.id);
+                      const detailed = draft.trim().length >= 12;
 
                       return (
                         <li
@@ -134,17 +140,19 @@ export function SkillGaps({ open, onClose, results, onClaim, busy = false }: Pro
                             ready ? "bg-signal-soft/50 ring-signal/25" : "ring-hairline",
                           )}
                         >
-                          <button
-                            type="button"
-                            onClick={() => setOpenRow(isOpen ? null : row.id)}
-                            className="flex w-full items-start gap-3 p-3 text-left"
-                          >
-                            <span
+                          <div className="flex w-full items-start gap-3 p-3">
+                            <button
+                              type="button"
+                              role="checkbox"
+                              aria-checked={ready}
+                              aria-label={`I have done this: ${row.requirement}`}
+                              onClick={() => {
+                                toggle(row.id);
+                                if (!ready) setOpenRow(row.id);
+                              }}
                               className={cn(
                                 "mt-0.5 grid size-5 shrink-0 place-items-center rounded-md ring-1 transition-colors",
-                                ready
-                                  ? "bg-signal text-paper ring-signal"
-                                  : "ring-hairline",
+                                ready ? "bg-signal text-paper ring-signal" : "ring-hairline hover:ring-signal",
                               )}
                             >
                               {ready && (
@@ -152,18 +160,25 @@ export function SkillGaps({ open, onClose, results, onClaim, busy = false }: Pro
                                   <path strokeLinecap="round" strokeLinejoin="round" d="m5 13 4 4L19 7" />
                                 </svg>
                               )}
-                            </span>
-                            <span className="min-w-0 flex-1">
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setOpenRow(isOpen ? null : row.id)}
+                              className="min-w-0 flex-1 text-left"
+                            >
                               <span className="block text-sm leading-snug text-ink">
                                 {row.requirement}
                               </span>
-                              {!isOpen && !ready && (
-                                <span className="block pt-0.5 text-2xs text-slate">
-                                  I have done this →
-                                </span>
-                              )}
-                            </span>
-                          </button>
+                              <span className="block pt-0.5 text-2xs text-slate">
+                                {detailed
+                                  ? "with your own line"
+                                  : ready
+                                    ? "adds the term — say where you used it for a stronger line"
+                                    : "I have done this"}
+                              </span>
+                            </button>
+                          </div>
 
                           <AnimatePresence initial={false}>
                             {isOpen && (
@@ -177,7 +192,8 @@ export function SkillGaps({ open, onClose, results, onClaim, busy = false }: Pro
                                 <div className="px-3 pb-3 pl-11">
                                   <label className="block">
                                     <span className="font-display text-2xs font-medium text-ink">
-                                      Where did you use it?
+                                      Where did you use it?{" "}
+                                      <span className="font-normal text-slate">optional</span>
                                     </span>
                                     <textarea
                                       value={draft}
@@ -194,9 +210,10 @@ export function SkillGaps({ open, onClose, results, onClaim, busy = false }: Pro
                                     />
                                   </label>
                                   <p className="pt-1.5 text-2xs leading-relaxed text-slate">
-                                    In your own words. This goes on your CV and is saved
-                                    to your profile — leave it blank if you have not
-                                    actually done it.
+                                    In your own words. Leave it blank and the term goes
+                                    on by itself — which an applicant tracking system
+                                    reads as stuffing, and which you cannot answer a
+                                    follow-up question about.
                                   </p>
                                 </div>
                               </motion.div>
