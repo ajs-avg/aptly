@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 
 import { AppBar, BarLink } from "@/components/app/AppBar";
+import { RequireAccount } from "@/components/auth/RequireAccount";
 import { SPRING } from "@/components/motion/primitives";
 import { CvPanel } from "@/components/tailor/CvPanel";
 import { DropBox } from "@/components/tailor/DropBox";
@@ -32,7 +33,7 @@ import type { TargetFormat } from "@/lib/types";
 
 const MIN_JOB_CHARS = 40;
 
-export default function TailorPage() {
+function TailorScreen() {
   const { state, scores, actions } = useTailorRun();
 
   const [jobText, setJobText] = useState("");
@@ -510,5 +511,19 @@ function DropScreen({
         </p>
       </div>
     </div>
+  );
+}
+
+/**
+ * Everything here needs an account.
+ *
+ * The gate stands aside where Supabase is not configured, so a local checkout
+ * with no auth still opens.
+ */
+export default function Page() {
+  return (
+    <RequireAccount>
+      <TailorScreen />
+    </RequireAccount>
   );
 }

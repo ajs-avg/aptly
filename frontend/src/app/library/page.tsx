@@ -7,6 +7,7 @@ import { AnimatePresence } from "motion/react";
 import { RecordPanel } from "@/components/library/RecordPanel";
 import { RecordRow } from "@/components/library/RecordRow";
 import { AppBar, BarLink } from "@/components/app/AppBar";
+import { RequireAccount } from "@/components/auth/RequireAccount";
 import { authConfigured, signOutEverywhere } from "@/lib/supabase";
 import {
   ApiError,
@@ -36,7 +37,7 @@ import {
  * seconds" reads badly if opening one is a page load — and it sidesteps
  * `useSearchParams`, which would otherwise need a Suspense boundary here.
  */
-export default function LibraryPage() {
+function LibraryScreen() {
   const [records, setRecords] = useState<RecordSummary[]>([]);
   const [selected, setSelected] = useState<RecordDetail | null>(null);
   const [session, setSession] = useState<AuthSession | null>(null);
@@ -411,5 +412,20 @@ function NothingSelected() {
         the day.
       </p>
     </div>
+  );
+}
+
+
+/**
+ * Everything here needs an account.
+ *
+ * The gate stands aside where Supabase is not configured, so a local checkout
+ * with no auth still opens.
+ */
+export default function Page() {
+  return (
+    <RequireAccount>
+      <LibraryScreen />
+    </RequireAccount>
   );
 }

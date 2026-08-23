@@ -110,7 +110,7 @@ function Hero() {
             Tailor my CV
           </Link>
           <p className="text-sm text-slate">
-            Free to try · Your file stays in your browser
+            Free · Your file is only ever stored against your own account
           </p>
         </EntranceLine>
       </Entrance>
