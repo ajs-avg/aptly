@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sse_starlette.sse import EventSourceResponse
 
+from aptly.analyse.schemas import Analysis, CVAnalysis
 from aptly.api.deps import CallerDep, SessionDep
 from aptly.api.limits import check_tailor_quota
 from aptly.auth import Caller
@@ -88,6 +89,50 @@ async def tailor_stream(
             )
 
     return EventSourceResponse(events())
+
+
+class RescoreRequest(BaseModel):
+    document: CVDocument
+    job_text: str = Field(min_length=40, max_length=MAX_JOB_POST_CHARS)
+
+
+class RescoreResponse(BaseModel):
+    score: int
+    essential_met: int
+    essential_total: int
+    fit: str
+    gaps: list[dict]
+
+
+@router.post("/rescore", response_model=RescoreResponse)
+async def rescore(payload: RescoreRequest) -> RescoreResponse:
+    """Score a document as it stands, with the full reading rather than the card.
+
+    The live figure in the browser moves only on requirements the post *names*,
+    because that is all a text match can settle without a model. Tailoring
+    mostly does something else — it makes evidence findable — so somebody could
+    apply six changes and watch the number sit still, which reads as the score
+    being fake.
+
+    This is the answer to that: a real re-read of the edited document, including
+    the capability judgements the browser cannot make. It costs a call, so it
+    runs when somebody asks rather than on every keystroke.
+    """
+    from aptly.analyse import analyse_job, build_gap_map, judge_against
+
+    client = GeminiClient()
+    job, _ = await analyse_job(payload.job_text, client=client)
+    evidence, _ = await judge_against(payload.document, job, client=client)
+    gaps = await build_gap_map(payload.document, job, client=client, evidence=evidence)
+
+    met, total = gaps.essential_met
+    return RescoreResponse(
+        score=gaps.score,
+        essential_met=met,
+        essential_total=total,
+        fit=Analysis(job=job, cv=CVAnalysis(), gaps=gaps).fit,
+        gaps=[gap.model_dump(mode="json") for gap in gaps.gaps],
+    )
 
 
 def _encode(event: object) -> dict:

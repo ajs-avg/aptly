@@ -116,6 +116,40 @@ async def analyse_cv(
     return analysis, result.usage
 
 
+async def judge_against(
+    document: CVDocument, job: JobAnalysis, *, client: GeminiClient
+) -> tuple[list[RequirementEvidence], Usage]:
+    """Answer the capability questions against *this* document.
+
+    Needed because judged verdicts cannot be carried between documents. Each
+    answer cites a line and quotes it, and the quote is verified against the
+    document before it counts — so evidence gathered on the original CV is
+    discarded the moment a rewrite changes the wording it cited.
+
+    Reusing it anyway is what made the second CV look worse than the first. The
+    rebuild rewrites every line by design, so every carried citation failed
+    verification, every judged requirement was downgraded, and the document was
+    penalised precisely for doing its job. The comparison the whole screen
+    exists for was rigged against one side.
+
+    So each document is judged on its own. One extra call, which is what an
+    honest comparison costs.
+    """
+    result = await client.structured(
+        model=client.main_model,
+        system=CV_ANALYSIS_SYSTEM,
+        user=cv_analysis_user(
+            document=document, job=job, judge=capability_requirements(document, job)
+        ),
+        schema=CVAnalysis,
+        temperature=0.2,
+        purpose="judge_rebuilt",
+    )
+    analysis = _drop_unknown_ids(result.value, document)
+    log.info("analyse.rejudged", answers=len(analysis.evidence))
+    return analysis.evidence, result.usage
+
+
 async def build_gap_map(
     document: CVDocument,
     job: JobAnalysis,

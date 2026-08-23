@@ -53,6 +53,11 @@ interface Props {
   onDownload: (format: TargetFormat) => void;
   sourceFormat: string;
   busy?: boolean;
+  /** Ask the server to read the edited document again. */
+  onRecheck?: () => void;
+  rechecking?: boolean;
+  /** What that full re-read said, once it has run. */
+  verified?: { score: number; essentialMet: number; essentialTotal: number } | null;
 }
 
 export function CvPanel({
@@ -74,6 +79,9 @@ export function CvPanel({
   onDownload,
   sourceFormat,
   busy = false,
+  onRecheck,
+  rechecking = false,
+  verified = null,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -122,13 +130,23 @@ export function CvPanel({
           )}
         </div>
 
-        <ScoreDial
-          value={score?.score ?? 0}
-          baseline={baseline}
-          size={expanded ? 96 : 84}
-          instant={applied > 0}
-          className="shrink-0"
-        />
+        <div className="shrink-0 text-center">
+          {/* The verified figure wins once it exists. The live one is a fast
+              estimate of what a text match can see; this one is the whole
+              reading, and showing the estimate beside it would be two answers
+              to one question. */}
+          <ScoreDial
+            value={verified?.score ?? score?.score ?? 0}
+            baseline={baseline}
+            size={expanded ? 96 : 84}
+            instant={applied > 0}
+          />
+          {verified && (
+            <p className="pt-1 font-display text-2xs text-signal" data-numeric>
+              verified · {verified.essentialMet}/{verified.essentialTotal} must-haves
+            </p>
+          )}
+        </div>
       </header>
 
       {/* ── Actions ───────────────────────────────────────────────────── */}
@@ -165,6 +183,16 @@ export function CvPanel({
           )}
 
           <div className="ml-auto flex items-center gap-2">
+            {onRecheck && applied > 0 && (
+              <button
+                type="button"
+                onClick={onRecheck}
+                disabled={rechecking}
+                className="inline-flex h-8 items-center rounded-pill px-3 font-display text-xs text-ink ring-1 ring-ink/10 transition-colors hover:bg-sunken disabled:opacity-50"
+              >
+                {rechecking ? "Re-reading…" : "Re-check score"}
+              </button>
+            )}
             <div className="relative">
               <button
                 type="button"

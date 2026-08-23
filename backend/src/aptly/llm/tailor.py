@@ -41,7 +41,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from aptly.analyse import analyse as run_analysis
-from aptly.analyse import build_gap_map, coverage_from
+from aptly.analyse import build_gap_map, coverage_from, judge_against
 from aptly.analyse.schemas import Analysis
 from aptly.analyse.scoring import ScoreCard, build_scorecard
 from aptly.llm.client import GeminiClient, Usage
@@ -336,12 +336,13 @@ async def _compose_second(
         )
         spend.append(usage)
 
-        # Scored against the same job, on the same measurement as the first CV.
-        # The judged capability answers are reused rather than re-asked: they are
-        # about the person, and the person has not changed.
-        gaps = await build_gap_map(
-            rebuilt, analysis.job, client=client, evidence=analysis.cv.evidence
-        )
+        # Judged on its own, not on the original's answers. Those cite lines by
+        # quote, and a rebuild rewrites every line — so carrying them over
+        # failed every citation and marked the second CV down for doing exactly
+        # what it was asked to do.
+        evidence, judge_usage = await judge_against(rebuilt, analysis.job, client=client)
+        spend.append(judge_usage)
+        gaps = await build_gap_map(rebuilt, analysis.job, client=client, evidence=evidence)
         scored = analysis.model_copy(update={"gaps": gaps})
 
         events: list[TailorEvent] = [

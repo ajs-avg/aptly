@@ -11,7 +11,15 @@ import { DropBox } from "@/components/tailor/DropBox";
 import { PitchNotes } from "@/components/tailor/PitchNotes";
 import { RevealScreen } from "@/components/tailor/Reveal";
 import { Button } from "@/components/ui/Button";
-import { ApiError, exportCv, ingestFile, ingestPaste, saveRecord, streamTailor } from "@/lib/api";
+import {
+  ApiError,
+  exportCv,
+  ingestFile,
+  ingestPaste,
+  rescore,
+  saveRecord,
+  streamTailor,
+} from "@/lib/api";
 import { cn, motionTokens } from "@/lib/utils";
 import { useTailorRun, type Side } from "@/lib/useTailorRun";
 import type { TargetFormat } from "@/lib/types";
@@ -52,6 +60,17 @@ function TailorScreen() {
    */
   const [pastReveal, setPastReveal] = useState(false);
   const [saving, setSaving] = useState<Side | null>(null);
+  const [rechecking, setRechecking] = useState<Side | null>(null);
+  /**
+   * The full re-read of an edited document, per side.
+   *
+   * Kept beside the live figure rather than replacing the scorecard, because
+   * the two answer different questions: the card is what a text match can see
+   * instantly, this is what the model says after reading the document again.
+   */
+  const [verified, setVerified] = useState<
+    Partial<Record<Side, { score: number; essentialMet: number; essentialTotal: number }>>
+  >({});
   const [inputError, setInputError] = useState<{ message: string; hint: string } | null>(null);
 
   const canStart = jobText.trim().length >= MIN_JOB_CHARS && Boolean(cvFile || cvText.trim());
@@ -106,6 +125,33 @@ function TailorScreen() {
       }
     },
     [actions, cvFile, state],
+  );
+
+  const recheck = useCallback(
+    async (side: Side) => {
+      const document = state[side].document;
+      if (!document) return;
+      setRechecking(side);
+      try {
+        const result = await rescore(document, jobText);
+        setVerified((current) => ({
+          ...current,
+          [side]: {
+            score: result.score,
+            essentialMet: result.essential_met,
+            essentialTotal: result.essential_total,
+          },
+        }));
+      } catch (error) {
+        actions.fail(
+          error instanceof ApiError ? error.message : "Aptly could not re-check that.",
+          error instanceof ApiError ? error.hint : "Try again in a moment.",
+        );
+      } finally {
+        setRechecking(null);
+      }
+    },
+    [actions, jobText, state],
   );
 
   const approve = useCallback(
@@ -371,6 +417,9 @@ function TailorScreen() {
                     onDownload={(format) => void download(side, format)}
                     sourceFormat={state[side].document?.source_format ?? "docx"}
                     busy={saving === side}
+                    onRecheck={() => void recheck(side)}
+                    rechecking={rechecking === side}
+                    verified={verified[side] ?? null}
                   />
                 );
               })}

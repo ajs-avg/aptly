@@ -265,6 +265,34 @@ function parseFrame(frame: string): TailorEvent | null {
   }
 }
 
+export interface Rescore {
+  score: number;
+  essential_met: number;
+  essential_total: number;
+  fit: string;
+  gaps: { requirement: string; essential: boolean; status: string }[];
+}
+
+/**
+ * Score the edited document for real.
+ *
+ * The live figure moves only on requirements the post *names* — that is all the
+ * browser can settle without a model. Tailoring mostly does something else, so
+ * somebody can apply six changes and watch the number sit still. This asks the
+ * server to read the document again properly, capability judgements included.
+ *
+ * A model call, so it runs when somebody asks rather than as they type.
+ */
+export async function rescore(document: CVDocument, jobText: string): Promise<Rescore> {
+  const response = await call(`${API}/api/rescore`, {
+    ...(await authed({ headers: { "Content-Type": "application/json" } })),
+    method: "POST",
+    body: JSON.stringify({ document, job_text: jobText }),
+  });
+  if (!response.ok) await fail(response);
+  return response.json();
+}
+
 // ── library ───────────────────────────────────────────────────────────────
 
 /**
