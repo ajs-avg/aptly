@@ -85,6 +85,20 @@ class Settings(BaseSettings):
     #: Where the SQLite file lives when no DATABASE_URL is configured.
     sqlite_path: str = Field(default="aptly.db", alias="APTLY_SQLITE_PATH")
 
+    #: Create missing tables on Postgres at startup.
+    #:
+    #: Off by default, because a database with a migration history and a
+    #: ``create_all`` both deciding what the schema is will eventually
+    #: disagree, and finding out costs a migration you cannot run.
+    #:
+    #: On for a first deployment, where the alternative is worse: Alembic is a
+    #: dependency here but there are no migrations yet, so a fresh Postgres gets
+    #: no tables at all and every Library request fails with a 500 that says
+    #: nothing about why. Turn this on to get a deployment standing up, and turn
+    #: it off the moment there are migrations — which is before there is
+    #: anybody's real data in it.
+    db_auto_create: bool = Field(default=False, alias="APTLY_DB_AUTO_CREATE")
+
     # ── vision fallback ──────────────────────────────────────────────────────
     # Reading a PDF's pixels costs roughly ten times what reading its text
     # stream costs, so it is a fallback and not the default path. It runs when
@@ -133,7 +147,27 @@ class Settings(BaseSettings):
 
     @property
     def cors_origin_list(self) -> list[str]:
-        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+        """The origins the browser may call this API from.
+
+        A bare hostname is accepted and given a scheme. Render's blueprint can
+        wire one service's address into another's environment, but it hands over
+        ``aptly-web.onrender.com`` with no ``https://`` in front, and a CORS
+        origin without a scheme matches nothing — so the deploy comes up looking
+        healthy and every request from the site is refused.
+
+        Localhost gets ``http``; everything else gets ``https``, because nothing
+        else should be served over plain HTTP.
+        """
+        origins: list[str] = []
+        for raw in self.cors_origins.split(","):
+            origin = raw.strip().rstrip("/")
+            if not origin:
+                continue
+            if "://" not in origin:
+                local = origin.startswith(("localhost", "127.0.0.1"))
+                origin = f"{'http' if local else 'https'}://{origin}"
+            origins.append(origin)
+        return origins
 
     @property
     def max_upload_bytes(self) -> int:

@@ -19,7 +19,24 @@ import type {
   TargetFormat,
 } from "./types";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+/**
+ * Where the API lives.
+ *
+ * A bare hostname is accepted and given a scheme. Render's blueprint can wire
+ * one service's address into another's build, but it supplies
+ * `aptly-api.onrender.com` with no `https://` — and a fetch to that is resolved
+ * as a *relative path*, so every call quietly goes to the web app instead of
+ * the API and comes back as HTML.
+ */
+function apiBase(): string {
+  const configured = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (!configured) return "http://localhost:8000";
+  if (configured.includes("://")) return configured.replace(/\/$/, "");
+  const local = configured.startsWith("localhost") || configured.startsWith("127.0.0.1");
+  return `${local ? "http" : "https"}://${configured.replace(/\/$/, "")}`;
+}
+
+const API = apiBase();
 
 export class ApiError extends Error {
   constructor(

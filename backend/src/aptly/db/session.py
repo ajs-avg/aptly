@@ -81,18 +81,29 @@ async def get_session() -> AsyncIterator[AsyncSession]:
 async def create_all() -> None:
     """Create any missing tables.
 
-    Used for SQLite and for tests. Postgres is managed by Alembic — running
-    ``create_all`` against a database with a migration history would leave the
-    two disagreeing about what the schema is.
+    Always for SQLite and for tests. For Postgres only when
+    ``APTLY_DB_AUTO_CREATE`` says so, because a schema owned by both Alembic and
+    ``create_all`` is a schema that will eventually disagree with itself.
+
+    The opt-in exists for a first deployment. Alembic is a dependency here but
+    carries no migrations yet, so without it a fresh Postgres gets no tables and
+    every Library request fails with a 500 that explains nothing.
     """
     settings = get_settings()
-    if not settings.is_sqlite:
-        log.info("db.skipping_create_all", reason="use alembic for postgres")
+    if not settings.is_sqlite and not settings.db_auto_create:
+        log.info(
+            "db.skipping_create_all",
+            reason="set APTLY_DB_AUTO_CREATE=true for a first deploy, or add migrations",
+        )
         return
 
     async with get_engine().begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
-    log.info("db.ready", url=_redact(settings.resolved_database_url))
+    log.info(
+        "db.ready",
+        url=_redact(settings.resolved_database_url),
+        auto_created=not settings.is_sqlite,
+    )
 
 
 async def dispose() -> None:

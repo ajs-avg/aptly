@@ -1,0 +1,117 @@
+# Aptly on Render.
+#
+# One Blueprint, three services: the API, the web app, and a Postgres database.
+# Render reads this file and creates all of them, wired to each other — so the
+# only thing left to type by hand is the Gemini key.
+#
+# Two things to know before the first deploy:
+#
+# **SQLite is not an option here.** Render's disk is wiped on every deploy and
+# every restart, so a SQLite file takes the Library with it. The database below
+# is the whole reason this file exists.
+#
+# **The free tier sleeps.** A service with no traffic for fifteen minutes spins
+# down, and the next request pays about fifty seconds to wake it. A tailoring
+# run already takes over a minute, so on free the first one after a quiet spell
+# looks like the app has hung. Fine for showing somebody; not fine for real use.
+
+databases:
+  - name: aptly-db
+    plan: free
+    databaseName: aptly
+    user: aptly
+
+services:
+  # ── API ───────────────────────────────────────────────────────────────────
+  - type: web
+    name: aptly-api
+    runtime: python
+    plan: free
+    region: oregon
+    rootDir: backend
+    # `uv sync` rather than pip: the lockfile is the one that was tested, and
+    # this is the same command that runs locally.
+    buildCommand: pip install uv && uv sync --frozen --no-dev
+    startCommand: uv run uvicorn aptly.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /ready
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+
+      # Wired by Render from the database above. The app rewrites the scheme to
+      # postgresql+asyncpg:// on its own — see config.Settings._async_driver.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: aptly-db
+          property: connectionString
+
+      # Not `production`. That flag switches on the Supabase auth path, and
+      # until SUPABASE_JWT_SECRET is set there is nothing behind it — the app
+      # refuses to start the development sign-in and every Library request
+      # fails. `staging` keeps the dev sign-in working, which is email-only and
+      # has no password, so this deployment is a demo rather than something to
+      # put real applications in. Set Supabase up, then switch this.
+      - key: APTLY_ENV
+        value: staging
+
+      # Alembic carries no migrations yet, so a fresh Postgres would get no
+      # tables at all. Turn this off as soon as there are migrations — before
+      # anybody's real data is in here.
+      - key: APTLY_DB_AUTO_CREATE
+        value: "true"
+
+      # The only secret. Render prompts for it on the first deploy and never
+      # writes it into this file.
+      - key: GEMINI_API_KEY
+        sync: false
+
+      # Google's free tier says "data used for training", and the input here is
+      # people's CVs. The app refuses to run on a free-tier key while this is on.
+      - key: APTLY_REQUIRE_PAID_LLM
+        value: "true"
+
+      - key: GEMINI_MODEL_MAIN
+        value: gemini-2.5-flash
+      - key: GEMINI_MODEL_FAST
+        value: gemini-2.5-flash-lite
+
+      # Anonymous visitors run the expensive path before signing up, so this is
+      # a real bill with no account attached to it. Three a day per browser, and
+      # a hard ceiling on the day's total spend.
+      - key: APTLY_ANON_TAILORS_PER_DAY
+        value: "3"
+      - key: APTLY_DAILY_SPEND_CEILING_USD
+        value: "5.00"
+      - key: APTLY_MAX_UPLOAD_MB
+        value: "5"
+
+      # Which origin the browser is allowed to call this from. Anything else is
+      # refused, so this has to name the web service exactly.
+      - key: CORS_ORIGINS
+        fromService:
+          name: aptly-web
+          type: web
+          property: host
+
+  # ── Web ───────────────────────────────────────────────────────────────────
+  - type: web
+    name: aptly-web
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+
+      # Read at *build* time, not at runtime: Next.js inlines NEXT_PUBLIC_*
+      # into the bundle. Change it and the site has to be rebuilt, not
+      # restarted — which is why it is here and not typed into the dashboard
+      # afterwards.
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          name: aptly-api
+          type: web
+          property: host
