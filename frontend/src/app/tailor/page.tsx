@@ -75,9 +75,9 @@ export default function TailorPage() {
       }
     } catch (error) {
       const message =
-        error instanceof ApiError ? error.message : "Aptly could not read that.";
+        error instanceof ApiError ? error.message : "Something went wrong.";
       const hint =
-        error instanceof ApiError ? error.hint : "Check the file and try again.";
+        error instanceof ApiError ? error.hint : "Try again in a moment.";
       if (state.phase === "idle") setInputError({ message, hint });
       else actions.fail(message, hint);
     } finally {
@@ -185,6 +185,7 @@ export default function TailorPage() {
         }
       >
         <BarLink href="/library">Library</BarLink>
+        <BarLink href="/sign-in?next=/library">Sign in</BarLink>
         <button
           type="button"
           onClick={() => {
@@ -490,7 +491,7 @@ function DropScreen({
           <Button size="lg" variant="primary" disabled={!canStart || busy} onClick={onStart}>
             {busy ? "Reading your CV…" : "Show me the match"}
           </Button>
-          <p className="text-sm text-slate">No account needed.</p>
+          <p className="text-sm text-slate">Takes about a minute.</p>
         </motion.div>
 
         {error && (

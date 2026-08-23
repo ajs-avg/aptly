@@ -68,9 +68,15 @@ export function Nav() {
           <ThemeToggle className="mr-1 hidden xs:inline-flex" />
           <Link
             href="/library"
-            className="rounded-pill px-2.5 py-1.5 font-display text-xs text-slate transition-colors hover:bg-sunken hover:text-ink"
+            className="hidden rounded-pill px-2.5 py-1.5 font-display text-xs text-slate transition-colors hover:bg-sunken hover:text-ink xs:inline-flex"
           >
             Library
+          </Link>
+          <Link
+            href="/sign-in"
+            className="rounded-pill px-2.5 py-1.5 font-display text-xs text-slate transition-colors hover:bg-sunken hover:text-ink"
+          >
+            Sign in
           </Link>
           <Link
             href="/tailor"

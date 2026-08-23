@@ -210,11 +210,10 @@ function SignIn() {
           )}
 
           <p className="pt-6 text-center text-2xs leading-relaxed text-slate">
-            You do not need an account to tailor a CV.{" "}
             <Link href="/tailor" className="text-signal underline decoration-hairline underline-offset-2">
-              Start without one
-            </Link>
-            .
+              Try it first
+            </Link>{" "}
+            — an account is what keeps what you make.
           </p>
         </div>
       </main>

@@ -50,6 +50,41 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * A request that never reached the API.
+ *
+ * `fetch` rejects with a bare TypeError for a CORS refusal, a DNS failure and
+ * an offline browser alike — the response is not readable from script, by
+ * design. So this cannot say *which* of those happened, but it can say the one
+ * thing that matters: the file was never sent, so nothing about the file is the
+ * problem.
+ *
+ * That distinction was worth building. A misconfigured CORS origin surfaced as
+ * "Aptly could not read that — check the file and try again", and the honest
+ * answer was that the file had not been read at all.
+ */
+export class NetworkError extends ApiError {
+  constructor() {
+    super(
+      "Aptly could not reach the server.",
+      "Your file never left this browser, so it is not the problem. Check your connection — if it persists, the API is unreachable from here.",
+      "unreachable",
+    );
+    this.name = "NetworkError";
+  }
+}
+
+/** Run a fetch, turning a transport failure into something sayable. */
+async function call(input: RequestInfo, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch (error) {
+    // An aborted request is the person navigating away, not a failure.
+    if (error instanceof DOMException && error.name === "AbortError") throw error;
+    throw new NetworkError();
+  }
+}
+
 async function fail(response: Response): Promise<never> {
   let message = `Request failed (${response.status}).`;
   let hint = "";
@@ -72,7 +107,7 @@ async function fail(response: Response): Promise<never> {
 export async function ingestFile(file: File): Promise<IngestResponse> {
   const body = new FormData();
   body.append("file", file);
-  const response = await fetch(`${API}/api/cv/ingest`, {
+  const response = await call(`${API}/api/cv/ingest`, {
     method: "POST",
     body,
   });
@@ -81,7 +116,7 @@ export async function ingestFile(file: File): Promise<IngestResponse> {
 }
 
 export async function ingestPaste(text: string): Promise<IngestResponse> {
-  const response = await fetch(`${API}/api/cv/paste`, {
+  const response = await call(`${API}/api/cv/paste`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text }),
@@ -122,7 +157,7 @@ export async function exportCv(
   if (original) body.append("file", original);
   if (target) body.append("target", target);
 
-  const response = await fetch(`${API}/api/cv/export`, {
+  const response = await call(`${API}/api/cv/export`, {
     method: "POST",
     body,
   });
@@ -163,7 +198,7 @@ export interface TailorInput {
 export async function* streamTailor(
   input: TailorInput,
 ): AsyncGenerator<TailorEvent> {
-  const response = await fetch(`${API}/api/tailor`, {
+  const response = await call(`${API}/api/tailor`, {
     // Tailoring reads the signed-in person's career profile as source material,
     // so an unauthenticated call here silently produces a thinner rebuild.
     ...(await authed({ headers: { "Content-Type": "application/json" } })),
@@ -269,7 +304,7 @@ export interface SaveRecordInput {
 export async function saveRecord(
   input: SaveRecordInput,
 ): Promise<RecordDetail> {
-  const response = await fetch(`${API}/api/records`, {
+  const response = await call(`${API}/api/records`, {
     ...(await authed()),
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -299,13 +334,13 @@ export async function listRecords(
   if (params.status) search.set("status", params.status);
 
   const suffix = search.toString() ? `?${search}` : "";
-  const response = await fetch(`${API}/api/records${suffix}`, await authed());
+  const response = await call(`${API}/api/records${suffix}`, await authed());
   if (!response.ok) await fail(response);
   return response.json();
 }
 
 export async function getRecord(id: string): Promise<RecordDetail> {
-  const response = await fetch(`${API}/api/records/${id}`, await authed());
+  const response = await call(`${API}/api/records/${id}`, await authed());
   if (!response.ok) await fail(response);
   return response.json();
 }
@@ -319,7 +354,7 @@ export async function updateRecord(
     role: string;
   }>,
 ): Promise<RecordDetail> {
-  const response = await fetch(`${API}/api/records/${id}`, {
+  const response = await call(`${API}/api/records/${id}`, {
     ...(await authed()),
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -330,7 +365,7 @@ export async function updateRecord(
 }
 
 export async function deleteRecord(id: string): Promise<void> {
-  const response = await fetch(`${API}/api/records/${id}`, {
+  const response = await call(`${API}/api/records/${id}`, {
     ...(await authed()),
     method: "DELETE",
   });
@@ -340,7 +375,7 @@ export async function deleteRecord(id: string): Promise<void> {
 // ── auth ──────────────────────────────────────────────────────────────────
 
 export async function signIn(email: string): Promise<AuthSession> {
-  const response = await fetch(`${API}/api/auth/sign-in`, {
+  const response = await call(`${API}/api/auth/sign-in`, {
     ...(await authed()),
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -351,7 +386,7 @@ export async function signIn(email: string): Promise<AuthSession> {
 }
 
 export async function signOut(): Promise<AuthSession> {
-  const response = await fetch(`${API}/api/auth/sign-out`, {
+  const response = await call(`${API}/api/auth/sign-out`, {
     ...(await authed()),
     method: "POST",
   });
@@ -360,7 +395,7 @@ export async function signOut(): Promise<AuthSession> {
 }
 
 export async function getSession(): Promise<AuthSession> {
-  const response = await fetch(`${API}/api/auth/session`, await authed());
+  const response = await call(`${API}/api/auth/session`, await authed());
   if (!response.ok) await fail(response);
   return response.json();
 }
@@ -368,7 +403,7 @@ export async function getSession(): Promise<AuthSession> {
 // ── health ────────────────────────────────────────────────────────────────
 
 export async function ready(): Promise<{ ready: boolean; missing: string[] }> {
-  const response = await fetch(`${API}/ready`);
+  const response = await call(`${API}/ready`);
   if (!response.ok) await fail(response);
   return response.json();
 }
