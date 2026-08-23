@@ -55,9 +55,19 @@ class AuthProvider:
 
 
 def get_auth(settings: Settings | None = None) -> AuthProvider:
-    """The provider this deployment is configured for."""
+    """The provider this deployment is configured for.
+
+    Either Supabase setting turns real authentication on, because which one a
+    project has depends on how it signs tokens. Older projects share an HS256
+    secret; newer ones sign asymmetrically and publish the public key at a JWKS
+    endpoint derived from ``SUPABASE_URL`` — and have no shared secret at all.
+
+    Keying this on the secret alone meant an asymmetric project fell back to the
+    development sign-in, which then refused to start in production. The
+    deployment looked configured and was not.
+    """
     settings = settings or get_settings()
-    if settings.supabase_jwt_secret:
+    if settings.supabase_jwt_secret or settings.supabase_url:
         return SupabaseAuth(settings)
     return LocalAuth(settings)
 

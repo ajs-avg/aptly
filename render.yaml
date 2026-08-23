@@ -44,10 +44,17 @@ services:
       - key: DATABASE_URL
         sync: false
 
-      # Real authentication. Setting this switches the API from the development
-      # sign-in — which is email-only, has no password, and refuses to run in
-      # production — to verifying Supabase's access tokens. Set it together with
-      # APTLY_ENV=production, not before.
+      # Real authentication. Either of these switches the API off the
+      # development sign-in — which is email-only, has no password, and refuses
+      # to run in production — and on to verifying Supabase's access tokens.
+      #
+      # Which one a project needs depends on how it signs. Newer projects sign
+      # asymmetrically (ES256) and publish the public key at a JWKS endpoint
+      # derived from SUPABASE_URL; they have no shared secret at all. Older ones
+      # share an HS256 secret. Set whichever the project's JWT Keys page shows,
+      # together with APTLY_ENV=production.
+      - key: SUPABASE_URL
+        sync: false
       - key: SUPABASE_JWT_SECRET
         sync: false
 
