@@ -420,6 +420,7 @@ function TailorScreen() {
                     onRecheck={() => void recheck(side)}
                     rechecking={rechecking === side}
                     verified={verified[side] ?? null}
+                    onClaim={(lines) => actions.claim(side, lines)}
                   />
                 );
               })}

@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useReducer } from "react";
 
-import { applySuggestion, setNodeText, toPlainText } from "@/lib/document";
+import { addClaim, applySuggestion, setNodeText, toPlainText } from "@/lib/document";
 import { evaluate, type ScoreCard, type ScoreResult } from "@/lib/score";
 import type {
   Analysis,
@@ -119,6 +119,7 @@ type Action =
   | { type: "dismiss"; side: Side; nodeId: string }
   | { type: "applyAll"; side: Side }
   | { type: "edit"; side: Side; nodeId: string; text: string }
+  | { type: "claim"; side: Side; lines: string[] }
   | { type: "expand"; side: Side | null }
   | { type: "approve"; side: Side }
   | { type: "fail"; message: string; hint: string }
@@ -197,6 +198,16 @@ function sideReducer(state: SideState, action: Action): SideState {
       };
     }
 
+    case "claim": {
+      if (!state.document) return state;
+      // Verbatim. Nothing here composes, rephrases or shortens what somebody
+      // wrote about their own work.
+      return {
+        ...state,
+        document: action.lines.reduce(addClaim, state.document),
+      };
+    }
+
     case "approve":
       return { ...state, approved: true };
 
@@ -233,6 +244,7 @@ function reducer(state: RunState, action: Action): RunState {
     case "dismiss":
     case "applyAll":
     case "edit":
+    case "claim":
     case "approve":
       return { ...state, [action.side]: sideReducer(state[action.side], action) };
 
@@ -406,6 +418,7 @@ export function useTailorRun() {
       applyAll: (side: Side) => dispatch({ type: "applyAll", side }),
       edit: (side: Side, nodeId: string, text: string) =>
         dispatch({ type: "edit", side, nodeId, text }),
+      claim: (side: Side, lines: string[]) => dispatch({ type: "claim", side, lines }),
       expand: (side: Side | null) => dispatch({ type: "expand", side }),
       approve: (side: Side) => dispatch({ type: "approve", side }),
       fail: (message: string, hint: string) => dispatch({ type: "fail", message, hint }),

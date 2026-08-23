@@ -152,3 +152,57 @@ export function toPlainText(document: CVDocument): string {
 export function wordCount(document: CVDocument): number {
   return toPlainText(document).split(/\s+/).filter(Boolean).length;
 }
+
+/**
+ * Put a claimed skill onto the CV, in the person's own words.
+ *
+ * Called only from the skill-gap flow, where somebody has said where they used
+ * something. Their sentence goes in verbatim: this never composes a line, never
+ * rephrases one, and never adds the bare term on its own.
+ *
+ * That last part matters more than it looks. A keyword dropped into a skills
+ * list is the weakest possible form of the claim — it is what keyword-stuffing
+ * looks like to an ATS, and it is the version a person cannot defend in an
+ * interview because there is nothing behind it. A sentence saying where the work
+ * happened is stronger evidence and safer to have written.
+ *
+ * Appended to the skills section when there is one, since that is where a
+ * reader scans for exactly this. Failing that, to the summary.
+ */
+export function addClaim(document: CVDocument, text: string): CVDocument {
+  const sentence = text.trim();
+  if (!sentence) return document;
+
+  const target =
+    document.sections.find((section) => section.kind === "skills") ??
+    document.sections.find((section) => section.kind === "summary");
+
+  if (!target) return document;
+
+  const node: TextNode = {
+    // Marked so the UI can show which lines came from a claim rather than from
+    // the uploaded file, and so an export knows it has no place in the original.
+    id: `claim_${slug(sentence)}`,
+    role: target.kind === "skills" ? "skill_line" : "summary",
+    text: sentence,
+    anchor: { kind: "synthetic", origin: "claim" },
+  };
+
+  return {
+    ...document,
+    sections: document.sections.map((section) =>
+      section.id === target.id
+        ? { ...section, loose_nodes: [...section.loose_nodes, node] }
+        : section,
+    ),
+  };
+}
+
+/** A short stable id from the text itself. Only ever used for claimed lines. */
+function slug(text: string): string {
+  let hash = 0;
+  for (let index = 0; index < text.length; index += 1) {
+    hash = (hash * 31 + text.charCodeAt(index)) | 0;
+  }
+  return Math.abs(hash).toString(36);
+}

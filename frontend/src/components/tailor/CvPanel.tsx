@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 
 import { ChangeSummary } from "./ChangeSummary";
 import { ScoreDial } from "./ScoreDial";
+import { SkillGaps } from "./SkillGaps";
 import { EditableCv } from "./EditableCv";
 import { EASE, SPRING } from "@/components/motion/primitives";
 import { cn } from "@/lib/utils";
@@ -58,6 +59,8 @@ interface Props {
   rechecking?: boolean;
   /** What that full re-read said, once it has run. */
   verified?: { score: number; essentialMet: number; essentialTotal: number } | null;
+  /** Lines the person wrote about work missing from their CV. */
+  onClaim?: (lines: string[]) => void;
 }
 
 export function CvPanel({
@@ -82,9 +85,11 @@ export function CvPanel({
   onRecheck,
   rechecking = false,
   verified = null,
+  onClaim,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const [gapsOpen, setGapsOpen] = useState(false);
   const pending = state.changes.filter((change) => change.status === "pending").length;
   const applied = state.changes.filter((change) => change.status === "applied").length;
 
@@ -183,6 +188,15 @@ export function CvPanel({
           )}
 
           <div className="ml-auto flex items-center gap-2">
+            {onClaim && score && score.results.some((r) => r.status !== "covered") && (
+              <button
+                type="button"
+                onClick={() => setGapsOpen(true)}
+                className="inline-flex h-8 items-center rounded-pill bg-amber-soft px-3 font-display text-xs font-medium text-amber-ink transition-colors hover:brightness-95"
+              >
+                Add what is missing
+              </button>
+            )}
             {onRecheck && applied > 0 && (
               <button
                 type="button"
@@ -308,6 +322,18 @@ export function CvPanel({
             ))}
           </ul>
         </div>
+      )}
+
+      {onClaim && (
+        <SkillGaps
+          open={gapsOpen}
+          onClose={() => setGapsOpen(false)}
+          results={score?.results ?? []}
+          onClaim={(claims) => {
+            onClaim(claims.map((claim) => claim.evidence));
+            setGapsOpen(false);
+          }}
+        />
       )}
 
       <ChangeSummary
