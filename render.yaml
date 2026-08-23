@@ -72,6 +72,12 @@ services:
       # Alembic carries no migrations yet, so a fresh Postgres would get no
       # tables at all. Turn this off as soon as there are migrations — before
       # anybody's real data is in here.
+      #
+      # After creating tables on Supabase, run
+      # `backend/scripts/lock_down_supabase.py` against the same database.
+      # Supabase publishes every public table through PostgREST and grants the
+      # anon role — whose key ships in the frontend bundle — full access to
+      # them. Creating a table there is publishing it.
       - key: APTLY_DB_AUTO_CREATE
         value: "true"
 
