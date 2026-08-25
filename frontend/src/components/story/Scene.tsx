@@ -6,7 +6,14 @@ import * as THREE from "three";
 
 import { Sheet } from "./Sheet";
 import { POSES, type Pose, type SwarmFormation } from "./poses";
-import { clamp, ghostMaterial, lerp, noise, sheetGeometry } from "./paper";
+import {
+  applySceneDensity,
+  clamp,
+  ghostMaterial,
+  lerp,
+  noise,
+  sheetGeometry,
+} from "./paper";
 import { damp, steadyDelta, type SceneTheme } from "./theme";
 
 /**
@@ -23,10 +30,69 @@ import { damp, steadyDelta, type SceneTheme } from "./theme";
 
 const SWARM = 16;
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   Framing — the scene's answer to the shape of the window
+
+   This scene was composed for a laptop, and every number in `poses.ts` assumes
+   that shape: sheets at x ≈ ±3.5, a camera 5.4 back, a text column taking the
+   middle half. On a 16:10 display that is exactly right.
+
+   On a phone held upright it was not merely tighter — it was *empty*. At an
+   aspect of 0.46 the visible half-width at the hero's depth is about one world
+   unit, so a sheet at x = 3.5 is three frames off the side of the screen, and
+   every one of the sixteen swarm sheets (x from 4.8 to 8.4) is further out
+   still. The scene ran, cost its battery, and drew nothing but the ground
+   colour. A tablet in portrait got one sheet, at the very edge, inside the fog.
+
+   The fix is not a second set of hand-tuned poses — that is two compositions to
+   keep in step, and they drift. It is one composition plus a description of how
+   it collapses as the window narrows: pull the camera back, bring the sheets
+   in, shrink them, thin them, and let them cross behind the text instead of
+   pretending there is a margin to hide in.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+interface Framing {
+  /** Multiplier on the camera's distance. Pulling back fits more in. */
+  dolly: number;
+  /** Multiplier on every sheet's x. Brings the margins in as they vanish. */
+  spread: number;
+  /** Multiplier on every sheet's scale. */
+  scale: number;
+  /** How solid the paper is. Thinner where it has to pass behind the words. */
+  density: number;
+  /** 0 on a laptop or wider, 1 on a phone held upright. */
+  narrow: number;
+}
+
+/** The aspect the poses were composed at. At or above it, nothing is changed. */
+const WIDE_ASPECT = 1.5;
+/** A tall phone. Below it there is nothing further to give. */
+const TALL_ASPECT = 0.5;
+
+/**
+ * Read once per frame and mutated in place.
+ *
+ * A fresh object per frame is sixty allocations a second for a value that is
+ * identical between resizes — small, but this is the frame loop, and the frame
+ * loop is where "small and constant" becomes the whole cost.
+ */
+const framing: Framing = { dolly: 1, spread: 1, scale: 1, density: 1, narrow: 0 };
+
+function measureFraming(aspect: number): void {
+  const t = clamp((WIDE_ASPECT - aspect) / (WIDE_ASPECT - TALL_ASPECT), 0, 1);
+  framing.narrow = t;
+  framing.dolly = lerp(1, 1.45, t);
+  framing.spread = lerp(1, 0.34, t);
+  framing.scale = lerp(1, 0.7, t);
+  framing.density = lerp(1, 0.5, t);
+}
+
 interface Props {
   /** Where the reader is, damped. Written by `Smoothing`, read by everything. */
   stageRef: React.RefObject<number>;
   reduced: boolean;
+  /** False on a small screen, where the depth pass costs more than it shows. */
+  shadows: boolean;
 }
 
 interface SceneProps extends Props {
@@ -35,22 +101,29 @@ interface SceneProps extends Props {
   theme: SceneTheme;
 }
 
-export function Scene({ stageRef, targetRef, reduced, theme }: SceneProps) {
+export function Scene({ stageRef, targetRef, reduced, theme, shadows }: SceneProps) {
   return (
     <>
       <color attach="background" args={[theme.ground.getHex()]} />
       {/* Fog in the ground colour, so sheets at the back dissolve into the page
           rather than ending at a visible edge. It has to follow the theme or the
-          far sheets sit in a pale haze on a dark page. */}
-      <fog attach="fog" args={[theme.ground.getHex(), 12, 32]} />
+          far sheets sit in a pale haze on a dark page.
+
+          It starts further out than the camera ever pushes a sheet. That is not
+          slack: on a narrow window the camera dollies back by half again, and
+          fog tuned to the laptop framing would put every sheet on a phone in
+          the haze — swapping a scene that drew nothing for one that drew a
+          smudge. */}
+      <fog attach="fog" args={[theme.ground.getHex(), 16, 40]} />
 
       <Smoothing stageRef={stageRef} targetRef={targetRef} reduced={reduced} />
+      <Framer />
 
       {/* Key light high and to the left, the way a desk lamp falls on paper. */}
       <directionalLight
         position={[-4, 7, 6]}
         intensity={theme.key}
-        castShadow
+        castShadow={shadows}
         shadow-mapSize={[1024, 1024]}
         shadow-camera-near={1}
         shadow-camera-far={26}
@@ -65,8 +138,8 @@ export function Scene({ stageRef, targetRef, reduced, theme }: SceneProps) {
       <directionalLight position={[2, 1, 9]} intensity={theme.fill} color="#ffffff" />
       <ambientLight intensity={theme.ambient} />
 
-      <Swarm stageRef={stageRef} reduced={reduced} />
-      <Hero stageRef={stageRef} reduced={reduced} />
+      <Swarm stageRef={stageRef} reduced={reduced} shadows={shadows} />
+      <Hero stageRef={stageRef} reduced={reduced} shadows={shadows} />
       <Rig stageRef={stageRef} reduced={reduced} />
     </>
   );
@@ -106,6 +179,26 @@ function Smoothing({
   return null;
 }
 
+/**
+ * Keeps the framing in step with the window.
+ *
+ * Reading the camera's own aspect rather than listening for a resize: the
+ * camera is the thing that actually decides what is on screen, and it is
+ * already updated for us before any frame runs. A separate resize listener is a
+ * second source of truth that is wrong for one frame after every rotation — and
+ * a phone being turned is exactly when this matters.
+ *
+ * It runs before the sheets because it is declared before them, and everything
+ * downstream reads `framing` for the frame it was measured in.
+ */
+function Framer(): null {
+  useFrame((state) => {
+    measureFraming((state.camera as THREE.PerspectiveCamera).aspect);
+    applySceneDensity(framing.density);
+  });
+  return null;
+}
+
 /** Read the two poses either side of the current stage, and how far between. */
 function surrounding(stage: number): [Pose, Pose, number] {
   const clamped = clamp(stage, 0, POSES.length - 1);
@@ -136,9 +229,20 @@ const SHEET_HALF = 0.62;
  * headline on a wide one. Poses therefore say *which side and roughly how far*,
  * and this decides what actually fits.
  *
- * When the frame is too narrow for any safe position — a phone, where the text
- * spans everything — the sheet is pushed backwards instead of squeezed, so it
- * reads as depth behind the page rather than clutter on top of it.
+ * Where a safe band exists, the sheet goes in it and this is the whole story.
+ *
+ * Where one cannot exist, it has to place the sheet anyway — and that is the
+ * case this used to get wrong. It stepped backwards looking for room, gave up
+ * after four tries, and then returned *the x it was handed*, unchanged. On a
+ * phone no amount of stepping back can open a band: the text column is the
+ * window, so the inner limit grows with the frame just as fast as the outer
+ * one. Every sheet therefore came back at its laptop x, three frames off the
+ * side of the screen, and the whole scene rendered as a flat colour.
+ *
+ * The honest answer at that width is that there is no margin — so the sheet
+ * stops pretending to hide in one. It parks against the edge and crops, which
+ * reads as paper passing behind the page. `applySceneDensity` is what keeps
+ * that from competing with the words in front of it.
  */
 function frameSafe(
   camera: THREE.PerspectiveCamera,
@@ -154,28 +258,54 @@ function frameSafe(
     1.6,
   );
 
-  let depth = z;
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    const frame = halfWidthAt(camera, depth);
-    const inner = frame * columnFraction * 0.5 + half;
-    const outer = frame - half;
+  // How far back the sheet would have to sit before a band opened at all.
+  //
+  // Solved rather than searched. The old version guessed — four fixed steps of
+  // 1.6 — which is both too coarse to land on the right depth and, worse,
+  // unable to tell "no room here, try further back" from "no room at any depth
+  // this side of the horizon". Setting `outer > inner` and solving for the
+  // frame width gives the answer outright: frame·(1 − column/2) > 2·half.
+  const room = 1 - columnFraction / 2;
+  const perUnit =
+    Math.tan((camera.fov / 2) * THREE.MathUtils.DEG2RAD) *
+    Math.max(camera.aspect, 0.35);
+  // The 1.06 is not slop. Solved exactly, the depth is the one where the band
+  // is precisely zero wide, so `outer > inner` is false by a rounding error and
+  // the sheet falls through to the crop path having travelled the whole way for
+  // nothing. Asking for a band six per cent wider than nothing lands it in one.
+  const reach =
+    room > 0.01
+      ? ((2 * half) / room / perUnit) * 1.06 - (camera.position.z - z)
+      : Number.POSITIVE_INFINITY;
 
-    if (outer > inner) {
-      const magnitude = clamp(Math.abs(x), inner, outer);
-      return { x: Math.sign(x || 1) * magnitude, z: depth };
-    }
-    // No room at this depth: step back, where the frame is wider.
-    depth -= 1.6;
+  // And a limit on taking that answer. On a phone the band opens somewhere
+  // around twenty-three units back, which is well inside the fog — so honouring
+  // it would trade a sheet that is off the side of the screen for one that is a
+  // smudge in the haze. Past this budget the sheet stays where the pose put it
+  // and crops instead.
+  const REACH_BUDGET = 4.8;
+  const depth = reach > 0 && reach <= REACH_BUDGET ? z - reach : z;
+
+  const frame = halfWidthAt(camera, depth);
+  const inner = frame * columnFraction * 0.5 + half;
+  const outer = frame - half;
+
+  if (outer > inner) {
+    return { x: Math.sign(x || 1) * clamp(Math.abs(x), inner, outer), z: depth };
   }
 
-  return { x, z: depth };
+  // Against the edge, roughly half of it showing. Anchored to the frame rather
+  // than to the requested x, because the requested x is the laptop's answer and
+  // the laptop's answer is what is off-screen.
+  const edge = Math.max(frame - half * 0.45, half * 0.35);
+  return { x: Math.sign(x || 1) * Math.min(Math.abs(x), edge), z: depth };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    The other applications
    ═══════════════════════════════════════════════════════════════════════════ */
 
-function Swarm({ stageRef, reduced }: Props) {
+function Swarm({ stageRef, reduced, shadows }: Props) {
   const group = useRef<THREE.Group>(null);
 
   /** Every formation precomputed per sheet, so a frame is only lerps. */
@@ -270,8 +400,13 @@ function Swarm({ stageRef, reduced }: Props) {
         0.24 *
         (1 - settled);
 
+      // The formations are written at laptop width, where the margins are real
+      // and wide. `spread` folds them inwards as those margins close, so the
+      // swarm stays in shot on a phone instead of drifting off both sides of
+      // it — and `scale` keeps a sheet from filling a third of a small window
+      // once it is no longer a third of the way to the edge.
       child.position.set(
-        lerp(a.position.x, b.position.x, eased),
+        lerp(a.position.x, b.position.x, eased) * framing.spread,
         lerp(a.position.y, b.position.y, eased) + bob,
         lerp(a.position.z, b.position.z, eased),
       );
@@ -283,6 +418,7 @@ function Swarm({ stageRef, reduced }: Props) {
             : Math.sin(time * 0.17 + sheet.phase) * 0.045 * (1 - settled)),
         lerp(a.rotation.z, b.rotation.z, eased),
       );
+      child.scale.setScalar(framing.scale);
     });
   });
 
@@ -293,8 +429,8 @@ function Swarm({ stageRef, reduced }: Props) {
           key={index}
           geometry={sheetGeometry}
           material={ghostMaterial}
-          castShadow
-          receiveShadow
+          castShadow={shadows}
+          receiveShadow={shadows}
         />
       ))}
     </group>
@@ -305,7 +441,7 @@ function Swarm({ stageRef, reduced }: Props) {
    Yours
    ═══════════════════════════════════════════════════════════════════════════ */
 
-function Hero({ stageRef, reduced }: Props) {
+function Hero({ stageRef, reduced, shadows }: Props) {
   const group = useRef<THREE.Group>(null);
   const marking = useRef(0);
 
@@ -328,11 +464,11 @@ function Hero({ stageRef, reduced }: Props) {
     if (a.marking === 0 && b.marking === 0) marking.current = 0;
 
     const float = reduced ? 0 : Math.sin(time * 0.42) * 0.035;
-    const scale = lerp(a.scale, b.scale, eased);
+    const scale = lerp(a.scale, b.scale, eased) * framing.scale;
 
     const placed = frameSafe(
       state.camera as THREE.PerspectiveCamera,
-      lerp(a.position[0], b.position[0], eased),
+      lerp(a.position[0], b.position[0], eased) * framing.spread,
       lerp(a.position[2], b.position[2], eased),
       scale,
     );
@@ -353,7 +489,7 @@ function Hero({ stageRef, reduced }: Props) {
 
   return (
     <group ref={group}>
-      <Sheet marking={marking} />
+      <Sheet marking={marking} shadows={shadows} />
     </group>
   );
 }
@@ -362,7 +498,7 @@ function Hero({ stageRef, reduced }: Props) {
    Camera
    ═══════════════════════════════════════════════════════════════════════════ */
 
-function Rig({ stageRef, reduced }: Props) {
+function Rig({ stageRef, reduced }: Omit<Props, "shadows">) {
   const pointer = useRef({ x: 0, y: 0 });
 
   useFrame((state, delta) => {
@@ -378,11 +514,20 @@ function Rig({ stageRef, reduced }: Props) {
       pointer.current.y = damp(pointer.current.y, state.pointer.y, 4, dt);
     }
 
+    // The parallax has to shrink with the frame too. A pointer sweep worth
+    // 0.42 units is a tenth of a laptop's visible width and most of a phone's,
+    // where it would read as the whole scene sliding about under the thumb.
+    const sway = lerp(1, 0.35, framing.narrow);
+
     const x =
-      lerp(from.camera.x, to.camera.x, eased) + pointer.current.x * 0.42;
+      lerp(from.camera.x, to.camera.x, eased) + pointer.current.x * 0.42 * sway;
     const y =
-      lerp(from.camera.y, to.camera.y, eased) + pointer.current.y * 0.24;
-    const z = lerp(from.camera.z, to.camera.z, eased);
+      lerp(from.camera.y, to.camera.y, eased) + pointer.current.y * 0.24 * sway;
+    // Dollying back is what buys the width a narrow window does not have. It
+    // multiplies the pose's own distance rather than replacing it, so the
+    // camera moves the poses still describe — closer for the hero, further for
+    // the FAQ — survive on a phone instead of being flattened to one distance.
+    const z = lerp(from.camera.z, to.camera.z, eased) * framing.dolly;
 
     state.camera.position.x = damp(state.camera.position.x, x, 4, dt);
     state.camera.position.y = damp(state.camera.position.y, y, 4, dt);

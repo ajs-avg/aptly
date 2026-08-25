@@ -222,10 +222,15 @@ function TailorScreen() {
     <div className="min-h-dvh bg-mist">
       <AppBar
         brandHref="/"
+        // The same measure as the working surface below it, so the wordmark and
+        // the first CV panel start on one vertical line. They did not: the bar
+        // was capped at 96rem over content capped at 112rem, which on a wide
+        // display put them 128px out of step.
+        width="ultra"
         context={state.job?.role ? `${state.job.role}${state.job.company ? ` · ${state.job.company}` : ""}` : "Tailor"}
         status={
           scores.tailored ? (
-            <span className="text-2xs text-slate" data-numeric>
+            <span className="shrink-0 whitespace-nowrap text-2xs text-slate" data-numeric>
               {scores.tailored.score}% · was {scores.baseline}%
             </span>
           ) : null
@@ -242,40 +247,48 @@ function TailorScreen() {
             setCvText("");
             setCvFile(null);
           }}
-          className="inline-flex h-8 items-center rounded-pill px-3 font-display text-xs text-slate transition-colors hover:bg-sunken hover:text-ink"
+          className="inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-pill px-3 font-display text-xs text-slate transition-colors hover:bg-sunken hover:text-ink"
         >
           Start over
         </button>
       </AppBar>
 
-      {state.notices.length > 0 && (
-        <ul className="mx-3 mt-2 space-y-1 rounded-lg bg-amber-soft/60 px-4 py-2">
-          {state.notices.map((notice) => (
-            <li key={notice} className="text-2xs leading-relaxed text-amber-ink">
-              {notice}
-            </li>
-          ))}
-        </ul>
-      )}
+      {/* Both banners sit on the bar's own measure rather than on the window's.
+          `mx-3` spans the full width of whatever the display is, so on anything
+          wide they ran out past both ends of the bar above them — an error
+          message wider than the product it is reporting on. */}
+      {(state.notices.length > 0 || state.error) && (
+        <div className="gutter-bar mx-auto max-w-ultra space-y-2 pt-2">
+          {state.notices.length > 0 && (
+            <ul className="space-y-1 rounded-lg bg-amber-soft/60 px-4 py-2">
+              {state.notices.map((notice) => (
+                <li key={notice} className="text-2xs leading-relaxed text-amber-ink">
+                  {notice}
+                </li>
+              ))}
+            </ul>
+          )}
 
-      {state.error && (
-        <div className="mx-3 mt-2 flex flex-wrap items-center gap-3 rounded-lg bg-danger-soft px-4 py-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-danger">{state.error.message}</p>
-            <p className="pt-0.5 text-2xs leading-relaxed text-slate">{state.error.hint}</p>
-          </div>
-          {/* The hint says to press the button again, so there has to be one.
-              It re-parses and re-runs from the text still in state — nobody
-              should have to find and re-drop their file because Google was
-              busy. Parsing is local and costs nothing. */}
-          <button
-            type="button"
-            onClick={() => void start()}
-            disabled={ingesting}
-            className="inline-flex h-8 shrink-0 items-center rounded-pill bg-ink px-3.5 font-display text-xs font-medium text-paper transition-colors hover:bg-ink-soft disabled:opacity-45"
-          >
-            {ingesting ? "Trying…" : "Try again"}
-          </button>
+          {state.error && (
+            <div className="flex flex-wrap items-center gap-3 rounded-lg bg-danger-soft px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-danger">{state.error.message}</p>
+                <p className="pt-0.5 text-2xs leading-relaxed text-slate">{state.error.hint}</p>
+              </div>
+              {/* The hint says to press the button again, so there has to be one.
+                  It re-parses and re-runs from the text still in state — nobody
+                  should have to find and re-drop their file because Google was
+                  busy. Parsing is local and costs nothing. */}
+              <button
+                type="button"
+                onClick={() => void start()}
+                disabled={ingesting}
+                className="inline-flex h-9 shrink-0 items-center rounded-pill bg-ink px-3.5 font-display text-xs font-medium text-paper transition-colors hover:bg-ink-soft disabled:opacity-45"
+              >
+                {ingesting ? "Trying…" : "Try again"}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -320,11 +333,16 @@ function TailorScreen() {
                 on the switch, because the reason to look at the other one is
                 almost always that it is ahead. */}
             {state.expanded && (
-              <div className="flex justify-center pb-3">
+              // The switch carries two full sentences and three numbers, which
+              // is around 420px of content — more than a phone has. It scrolls
+              // rather than wraps, because a wrapped pill is two lozenges, and
+              // the labels themselves shorten below `sm` so that on most phones
+              // the scroll never engages.
+              <div className="no-scrollbar scroll-x -mx-1 flex justify-center px-1 pb-3">
                 <div
                   role="tablist"
                   aria-label="Which version to work on"
-                  className="inline-flex items-center gap-0.5 rounded-pill bg-raised p-0.5 shadow-float ring-1 ring-ink/5"
+                  className="inline-flex shrink-0 items-center gap-0.5 rounded-pill bg-raised p-0.5 shadow-float ring-1 ring-ink/5"
                 >
                   {(["tailored", "rebuilt"] as const).map((side) => {
                     const active = state.expanded === side;
@@ -336,7 +354,7 @@ function TailorScreen() {
                         role="tab"
                         aria-selected={active}
                         onClick={() => actions.expand(side)}
-                        className="relative inline-flex h-9 items-center gap-2 rounded-pill px-4"
+                        className="relative inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-pill px-3 sm:px-4"
                       >
                         {active && (
                           <motion.span
@@ -351,7 +369,15 @@ function TailorScreen() {
                             active ? "text-signal" : "text-slate hover:text-ink",
                           )}
                         >
-                          {side === "tailored" ? "Your CV, tailored" : "Written from scratch"}
+                          {/* The short form is the same distinction in fewer
+                              words, not a different one: yours edited, versus
+                              one written from nothing. */}
+                          <span className="sm:hidden">
+                            {side === "tailored" ? "Yours" : "Rebuilt"}
+                          </span>
+                          <span className="hidden sm:inline">
+                            {side === "tailored" ? "Your CV, tailored" : "Written from scratch"}
+                          </span>
                         </span>
                         {score !== undefined && (
                           <span
@@ -370,9 +396,10 @@ function TailorScreen() {
                   <button
                     type="button"
                     onClick={() => actions.expand(null)}
-                    className="ml-1 inline-flex h-9 items-center rounded-pill px-3 font-display text-xs text-slate transition-colors hover:bg-sunken hover:text-ink"
+                    className="ml-1 inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-pill px-3 font-display text-xs text-slate transition-colors hover:bg-sunken hover:text-ink"
                   >
-                    Compare both
+                    <span className="sm:hidden">Both</span>
+                    <span className="hidden sm:inline">Compare both</span>
                   </button>
                 </div>
               </div>
@@ -477,11 +504,14 @@ function DropScreen({
 }) {
   return (
     <div className="min-h-dvh bg-mist">
-      <AppBar brandHref="/" context="Tailor">
+      {/* `content`, because that is what this screen is: two boxes on the
+          reading measure, not the app's full working surface. The bar follows
+          the page rather than the page following the bar. */}
+      <AppBar brandHref="/" context="Tailor" width="content">
         <BarLink href="/library">Library</BarLink>
       </AppBar>
 
-      <div className="gutter mx-auto max-w-content py-12 sm:py-16">
+      <div className="gutter mx-auto max-w-content py-10 sm:py-16">
         <motion.header
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}

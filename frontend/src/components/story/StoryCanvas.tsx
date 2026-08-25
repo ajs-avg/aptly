@@ -102,6 +102,17 @@ export function StoryCanvas() {
   }, []);
 
   /**
+   * Whether this is a small screen — and it has to be a *query*, not a reading.
+   *
+   * The first version measured `window.innerWidth` once, in a `useMemo` with an
+   * empty dependency list. That answer is correct exactly until the phone is
+   * turned, at which point a device that has just become 844px wide is still
+   * being rendered at the pixel ratio and shadow budget picked for 390. A media
+   * query re-renders on the change, which is the whole reason to use one.
+   */
+  const small = useMediaQuery("(width < 48rem)");
+
+  /**
    * How much resolution to spend.
    *
    * A phone at 3× renders nine times the pixels of a 1× display for a
@@ -109,10 +120,10 @@ export function StoryCanvas() {
    * afford it. The floor stays at 1 so the ceiling never drops below native on
    * a plain display.
    */
-  const dpr = useMemo<[number, number]>(() => {
-    if (typeof window === "undefined") return [1, 1.5];
-    return window.innerWidth < 768 ? [1, 1.25] : [1, 1.6];
-  }, []);
+  const dpr = useMemo<[number, number]>(
+    () => (small ? [1, 1.25] : [1, 1.6]),
+    [small],
+  );
 
   if (!enabled) return null;
 
@@ -126,15 +137,27 @@ export function StoryCanvas() {
     >
       <Canvas
         dpr={dpr}
-        shadows
-        gl={{ antialias: true, powerPreference: "high-performance" }}
-        camera={{ position: [0, 0.1, 5.4], fov: 42, near: 0.1, far: 60 }}
+        // Shadows are the single most expensive thing here — a 1024² depth pass
+        // over every sheet, every frame. On a laptop they are most of what makes
+        // the paper read as paper. On a phone the sheets are two-thirds size,
+        // half-density and mostly behind the text, so almost none of that
+        // shading survives to be seen, and the cost is paid by the hardware
+        // least able to pay it.
+        shadows={!small}
+        gl={{ antialias: !small, powerPreference: "high-performance" }}
+        camera={{ position: [0, 0.1, 5.4], fov: 42, near: 0.1, far: 80 }}
         // The scene is decoration behind a document. It must never keep a
         // laptop's fans running once the reader has stopped scrolling, and it
         // must never delay the page's own work.
         frameloop={reduced ? "demand" : "always"}
       >
-        <Scene stageRef={stageRef} targetRef={targetRef} reduced={reduced} theme={theme} />
+        <Scene
+          stageRef={stageRef}
+          targetRef={targetRef}
+          reduced={reduced}
+          theme={theme}
+          shadows={!small}
+        />
       </Canvas>
     </div>
   );

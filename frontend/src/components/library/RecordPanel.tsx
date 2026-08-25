@@ -78,7 +78,10 @@ export function RecordPanel({
               type="button"
               onClick={() => onStatusChange(status)}
               className={cn(
-                "rounded-pill px-2.5 py-1 font-display text-2xs transition-colors",
+                "inline-flex items-center rounded-pill px-2.5 py-1 font-display text-2xs transition-colors",
+                // See the Library's filter chips: a thumb-sized floor is a
+                // vertical one, and a pill needs width to match it.
+                "[@media(pointer:coarse)]:px-4",
                 status === record.status
                   ? "bg-signal text-paper"
                   : "text-slate hover:bg-sunken hover:text-ink",

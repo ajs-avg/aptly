@@ -80,14 +80,20 @@ export default function Home() {
 
 function Hero() {
   return (
-    <section data-scene="hero" className="gutter pb-16 pt-20 sm:pt-28">
+    // The nav is sticky rather than fixed, so it holds its own 4.25rem in the
+    // flow and this padding is the air *below* it, not the clearance for it.
+    <section data-scene="hero" className="gutter pb-14 pt-16 sm:pb-16 sm:pt-24">
       <Entrance className="mx-auto max-w-3xl text-center xl:max-w-4xl ultra:max-w-5xl">
         <EntranceLine>
           <Eyebrow>A CV tool with a memory</Eyebrow>
         </EntranceLine>
 
         <EntranceLine>
-          <Display as="h1" className="pt-6" size="2.6rem, 7.2vw, 5.6rem">
+          {/* The floor is 2.15rem rather than 2.6: "Tailor every application."
+              is 24 characters, and at 2.6rem it needs 430px of line to stay on
+              two lines. A 320px phone does not have it, and the headline breaks
+              to four. */}
+          <Display as="h1" className="pt-6" size="2.15rem, 7.2vw, 5.6rem">
             Tailor every application.
             <br />
             <span className="text-signal">Be ready when they call.</span>
@@ -118,12 +124,17 @@ function Hero() {
       {/* The product, immediately. A landing page that describes an interface
           without showing one asks for trust it has not earned yet. */}
       <div className="mx-auto mt-16 grid max-w-4xl gap-4 sm:mt-20 sm:grid-cols-[1.25fr_1fr] xl:max-w-5xl ultra:max-w-6xl">
-        <Card className="bg-raised/85 backdrop-blur-sm" padded={false}>
-          <div className="p-5">
+        {/* The grid stretches this to match the two stacked cards beside it, so
+            it is always the taller of the two by some amount that depends on
+            the window. Left at the top, the change card sat with a hand's width
+            of nothing beneath it, which reads as something failing to load.
+            Centred in the space instead, the same gap reads as padding. */}
+        <Card className="flex flex-col bg-raised/85 backdrop-blur-sm" padded={false}>
+          <div className="flex flex-1 flex-col p-5">
             <p className="font-display text-2xs font-medium uppercase tracking-[0.12em] text-slate">
               A change, as you see it
             </p>
-            <div className="pt-3">
+            <div className="flex flex-1 flex-col justify-center pt-3">
               <ChangeCardPreview />
             </div>
           </div>
@@ -177,7 +188,11 @@ function How() {
         </Lede>
       </div>
 
-      <div className="grid gap-4 pt-12 sm:grid-cols-2">
+      {/* `md`, not `sm`: each of these carries a paragraph *and* a miniature of
+          the product, and the miniature is built from 11px type. Two of them at
+          640px puts that type in a 290px column, which is where it stops being
+          a demonstration and becomes texture. */}
+      <div className="grid gap-4 pt-12 md:grid-cols-2">
         <Card>
           <h3 className="font-display text-xl font-semibold tracking-tight text-ink">
             It quotes you before it changes you
@@ -248,7 +263,11 @@ function Trust() {
         </Lede>
       </div>
 
-      <div className="grid gap-4 pt-12 sm:grid-cols-3">
+      {/* Three at a time only where three fit. At `sm` each column is about
+          190px, and a 45-word paragraph in 190px is a column of two-word lines.
+          The middle step is two columns with the third dropping under them,
+          which is what a 640–1024px window actually has room for. */}
+      <div className="grid gap-4 pt-12 sm:grid-cols-2 lg:grid-cols-3">
         {[
           {
             title: "Nothing added",

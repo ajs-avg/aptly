@@ -150,6 +150,13 @@ export function SkillGaps({ open, onClose, results, onClaim, busy = false }: Pro
                                 toggle(row.id);
                                 if (!ready) setOpenRow(row.id);
                               }}
+                              // A checkbox is sized by the line of text it sits
+                              // against, not by the thumb. Stretched to 44px it
+                              // becomes a tall lozenge floating beside a
+                              // two-line requirement — and the row beside it,
+                              // which is itself a button, already gives the
+                              // thumb somewhere generous to land.
+                              data-tap="tight"
                               className={cn(
                                 "mt-0.5 grid size-5 shrink-0 place-items-center rounded-md ring-1 transition-colors",
                                 ready ? "bg-signal text-paper ring-signal" : "ring-hairline hover:ring-signal",
@@ -227,8 +234,8 @@ export function SkillGaps({ open, onClose, results, onClaim, busy = false }: Pro
               )}
             </div>
 
-            <div className="flex items-center gap-3 border-t border-hairline p-4 sm:px-7">
-              <p className="flex-1 text-2xs text-slate">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-hairline p-4 sm:px-7">
+              <p className="min-w-0 flex-1 text-2xs text-slate">
                 {claims.length > 0
                   ? `${claims.length} to add`
                   : gaps.length > 0
@@ -238,7 +245,7 @@ export function SkillGaps({ open, onClose, results, onClaim, busy = false }: Pro
               <button
                 type="button"
                 onClick={onClose}
-                className="inline-flex h-10 items-center rounded-pill px-4 font-display text-sm text-slate transition-colors hover:bg-sunken hover:text-ink"
+                className="inline-flex h-10 shrink-0 items-center whitespace-nowrap rounded-pill px-4 font-display text-sm text-slate transition-colors hover:bg-sunken hover:text-ink"
               >
                 Close
               </button>
@@ -247,7 +254,7 @@ export function SkillGaps({ open, onClose, results, onClaim, busy = false }: Pro
                   type="button"
                   disabled={busy}
                   onClick={() => onClaim(claims)}
-                  className="inline-flex h-10 items-center rounded-pill bg-signal px-4 font-display text-sm font-medium text-paper transition-colors hover:bg-signal-hover disabled:opacity-50"
+                  className="inline-flex h-10 shrink-0 items-center whitespace-nowrap rounded-pill bg-signal px-4 font-display text-sm font-medium text-paper transition-colors hover:bg-signal-hover disabled:opacity-50"
                 >
                   {busy ? "Adding…" : `Add ${claims.length} to my CV`}
                 </button>

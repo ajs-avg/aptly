@@ -139,7 +139,12 @@ export function Section({
       id={id}
       data-scene={scene}
       className={cn("gutter", className)}
-      style={{ paddingBlock: "clamp(3.5rem, 9vw, 7.5rem)" }}
+      // The value lives in globals.css as `--section-pad` rather than here, so
+      // that the one place that needs to retune the page's whole vertical
+      // rhythm — a phone turned sideways, where there are 390px of height to
+      // spend and this alone would take 150 of them — can do it in one rule
+      // instead of in every section.
+      style={{ paddingBlock: "var(--section-pad)" }}
     >
       {/* Applied here rather than at fifteen call sites. Scroll arrival is a
           property of "being a section", not a decision each one re-makes — and

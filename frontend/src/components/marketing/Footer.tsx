@@ -46,7 +46,12 @@ export function Footer() {
       className="gutter relative overflow-hidden border-t border-hairline bg-mist pt-16"
     >
       <div className="mx-auto max-w-content">
-        <div className="grid gap-10 sm:grid-cols-[1.4fr_repeat(3,1fr)]">
+        {/* Four columns is a desktop shape. At `sm` it puts "Recruiter-Ready
+            Card" in a 140px column, where it wraps to three lines and the three
+            link lists stop lining up with each other. The middle step pairs
+            them: the wordmark and its blurb across the top, the three lists
+            two-and-one beneath. */}
+        <div className="grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_repeat(3,1fr)]">
           <div>
             <p className="font-display text-base font-semibold tracking-tight text-ink">
               Aptly

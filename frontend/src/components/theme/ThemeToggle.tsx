@@ -46,8 +46,19 @@ export function ThemeToggle({ className }: { className?: string }) {
             aria-label={option.label}
             title={option.label}
             onClick={() => set(option.value)}
+            // The three sit inside one pill, and that pill sits inside a bar
+            // whose height is the bar's to decide. Left to the blanket
+            // coarse-pointer rule each of them grows to 44px, the pill becomes
+            // 48px tall, and the nav it lives in overflows on every phone.
+            // Width is where the thumb gets its room instead — see below.
+            data-tap="tight"
             className={cn(
               "relative grid size-7 place-items-center rounded-pill transition-colors duration-200",
+              // Wider under a thumb, not taller. Three 28px targets in a row is
+              // a genuinely hard thing to hit; three 40×28 ones are not, and
+              // they cost the bar nothing because a bar has width to spare
+              // where it has no height to spare.
+              "[@media(pointer:coarse)]:w-10",
               active ? "text-signal" : "text-slate hover:text-ink",
             )}
           >

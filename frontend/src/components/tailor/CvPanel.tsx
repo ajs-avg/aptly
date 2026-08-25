@@ -8,6 +8,7 @@ import { ScoreDial } from "./ScoreDial";
 import { SkillGaps } from "./SkillGaps";
 import { EditableCv } from "./EditableCv";
 import { EASE, SPRING } from "@/components/motion/primitives";
+import { useMediaQuery } from "@/lib/browser";
 import { cn } from "@/lib/utils";
 import type { ScoreResult, TargetFormat } from "@/lib/types";
 import type { Side, SideState } from "@/lib/useTailorRun";
@@ -90,6 +91,19 @@ export function CvPanel({
   const [menuOpen, setMenuOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [gapsOpen, setGapsOpen] = useState(false);
+
+  /*
+   * The dial is drawn to a pixel size, so it cannot be told to shrink in CSS
+   * the way everything beside it can — an SVG with width and height attributes
+   * ignores the column it is in and takes what it was given.
+   *
+   * At 96px it takes a third of the width of a 320px phone, and the title and
+   * blurb it sits next to are left with 176px, in which "Your CV, tailored"
+   * wraps to three lines beside a number that had room to spare. Measuring the
+   * window and handing it a smaller number is the only lever there is.
+   */
+  const tight = useMediaQuery("(width < 30rem)");
+  const dialSize = tight ? 66 : expanded ? 96 : 84;
   const pending = state.changes.filter((change) => change.status === "pending").length;
   const applied = state.changes.filter((change) => change.status === "applied").length;
 
@@ -143,7 +157,7 @@ export function CvPanel({
           <ScoreDial
             value={verified?.score ?? score?.score ?? 0}
             baseline={baseline}
-            size={expanded ? 96 : 84}
+            size={dialSize}
             instant={applied > 0}
           />
           {verified && (
@@ -187,7 +201,11 @@ export function CvPanel({
             </span>
           )}
 
-          <div className="ml-auto flex items-center gap-2">
+          {/* `flex-wrap`, and it matters: this row can carry five controls, and
+              four of them are conditional. Without it the widest state pushes
+              the close cross off the panel's right edge on a phone — the one
+              control the person needs when they cannot see the rest. */}
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
             {onClaim && score && score.results.some((r) => r.status !== "covered") && (
               <button
                 type="button"
@@ -268,7 +286,9 @@ export function CvPanel({
               type="button"
               onClick={onCollapse}
               aria-label="Close this version"
-              className="grid size-8 place-items-center rounded-pill text-slate transition-colors hover:bg-sunken hover:text-ink"
+              // Square as it grows. An icon button that gains height and keeps
+              // its width becomes a lozenge around a cross that is still 16px.
+              className="grid size-8 place-items-center rounded-pill text-slate transition-colors hover:bg-sunken hover:text-ink [@media(pointer:coarse)]:w-11"
             >
               <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
@@ -279,10 +299,17 @@ export function CvPanel({
       )}
 
       {/* ── The CV ────────────────────────────────────────────────────── */}
+      {/* The 19rem is everything stacked above and below this on a laptop — bar,
+          header, action row, footer. Subtracted from the window height it is
+          the right answer there and an absurd one on a phone held sideways,
+          where 100dvh is 390px and the result is an 86px reading window. The
+          floor is what makes it a *maximum* rather than the only height it can
+          be: below it, the panel simply grows and the page scrolls, which is
+          what a short window wants anyway. */}
       <div
         className={cn(
           "min-h-0 flex-1 overflow-y-auto overscroll-contain",
-          expanded ? "max-h-[calc(100dvh-19rem)]" : "max-h-80",
+          expanded ? "max-h-[max(22rem,calc(100dvh-19rem))]" : "max-h-80",
         )}
       >
         {state.document ? (

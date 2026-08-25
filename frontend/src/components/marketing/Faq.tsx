@@ -51,7 +51,10 @@ export function Faq() {
   const columns = [QUESTIONS.slice(0, 4), QUESTIONS.slice(4)];
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    // `lg`, not `sm`. These are questions, and a question set in a 290px column
+    // wraps to four lines beside a plus sign — at which point two columns of
+    // four-line rows is a worse glance than one column of two-line rows.
+    <div className="grid gap-3 lg:grid-cols-2">
       {columns.map((column, columnIndex) => (
         <div key={columnIndex} className="space-y-3">
           {column.map((item, itemIndex) => {

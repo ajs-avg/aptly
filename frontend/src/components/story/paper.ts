@@ -141,6 +141,13 @@ export function noise(seed: number): number {
   return x - Math.floor(x);
 }
 
+/* The two inputs to how the sheets are painted, held here because they arrive
+   from different places at different times — the palette from CSS when the
+   theme changes, the density from the scene when the window is resized — and
+   both have to be re-applied together whenever either moves. */
+let palette: SceneTheme | null = null;
+let density = 1;
+
 /**
  * Re-tint every shared material for the theme now in force.
  *
@@ -154,6 +161,35 @@ export function noise(seed: number): number {
  * in dark exactly as the type does.
  */
 export function applySceneTheme(theme: SceneTheme): void {
+  palette = theme;
+  paint();
+}
+
+/**
+ * How solid the paper is, 0–1.
+ *
+ * On a wide display the sheets live in the margins and can be fully opaque —
+ * they never cross a word. On a phone there are no margins: the text column is
+ * the window, so paper that stays out of the way is paper that is off-screen,
+ * which is precisely the bug this fixes. The sheets come *behind* the copy
+ * instead, and this is what keeps them behind it — a wash of paper the words
+ * sit on top of rather than a card competing with them.
+ *
+ * Every layer thins together. Dropping the sheet alone would leave its printed
+ * lines floating at full strength on a ghost, which reads as damage rather than
+ * as distance.
+ */
+export function applySceneDensity(next: number): void {
+  // Called from a frame loop, so it has to be free when nothing has changed.
+  if (Math.abs(next - density) < 0.005) return;
+  density = next;
+  paint();
+}
+
+function paint(): void {
+  const theme = palette;
+  if (!theme) return;
+
   paperMaterial.color.copy(theme.paper);
   ghostMaterial.color.copy(theme.paper);
 
@@ -163,11 +199,27 @@ export function applySceneTheme(theme: SceneTheme): void {
   amberMaterial.color.copy(theme.amber);
   amberWashMaterial.color.copy(theme.amber);
 
+  // A material only pays for blending when it is actually translucent. At full
+  // density these go back to being opaque, which restores correct depth sorting
+  // on the display that can see the sorting.
+  const solid = density > 0.995;
+  for (const material of [paperMaterial, ghostMaterial, signalMaterial]) {
+    // `transparent` is part of a material's program key, so flipping it needs
+    // the shader rebuilt. Only on an actual change — this runs on a resize, and
+    // recompiling every frame of a drag would be worse than the bug.
+    if (material.transparent !== !solid) {
+      material.transparent = !solid;
+      material.needsUpdate = true;
+    }
+    material.opacity = density;
+  }
+
   // The sheets darken in dark mode, so printed lines need *less* contrast
   // against them, not more — the same ratio, measured against a dimmer page.
-  inkMaterial.opacity = theme.dark ? 0.17 : 0.14;
-  headingMaterial.opacity = theme.dark ? 0.66 : 0.62;
-  amberWashMaterial.opacity = theme.dark ? 0.16 : 0.13;
+  inkMaterial.opacity = (theme.dark ? 0.17 : 0.14) * density;
+  headingMaterial.opacity = (theme.dark ? 0.66 : 0.62) * density;
+  amberMaterial.opacity = density;
+  amberWashMaterial.opacity = (theme.dark ? 0.16 : 0.13) * density;
 }
 
 export const lerp = THREE.MathUtils.lerp;

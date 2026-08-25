@@ -78,6 +78,12 @@
   --scene-ambient: 1.3;
   --scene-key: 2.6;
   --scene-fill: 1.3;
+
+  /* The page's vertical rhythm, as one number every section reads. Fluid rather
+     than stepped: a section that breathes correctly at 1440px is cramped at 390
+     and stranded at 2560. Retuned once, for landscape phones, in the base
+     layer below — which is the whole reason it is a token. */
+  --section-pad: clamp(3.5rem, 9vw, 7.5rem);
 }
 
 /* ── Dark: only the tokens change. No component knows this block exists. ─── */
@@ -268,6 +274,12 @@
   --breakpoint-xs: 24rem; /* 384px */
   --breakpoint-ultra: 120rem; /* 1920px */
 
+  /* ── The one number every fixed bar agrees on ───────────────────────
+     The nav floats: 0.75rem of air above it, then the pill itself. Anything
+     that has to clear it — an anchor target scrolled to, a sticky panel under
+     it — reads this rather than re-deriving it and landing a few pixels out. */
+  --spacing-bar: 4.25rem;
+
   /* ── Layout: one ladder of measures, so pages agree with each other ──
      Hand-picked max-widths per page are how a product ends up with three
      different content columns that almost line up. */
@@ -318,6 +330,12 @@
     /* Paper is the ground everywhere. A page that puts a WebGL scene behind its
        content overrides this on its own wrapper — see the landing page. */
     background-color: var(--color-paper);
+    /* A backstop, not a licence. Every wide thing on the page is meant to
+       scroll itself (see `scroll-x`); this only catches the one that gets
+       missed, and it is `clip` rather than `hidden` because `hidden` on the
+       body silently turns every `position: sticky` on the page into a
+       `position: static` — which is how a fixed nav bar stops sticking. */
+    overflow-x: clip;
     color: var(--color-ink);
     font-family: var(--font-body);
     font-size: var(--text-base);
@@ -367,14 +385,50 @@
     border-radius: var(--radius-xs);
   }
 
+  /* An anchor link must land the heading *below* the floating bar, not behind
+     it. Without this, every "Pricing" in the nav scrolls the word Pricing to a
+     point exactly under the pill that was just clicked. */
+  :where(section, footer)[id],
+  [data-anchor] {
+    scroll-margin-top: calc(var(--spacing-bar) + 1.5rem);
+  }
+
   /* Nothing on a touch screen should sit under a thumb at less than 44px, and
-     nothing should flash blue when tapped. */
+     nothing should flash blue when tapped.
+
+     `data-tap="tight"` opts out, and the opt-out is not a loophole — it is for
+     controls whose size is set by the row they sit in rather than by the thumb:
+     the three-way theme marker, a checkbox beside its own label, a close cross.
+     Stretching those to 44px does not make them easier to hit, it makes the bar
+     they live in 48px tall, and that is what was pushing the nav's own actions
+     off the right-hand edge of every phone. They get padding around them from
+     their container instead. */
   @media (pointer: coarse) {
-    button,
-    a[role="button"],
-    [data-tap] {
+    button:not([data-tap="tight"]),
+    a[role="button"]:not([data-tap="tight"]),
+    [data-tap]:not([data-tap="tight"]) {
       min-height: 44px;
+    }
+
+    button,
+    a,
+    [data-tap],
+    summary {
       -webkit-tap-highlight-color: transparent;
+    }
+  }
+
+  /* A phone turned sideways is 390px tall. Vertical rhythm tuned for a laptop
+     spends most of that on air, so a section's own padding is trimmed where
+     there is no height to give away. Horizontal measures are untouched — the
+     problem here is only ever vertical.
+
+     The token is what makes this possible at all: every section reads
+     `--section-pad`, so one rule here retunes the whole page's vertical rhythm
+     rather than each section carrying its own landscape exception. */
+  @media (max-height: 34rem) and (orientation: landscape) {
+    :root {
+      --section-pad: clamp(1.75rem, 7vh, 3.25rem);
     }
   }
 
@@ -428,20 +482,44 @@
 
 /* One gutter rule for the whole product, so every page's content starts on the
    same vertical line. Grows with the viewport and then stops — past a point,
-   more margin is just a longer walk for the eye. */
+   more margin is just a longer walk for the eye.
+
+   Every step is `max()`d against the device's own safe area. The viewport is
+   declared `viewport-fit: cover`, which is what lets the 3D scene run under the
+   status bar — and which also means that on a notched phone held sideways the
+   first 44px of the window are behind the camera housing. Without this, the
+   left edge of every line of body copy is under it. */
 @utility gutter {
-  padding-inline: 1.25rem;
+  padding-inline: max(1.25rem, env(safe-area-inset-left)) max(1.25rem, env(safe-area-inset-right));
 
   @media (width >= 40rem) {
-    padding-inline: 2rem;
+    padding-inline: max(2rem, env(safe-area-inset-left)) max(2rem, env(safe-area-inset-right));
   }
 
   @media (width >= 64rem) {
-    padding-inline: 3rem;
+    padding-inline: max(3rem, env(safe-area-inset-left)) max(3rem, env(safe-area-inset-right));
   }
 
   @media (width >= 120rem) {
-    padding-inline: 4rem;
+    padding-inline: max(4rem, env(safe-area-inset-left)) max(4rem, env(safe-area-inset-right));
+  }
+}
+
+/* The same rule at the tighter measure the app's floating bars use. They sit
+   closer to the edge than page content does — a bar is furniture, not text —
+   but they are subject to the same notch. */
+@utility gutter-bar {
+  padding-inline: max(0.75rem, env(safe-area-inset-left)) max(0.75rem, env(safe-area-inset-right));
+}
+
+/* For a strip that must be allowed to scroll sideways but must not announce it
+   with a bar — an action row inside a pill, where a visible scrollbar would cut
+   the pill's own bottom edge. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
   }
 }
 

@@ -125,7 +125,13 @@ export function DropBox({
             className={cn(
               "flex-1 resize-none bg-transparent px-4 py-3 text-sm leading-relaxed text-ink",
               "placeholder:text-slate/55 focus:outline-none disabled:opacity-50",
-              emphasis ? "min-h-[15rem]" : "min-h-[11rem]",
+              // Capped against the window as well as floored at a usable size.
+              // A 15rem box is right on a laptop and is most of a phone held
+              // sideways — two of them stacked there leave no room to see the
+              // button that acts on them.
+              emphasis
+                ? "min-h-[min(15rem,42dvh)]"
+                : "min-h-[min(11rem,32dvh)]",
             )}
           />
 

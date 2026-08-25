@@ -62,12 +62,22 @@ export function ChangeSummary({ open, onClose, applied, score, before }: Props) 
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.98 }}
             transition={SPRING}
-            className="fixed left-1/2 top-1/2 z-50 w-[min(30rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl bg-raised shadow-hero ring-1 ring-ink/10"
+            // Bounded vertically as well as horizontally, and scrolling inside
+            // rather than growing past the window. This dialog carries up to
+            // four requirement lines plus two paragraphs; centred with a
+            // translate and no ceiling, the overflow goes off *both* ends at
+            // once, so the close button and the heading are lost together and
+            // there is no way to scroll to either.
+            className="fixed left-1/2 top-1/2 z-50 flex max-h-[min(85dvh,44rem)] w-[min(30rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-raised shadow-hero ring-1 ring-ink/10"
           >
-            <div className="p-6 sm:p-7">
+            <div className="min-h-0 overflow-y-auto overscroll-contain p-6 sm:p-7">
               <Verdict moved={moved} applied={applied} essential={essential.length} />
 
-              <div className="mt-6 grid grid-cols-3 gap-3 rounded-xl bg-sunken p-4">
+              {/* Three across from `xs` up. On a 320px screen that is 85px a
+                  column, and "Requirements met" over a fraction does not fit
+                  in 85px — the row reads as six stacked fragments rather than
+                  as three figures. */}
+              <div className="mt-6 grid grid-cols-1 gap-3 rounded-xl bg-sunken p-4 xs:grid-cols-3">
                 <Stat label="Applied" value={applied} />
                 <Stat label="Requirements met" value={`${covered}/${score.results.length}`} />
                 <Stat

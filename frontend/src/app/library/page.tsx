@@ -141,7 +141,11 @@ function LibraryScreen() {
         }}
       />
 
-      <div className="mx-auto grid max-w-[100rem] grid-cols-1 gap-3 p-3 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,32rem)_minmax(0,1fr)]">
+      {/* `max-w-ultra`, from the shared ladder, rather than the 100rem it used
+          to pick for itself. A page that invents its own measure is a page that
+          almost lines up with the bar above it — near enough to look like a
+          mistake, far enough to be one. */}
+      <div className="gutter-bar mx-auto grid max-w-ultra grid-cols-1 gap-3 pb-3 pt-3 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,32rem)_minmax(0,1fr)]">
         <section className="min-w-0 overflow-hidden rounded-2xl bg-raised shadow-float ring-1 ring-ink/5">
           <div className="hairline-b px-5 py-4">
             <input
@@ -202,7 +206,31 @@ function LibraryScreen() {
           )}
         </section>
 
-        <section className="min-w-0 overflow-hidden rounded-2xl bg-raised shadow-float ring-1 ring-ink/5 lg:sticky lg:top-[4.5rem] lg:h-[calc(100dvh-5.25rem)]">
+        {/*
+          * One panel, shown on a phone only when it has something in it.
+          *
+          * It used to render unconditionally, and its empty state was a
+          * `hidden lg:flex` prompt — so on every phone the page ended in a
+          * stray rounded card with a ring and a shadow, under the list,
+          * containing nothing. The prompt was correctly hidden; the box around
+          * the prompt was not.
+          *
+          * Not two sections, one per breakpoint: that mounts the record twice,
+          * gives the notes field two drafts, and lets the hidden one keep the
+          * edit you made in the visible one.
+          *
+          * The sticky offset and the height cap are `lg:` because they describe
+          * a side panel. On a phone there is no side — it is a block that
+          * follows the list, and pinning it there would fix half a screen of
+          * detail over the rows you are trying to scroll.
+          */}
+        <section
+          className={cn(
+            "min-w-0 overflow-hidden rounded-2xl bg-raised shadow-float ring-1 ring-ink/5",
+            "lg:sticky lg:top-[calc(var(--spacing-bar)+0.75rem)] lg:block lg:h-[calc(100dvh-var(--spacing-bar)-1.5rem)]",
+            selected ? "block" : "hidden",
+          )}
+        >
           <AnimatePresence mode="wait">
             {selected ? (
               <RecordPanel
@@ -263,9 +291,15 @@ function TopBar({
       <AppBar
         brandHref="/"
         context="Library"
+        // The same measure the two columns below it use, so the wordmark sits
+        // over the left edge of the list rather than near it.
+        width="ultra"
         status={
           recordCount > 0 ? (
-            <span className="pr-1 text-2xs text-slate" data-numeric>
+            <span
+              className="shrink-0 whitespace-nowrap pr-1 text-2xs text-slate"
+              data-numeric
+            >
               {recordCount} {recordCount === 1 ? "application" : "applications"}
             </span>
           ) : null
@@ -275,7 +309,9 @@ function TopBar({
 
         {session?.signed_in ? (
           <>
-            <span className="hidden px-1 text-2xs text-slate sm:inline">{session.email}</span>
+            <span className="hidden max-w-[14ch] truncate px-1 text-2xs text-slate lg:inline">
+              {session.email}
+            </span>
             <button
               type="button"
               onClick={async () => {
@@ -286,57 +322,88 @@ function TopBar({
                 if (authConfigured) await signOutEverywhere();
                 onSignedOut(await signOut());
               }}
-              className="inline-flex h-8 items-center rounded-pill px-3 font-display text-xs text-slate transition-colors hover:bg-sunken hover:text-ink"
+              className="inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-pill px-3 font-display text-xs text-slate transition-colors hover:bg-sunken hover:text-ink"
             >
               Sign out
             </button>
           </>
-        ) : authConfigured ? (
-          // Real accounts: the sign-in page owns this, because a password field
-          // belongs on a page rather than in a toolbar.
-          <BarLink href="/sign-in?next=/library">Keep these</BarLink>
         ) : (
-          // No Supabase on this deployment — the development sign-in, which is
-          // email-only with no password and refuses to run in production.
+          // Real accounts: the sign-in page owns this, because a password field
+          // belongs on a page rather than in a toolbar. Where Supabase is not
+          // configured the same button is a no-op destination, so the
+          // development form sits under the bar instead — see below.
+          authConfigured && (
+            <BarLink href="/sign-in?next=/library">Keep these</BarLink>
+          )
+        )}
+      </AppBar>
+
+      {/*
+        * The development sign-in — email only, no password, refuses to run in
+        * production — on its own row rather than inside the bar.
+        *
+        * A text field is the one control that cannot shrink to fit: it is as
+        * wide as the address someone has to be able to read back. In the bar it
+        * left a phone carrying a wordmark, a primary action, a 10rem input and
+        * a submit button in 366px, and the submit button ended up off the end.
+        * Under the bar it has a whole row to itself at every width, which is
+        * what the comment above already says about the real sign-in.
+        */}
+      {!authConfigured && !session?.signed_in && (
+        <div className="gutter-bar mx-auto max-w-ultra pt-2">
           <form
             onSubmit={(event) => {
               event.preventDefault();
               void submit();
             }}
-            className="flex items-center gap-1.5"
+            className="flex items-center gap-2 rounded-pill bg-raised/85 px-2 py-2 shadow-raised ring-1 ring-ink/5 backdrop-blur-xl"
           >
+            <label htmlFor="dev-sign-in" className="sr-only">
+              Email address
+            </label>
             <input
+              id="dev-sign-in"
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               placeholder="you@example.com"
-              className="h-8 w-40 rounded-pill bg-sunken px-3 text-2xs text-ink placeholder:text-slate/55 focus:outline-none focus:ring-1 focus:ring-signal"
+              // 16px. Anything smaller and iOS zooms the page in on focus, and
+              // the way back out is not obvious.
+              className="h-9 min-w-0 flex-1 rounded-pill bg-sunken px-3.5 text-[1rem] text-ink placeholder:text-slate/55 focus:outline-none focus:ring-1 focus:ring-signal sm:text-sm"
             />
             <button
               type="submit"
               disabled={busy}
-              className="inline-flex h-8 items-center rounded-pill bg-ink px-3.5 font-display text-xs font-medium text-paper transition-colors hover:bg-ink-soft disabled:opacity-50"
+              className="inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-pill bg-ink px-4 font-display text-xs font-medium text-paper transition-colors hover:bg-ink-soft disabled:opacity-50"
             >
               {busy ? "…" : "Keep these"}
             </button>
           </form>
-        )}
-      </AppBar>
+        </div>
+      )}
 
       {/* Two notices that only ever appear one at a time, sitting under the bar
           rather than inside it — the bar has to stay a fixed height as state
           changes, or the whole page jumps when you sign in. */}
+      {/* On the bar's own measure, like the bar. `mx-3` spans the display, so
+          on anything wide these ran out past both ends of the pill they belong
+          under. */}
       {claimed !== null && claimed > 0 && (
-        <p className="mx-3 mt-2 rounded-pill bg-signal-soft px-4 py-1.5 text-center text-2xs text-signal">
-          {claimed} {claimed === 1 ? "item" : "items"} you saved before signing
-          in came with you.
-        </p>
+        <div className="gutter-bar mx-auto max-w-ultra pt-2">
+          <p className="rounded-pill bg-signal-soft px-4 py-1.5 text-center text-2xs text-signal">
+            {claimed} {claimed === 1 ? "item" : "items"} you saved before signing
+            in came with you.
+          </p>
+        </div>
       )}
 
       {anonymous && recordCount > 0 && !session?.signed_in && (
-        <p className="mx-3 mt-2 rounded-pill bg-amber-soft px-4 py-1.5 text-center text-2xs text-amber-ink">
-          These are saved to this browser for 7 days. Add an email to keep them.
-        </p>
+        <div className="gutter-bar mx-auto max-w-ultra pt-2">
+          <p className="rounded-pill bg-amber-soft px-4 py-1.5 text-center text-2xs text-amber-ink">
+            These are saved to this browser for 7 days. Add an email to keep
+            them.
+          </p>
+        </div>
       )}
     </>
   );
@@ -358,7 +425,12 @@ function FilterChip({
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-pill px-2.5 py-1 font-display text-2xs transition-colors",
+        "inline-flex items-center rounded-pill px-2.5 py-1 font-display text-2xs transition-colors",
+        // A pill grown to 44px for the thumb and left at its typed width is not
+        // a pill any more — "All" becomes a 32×44 black egg. The floor is
+        // vertical, so the answer is horizontal: enough padding that the radius
+        // still reads as the ends of a pill rather than as a circle.
+        "[@media(pointer:coarse)]:px-4",
         active
           ? "bg-ink text-paper"
           : "text-slate hover:bg-sunken hover:text-ink",
@@ -405,8 +477,11 @@ function Empty({ searching }: { searching: boolean }) {
 }
 
 function NothingSelected() {
+  // No breakpoint of its own any more. The section around it is already hidden
+  // wherever this prompt would be wrong, and two elements deciding the same
+  // thing is how one of them ends up deciding it differently.
   return (
-    <div className="hidden h-full items-center justify-center p-10 lg:flex">
+    <div className="flex h-full items-center justify-center p-10">
       <p className="max-w-xs text-center text-sm leading-relaxed text-slate">
         Pick an application to see the CV you sent and the job post as it was on
         the day.

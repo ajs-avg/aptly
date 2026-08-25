@@ -26,6 +26,8 @@ interface Props {
    */
   marking?: React.MutableRefObject<number>;
   printed?: boolean;
+  /** False on a small screen, where the depth pass costs more than it shows. */
+  shadows?: boolean;
 }
 
 /**
@@ -36,7 +38,7 @@ interface Props {
  * individual lines animate — which is the point, because the amber marks
  * arriving one by one *is* the story beat.
  */
-export function Sheet({ marking, printed = true }: Props) {
+export function Sheet({ marking, printed = true, shadows = true }: Props) {
   const marked = useMemo(() => CV_LINES.filter((line) => line.marked), []);
   const washes = useRef<(THREE.Mesh | null)[]>([]);
   const bars = useRef<(THREE.Mesh | null)[]>([]);
@@ -70,8 +72,8 @@ export function Sheet({ marking, printed = true }: Props) {
       <mesh
         geometry={sheetGeometry}
         material={paperMaterial}
-        castShadow
-        receiveShadow
+        castShadow={shadows}
+        receiveShadow={shadows}
       />
 
       {printed && (
