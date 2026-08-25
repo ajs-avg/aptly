@@ -58,6 +58,21 @@ def _log_origins(origins: list[str]) -> list[str]:
     return origins
 
 
+#: Response headers the browser is allowed to read cross-origin.
+#:
+#: Not covered by ``allow_headers``, which is about the *request*. Without this
+#: list, JavaScript on another origin sees only the six CORS-safelisted response
+#: headers and every one of these reads back as ``null`` — with no error, which
+#: is what made it so hard to see.
+#:
+#: It broke the download outright. The export names the file in
+#: ``Content-Disposition``; unable to read it, the browser fell back to the
+#: document's *source* filename, so choosing Word saved .docx bytes under a
+#: .txt name and the person opened a page of binary. The two ``X-Aptly``
+#: headers failed more quietly: a rebuilt document is meant to say so, and
+#: never did.
+EXPOSED_HEADERS = ["Content-Disposition", "X-Aptly-Rebuilt", "X-Aptly-Notes"]
+
 app.add_middleware(
     CORSMiddleware,
     # Logged at import, because a browser cannot tell a refused origin from an
@@ -67,6 +82,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=EXPOSED_HEADERS,
 )
 
 

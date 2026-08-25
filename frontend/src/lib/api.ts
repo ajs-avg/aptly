@@ -174,10 +174,43 @@ export async function exportCv(
 
   return {
     blob: await response.blob(),
-    filename: match?.[1] ?? document.source_filename,
+    filename: match?.[1] ?? downloadName(document, target),
     rebuilt: response.headers.get("X-Aptly-Rebuilt") === "true",
     notes,
   };
+}
+
+/**
+ * What to call the file when the server's own answer did not arrive.
+ *
+ * It does arrive, now. `Content-Disposition` is not a CORS-safelisted response
+ * header, so until the API listed it in `expose_headers` this read back as
+ * `null` on every cross-origin deployment — silently, because a header the
+ * browser is not allowed to see is not an error, it is simply absent.
+ *
+ * The old fallback was `document.source_filename`, which is the name of the CV
+ * that came *in*. So choosing Word wrote .docx bytes to a file called `.txt`,
+ * and opening it showed a page of binary. The extension has to come from the
+ * format that was actually asked for; that is the one thing this side always
+ * knows for certain.
+ *
+ * Kept even though the header now works: a filename is decided here or it is
+ * decided by a proxy that stripped a header, and only one of those is us.
+ */
+function downloadName(document: CVDocument, target?: TargetFormat): string {
+  const extension = target ?? document.source_format;
+
+  const base = document.source_filename.split("/").pop() ?? "";
+  const stem = base.includes(".") ? base.slice(0, base.lastIndexOf(".")) : base;
+
+  // "pasted" is what the parser calls text typed into a box. It is a note about
+  // how the CV got here, not a name, and it should never reach a downloads
+  // folder — see `_stem` in the API's export module, which agrees.
+  if (stem && stem !== "pasted") return `${stem}.${extension}`;
+
+  const who = (document.contact.name ?? "").trim().replace(/[^\p{L}\p{N}]+/gu, "-");
+  const date = new Date().toISOString().slice(0, 10);
+  return `${who.replace(/^-+|-+$/g, "") || "Aptly-Resume"}-${date}.${extension}`;
 }
 
 // ── tailor (streaming) ────────────────────────────────────────────────────

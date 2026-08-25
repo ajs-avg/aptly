@@ -112,6 +112,7 @@ const initial: RunState = {
 };
 
 type Action =
+  | { type: "restore"; state: RunState }
   | { type: "start"; document: CVDocument; notices: string[] }
   | { type: "event"; event: TailorEvent }
   | { type: "apply"; side: Side; suggestion: Suggestion }
@@ -216,8 +217,44 @@ function sideReducer(state: SideState, action: Action): SideState {
   }
 }
 
+/**
+ * A run that was still in flight when the page went away.
+ *
+ * The stream died with the tab, and nothing will ever arrive on it again — so a
+ * phase of "reading" or "working" restored as-is leaves the reveal screen
+ * ticking through steps that have already stopped happening, waiting for a
+ * message that cannot come. That is worse than losing the run: it looks like
+ * the product is working when it has silently given up.
+ *
+ * What survives depends on how far it got, and there are only two useful
+ * answers. With a scored document in hand there is a real screen to show, so it
+ * is marked finished and the person is told why it is not more. Without one
+ * there is nothing to show, and the honest restore is the drop screen with
+ * their post and their CV still in it — no analysis lost, because none had
+ * arrived.
+ */
+function settle(state: RunState): RunState {
+  if (state.phase !== "reading" && state.phase !== "working") return state;
+
+  const usable = state.tailored.document !== null && state.scorecard !== null;
+  if (!usable) return { ...initial, phase: "idle" };
+
+  return {
+    ...state,
+    phase: "ready",
+    notices: [
+      ...state.notices,
+      "The page reloaded while Aptly was still working. Everything that had " +
+        "arrived is here — start over to run the rest.",
+    ],
+  };
+}
+
 function reducer(state: RunState, action: Action): RunState {
   switch (action.type) {
+    case "restore":
+      return settle(action.state);
+
     case "reset":
       return initial;
 
@@ -408,6 +445,7 @@ export function useTailorRun() {
 
   const actions = useMemo(
     () => ({
+      restore: (restored: RunState) => dispatch({ type: "restore", state: restored }),
       start: (document: CVDocument, notices: string[]) =>
         dispatch({ type: "start", document, notices }),
       event: (event: TailorEvent) => dispatch({ type: "event", event }),

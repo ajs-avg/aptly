@@ -16,6 +16,7 @@ the result is flagged as a rebuild.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from io import BytesIO
 from pathlib import Path
 
@@ -386,3 +387,50 @@ def test_a_claimed_line_validates_and_exports() -> None:
 def test_a_claimed_line_is_never_written_through_to_the_original() -> None:
     # It has no address in the uploaded file, because it was never in it.
     assert not is_writable(SyntheticAnchor(origin="claim"))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# The name on the file
+#
+# A pasted CV has no filename to keep, and the parser calls it "pasted" — a note
+# about how the text arrived, not a name. Left alone it became the name of the
+# document somebody attaches to a job application.
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.parametrize("target", ["docx", "pdf", "tex", "md", "txt"])
+def test_a_pasted_cv_is_never_downloaded_as_pasted(target: str) -> None:
+    document = parse_pasted(PASTED_CV)
+
+    name = export_cv(b"", document, target).filename
+
+    assert not name.startswith("pasted")
+    assert name.endswith(f".{target}")
+
+
+def test_a_pasted_cv_is_named_for_its_owner_and_the_day() -> None:
+    document = parse_pasted(PASTED_CV)
+
+    name = export_cv(b"", document, "docx").filename
+
+    assert "Aman" in name
+    assert datetime.now(UTC).strftime("%Y-%m-%d") in name
+
+
+def test_a_pasted_cv_with_no_name_still_gets_one() -> None:
+    document = parse_pasted(PASTED_CV)
+    document.contact.name = None
+
+    name = export_cv(b"", document, "pdf").filename
+
+    assert name.startswith("Aptly-Resume-")
+    assert name.endswith(".pdf")
+
+
+@pytest.mark.parametrize("persona", _IN_PLACE, ids=_ids(_IN_PLACE))
+def test_an_uploaded_cv_keeps_its_own_name(persona: Persona) -> None:
+    original, document = _load(persona)
+
+    # The promise is that this is *your* file. A download that comes back called
+    # something else has broken it before the person has opened it.
+    assert export_cv(original, document).filename.startswith(persona.key)

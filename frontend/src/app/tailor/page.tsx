@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 
 import { AppBar, BarLink } from "@/components/app/AppBar";
@@ -20,8 +20,9 @@ import {
   saveRecord,
   streamTailor,
 } from "@/lib/api";
+import { clearSession, loadSession, saveSession } from "@/lib/persist";
 import { cn, motionTokens } from "@/lib/utils";
-import { useTailorRun, type Side } from "@/lib/useTailorRun";
+import { useTailorRun, type RunState, type Side } from "@/lib/useTailorRun";
 import type { TargetFormat } from "@/lib/types";
 
 /**
@@ -73,6 +74,75 @@ function TailorScreen() {
   >({});
   const [inputError, setInputError] = useState<{ message: string; hint: string } | null>(null);
 
+  /*
+   * ── Surviving a reload ──────────────────────────────────────────────────
+   *
+   * Everything on this screen lived in React state, so a refresh — deliberate,
+   * accidental, or a phone evicting the tab — threw away the job post, the CV,
+   * the analysis, and every change the person had applied by hand. Then it
+   * asked them to pay for the whole minute again.
+   *
+   * `restored` gates the first paint rather than merely triggering a later one.
+   * Reading IndexedDB is a promise, so without it the drop screen renders for a
+   * frame or two before the saved run replaces it — and somebody returning to
+   * their work sees an empty upload box first, which is the exact thing this
+   * exists to stop them seeing.
+   */
+  const [restored, setRestored] = useState(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    void loadSession<RunState>().then((snapshot) => {
+      if (!live) return;
+      if (snapshot) {
+        setJobText(snapshot.jobText);
+        setCvText(snapshot.cvText);
+        setCvFile(snapshot.cvFile);
+        setPastReveal(snapshot.pastReveal);
+        setVerified(snapshot.verified as typeof verified);
+        actions.restore(snapshot.run);
+      }
+      setRestored(true);
+    });
+    return () => {
+      live = false;
+    };
+    // Once, on mount. `actions` is stable and the saved snapshot is a starting
+    // point, not something to keep re-reading.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    // Not before the restore has landed, or the empty initial state is written
+    // over the snapshot it is about to be replaced by.
+    if (!restored) return;
+
+    // Debounced, because this also fires on every keystroke in the job post and
+    // on every frame of a score animation that touches the document.
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      // An untouched screen is not a session. Writing one means a person who
+      // opened the page and left finds it waiting for them next week.
+      if (state.phase === "idle" && !jobText && !cvText && !cvFile) {
+        void clearSession();
+        return;
+      }
+      void saveSession<RunState>({
+        jobText,
+        cvText,
+        cvFile,
+        run: state,
+        pastReveal,
+        verified,
+      });
+    }, 400);
+
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, [restored, state, jobText, cvText, cvFile, pastReveal, verified]);
+
   const canStart = jobText.trim().length >= MIN_JOB_CHARS && Boolean(cvFile || cvText.trim());
 
   const start = useCallback(async () => {
@@ -115,8 +185,20 @@ function TailorScreen() {
         const anchor = window.document.createElement("a");
         anchor.href = url;
         anchor.download = result.filename;
+        // In the document, and revoked on a later tick.
+        //
+        // A detached anchor's synthetic click is ignored outright by Firefox,
+        // and revoking the URL in the same turn as the click pulls the blob out
+        // from under a download that has not started reading it yet — which
+        // lands as a truncated or empty file, intermittently, on whichever
+        // machine happens to be slower that day.
+        anchor.style.display = "none";
+        window.document.body.append(anchor);
         anchor.click();
-        URL.revokeObjectURL(url);
+        setTimeout(() => {
+          anchor.remove();
+          URL.revokeObjectURL(url);
+        }, 0);
       } catch (error) {
         actions.fail(
           error instanceof ApiError ? error.message : "The download failed.",
@@ -189,6 +271,11 @@ function TailorScreen() {
     [actions, jobText, state],
   );
 
+  // The saved session has not been read yet. A blank ground rather than a
+  // spinner: this resolves in a frame or two, and a spinner that appears and
+  // vanishes that fast reads as a flicker, not as progress.
+  if (!restored) return <div className="min-h-dvh bg-mist" />;
+
   if (state.phase === "idle") {
     return (
       <DropScreen
@@ -246,6 +333,11 @@ function TailorScreen() {
             setJobText("");
             setCvText("");
             setCvFile(null);
+            setVerified({});
+            // Erased now, not left to expire. Start over is the one control
+            // that means "this is finished with" — on a shared machine it is
+            // also how somebody removes their CV from it.
+            void clearSession();
           }}
           className="inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-pill px-3 font-display text-xs text-slate transition-colors hover:bg-sunken hover:text-ink"
         >

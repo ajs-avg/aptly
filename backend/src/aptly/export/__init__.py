@@ -17,7 +17,9 @@ Two guarantees this module exists to provide:
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from aptly.errors import UnsupportedFormatError
 from aptly.ingest import _decode, parse_cv
@@ -87,7 +89,7 @@ def export_cv(original: bytes, document: CVDocument, target: str | None = None) 
         return _rebuild_as(document, target or fmt)
 
     changed = changed_nodes(original, document)
-    stem = _stem(document.source_filename)
+    stem = _stem(document)
 
     if fmt == "docx":
         from aptly.export.docx import export_docx
@@ -127,7 +129,7 @@ def _rebuild_as(document: CVDocument, target: str) -> ExportResult:
             hint="Choose .docx, .pdf, .tex, .md or plain text.",
         )
 
-    stem = _stem(document.source_filename)
+    stem = _stem(document)
     return ExportResult(
         data=render(document, target),
         filename=f"{stem}.{target}",
@@ -153,9 +155,42 @@ def changed_nodes(original: bytes, document: CVDocument) -> list[TextNode]:
     return [node for node in document.nodes if before.get(node.id, node.text) != node.text]
 
 
-def _stem(filename: str) -> str:
-    stem = filename.rsplit("/", 1)[-1]
-    return stem.rsplit(".", 1)[0] if "." in stem else stem
+#: The stem `parse_pasted` gives a CV that arrived as text in a textarea.
+#:
+#: There was no file, so there is no name to keep — and "pasted" is not a name,
+#: it is a note about how the text got here. Left alone it becomes the name of
+#: the document somebody attaches to an application.
+_PASTED_STEM = "pasted"
+
+
+def _stem(document: CVDocument) -> str:
+    """What to call the downloaded file.
+
+    An uploaded CV keeps its own name, and that is not a detail — the product's
+    promise is that this is *your* file, and a download that comes back called
+    something else has already broken it once before the person opens it.
+
+    A pasted CV has no name to keep, so it is given one: whose CV it is, and
+    when it was written out. The date matters more than it looks. Tailoring is
+    per-application, so somebody doing this properly ends up with several
+    versions of one CV in a downloads folder, and the only thing that tells them
+    apart is when each was made.
+    """
+    stem = document.source_filename.rsplit("/", 1)[-1]
+    stem = stem.rsplit(".", 1)[0] if "." in stem else stem
+
+    if stem and stem != _PASTED_STEM:
+        return stem
+
+    name = (document.contact.name or "").strip()
+    who = _slug(name) if name else "Aptly-Resume"
+    return f"{who}-{datetime.now(UTC):%Y-%m-%d}"
+
+
+def _slug(name: str) -> str:
+    """A person's name, safe to put in a filename on any platform."""
+    kept = [ch if ch.isalnum() else "-" for ch in name]
+    return re.sub(r"-{2,}", "-", "".join(kept)).strip("-") or "Aptly-Resume"
 
 
 #: What a CV can be downloaded as, whatever it arrived as.
