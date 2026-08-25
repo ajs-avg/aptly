@@ -21,12 +21,34 @@ from pathlib import Path
 
 import pytest
 from aptly.export import changed_nodes, export_cv
-from aptly.ingest import parse_cv
-from aptly.model.document import CVDocument
+from aptly.ingest import parse_cv, parse_pasted
+from aptly.model.anchors import SyntheticAnchor, is_writable
+from aptly.model.document import CVDocument, TextNode
 
 from tests.fixtures.personas import ALL_PERSONAS, FORMAT_BY_PERSONA, Persona
 
 CV_DIR = Path(__file__).resolve().parent.parent / "fixtures" / "cvs"
+
+#: A CV that arrived as text in a textarea rather than as a file. Written out
+#: here rather than loaded from `fixtures/cvs`, because the whole point of these
+#: cases is that there is no file.
+PASTED_CV = """Aman Mishra
+aman@example.com | +91 98765 43210 | Bengaluru
+
+SUMMARY
+Product manager with six years across hardware and software launches.
+
+EXPERIENCE
+Senior Product Manager, Kalyra - 2021 to present
+- Cut new-site ramp time from 12 weeks to 6 by rebuilding the onboarding flow.
+- Ran discovery with 40 customers and shipped a pricing change worth 8% ARR.
+
+SKILLS
+Python, SQL, RAG, roadmapping, discovery
+
+EDUCATION
+B.Tech, Computer Science, VIT - 2018
+"""
 
 #: Formats we edit in place, and therefore hold to byte-identical round-tripping.
 EDITABLE_FORMATS = {"docx", "tex", "txt", "md"}
@@ -279,3 +301,88 @@ def _run_formatting(data: bytes, *, skip: int) -> list[tuple]:
 
 def _squash(text: str) -> str:
     return "".join(ch for ch in text.lower() if ch.isalnum())
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Nothing to edit in place
+#
+# Two ordinary flows post an edited document with no original bytes behind it,
+# and both used to be handled as though there were:
+#
+#   - a **pasted** CV, which never had a file at all;
+#   - the **rebuilt** CV, which the browser deliberately does not send the
+#     uploaded file for, because the second document is not that file.
+#
+# The edit path parsed the empty bytes, concluded nothing had changed, and
+# returned them — so the download was a zero-byte file for .txt, .md and .tex,
+# and a `BadZipFile` crash for .docx. Silence and a crash, for the same cause.
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.parametrize("fmt", sorted(EDITABLE_FORMATS | {"pdf"}))
+def test_export_without_the_original_produces_a_real_file(fmt: str) -> None:
+    document = parse_pasted(PASTED_CV)
+    document.source_format = fmt  # type: ignore[assignment]
+    document.source_filename = f"cv.{fmt}"
+
+    result = export_cv(b"", document, fmt)
+
+    assert result.data, f"{fmt} exported an empty file"
+    assert len(result.data) > 200
+
+
+@pytest.mark.parametrize("target", ["docx", "pdf", "tex", "md", "txt", None])
+def test_a_pasted_cv_downloads_in_every_format(target: str | None) -> None:
+    document = parse_pasted(PASTED_CV)
+
+    result = export_cv(b"", document, target)
+
+    assert result.data
+    # There was never a file to preserve, so this is a new document and the
+    # response has to say so — the UI shows that note to the person.
+    assert result.rebuilt
+    assert result.notes
+
+
+def test_export_without_the_original_keeps_the_content() -> None:
+    document = parse_pasted(PASTED_CV)
+
+    text = export_cv(b"", document, "txt").data.decode("utf-8")
+
+    assert "Kalyra" in text
+    assert "12 weeks to 6" in text
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# A claimed line survives the trip back
+#
+# The browser owns the document for the whole editing session and posts it back
+# at export, so it is the other author of this model. When somebody adds a line
+# through the skill-gap flow it arrives carrying a synthetic anchor whose origin
+# the server had never been taught — and the export refused the whole document
+# with "Aptly could not read the edited CV", at the moment they were trying to
+# download their work.
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_a_claimed_line_validates_and_exports() -> None:
+    document = parse_pasted(PASTED_CV)
+    section = next(s for s in document.sections if s.kind == "skills")
+    section.loose_nodes.append(
+        TextNode(
+            id="claim_1a2b3c",
+            role="skill_line",
+            text="Ran the nightly deploy on Kubernetes at Kalyra, across three environments.",
+            anchor=SyntheticAnchor(origin="claim"),
+        )
+    )
+
+    # Exactly what the browser posts, and exactly how the endpoint reads it.
+    revalidated = CVDocument.model_validate_json(document.model_dump_json())
+
+    assert "Kubernetes" in export_cv(b"", revalidated, "txt").data.decode("utf-8")
+
+
+def test_a_claimed_line_is_never_written_through_to_the_original() -> None:
+    # It has no address in the uploaded file, because it was never in it.
+    assert not is_writable(SyntheticAnchor(origin="claim"))

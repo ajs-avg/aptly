@@ -67,6 +67,25 @@ def export_cv(original: bytes, document: CVDocument, target: str | None = None) 
     fmt = document.source_format
     if target and target != fmt:
         return _rebuild_as(document, target)
+
+    # No original bytes means there is no original to edit, so the only honest
+    # export is a rebuild — and saying so is the whole point of `rebuilt`.
+    #
+    # Two ordinary flows arrive here with nothing:
+    #
+    # - A **pasted** CV. There was never a file; `source_format` is only "txt"
+    #   because that is what pasted text is.
+    # - The **rebuilt** CV, either way it was started. The browser deliberately
+    #   sends the uploaded file only for the tailored side, because the second
+    #   document is not that file and must not be written through it.
+    #
+    # Falling into the edit path with empty bytes did not fail loudly. It parsed
+    # nothing, concluded nothing had changed, and returned the empty original —
+    # so downloading a pasted CV as .txt or .md handed over a **zero-byte file**.
+    # For .docx it did fail loudly, deep in the exporter, with `BadZipFile`.
+    if not original:
+        return _rebuild_as(document, target or fmt)
+
     changed = changed_nodes(original, document)
     stem = _stem(document.source_filename)
 

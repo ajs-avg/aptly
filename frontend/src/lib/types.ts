@@ -53,11 +53,47 @@ export const EDITABLE_ROLES: ReadonlySet<NodeRole> = new Set([
   "freeform",
 ]);
 
+/**
+ * Why a piece of text has no address in the uploaded file.
+ *
+ * Mirrors `SyntheticAnchor.origin` on the server, and must keep mirroring it.
+ * This side is not only a reader of the model — it holds the document for the
+ * whole editing session and posts it back at export — so an origin invented
+ * here that the server cannot name is rejected as a malformed document, at the
+ * exact moment somebody is trying to download their work. That is not a
+ * hypothetical: `"claim"` was minted here and never added there, and every
+ * download after using "Add what is missing" failed with "Aptly could not read
+ * the edited CV".
+ */
+export type SyntheticOrigin = "vision" | "redesign" | "claim";
+
+/**
+ * Where a node came from in the original file.
+ *
+ * Discriminated on `kind` against the five the server defines, because that is
+ * what makes the check work: a union whose other arm is `{ kind: string }`
+ * accepts a malformed synthetic anchor happily, since `Exclude<string, "…">` is
+ * still `string` and matches everything.
+ *
+ * Only the synthetic case spells out its fields. The rest are opaque on purpose
+ * — a docx run span and a PDF bounding box are the server's business, and this
+ * side only ever passes them back untouched. What it *mints* has to be typed,
+ * and the synthetic one is the only thing it mints.
+ */
+export type Anchor =
+  | {
+      kind: "synthetic";
+      origin: SyntheticOrigin;
+      index?: number;
+      page?: number | null;
+    }
+  | ({ kind: "docx" | "tex" | "pdf" | "text" } & Record<string, unknown>);
+
 export interface TextNode {
   id: string;
   role: NodeRole;
   text: string;
-  anchor: { kind: string; [key: string]: unknown };
+  anchor: Anchor;
 }
 
 export interface Entry {

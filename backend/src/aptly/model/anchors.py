@@ -74,14 +74,17 @@ class TextAnchor(BaseModel):
 class SyntheticAnchor(BaseModel):
     """Text with no address in any source file.
 
-    Two things produce it, and both are cases where an in-place edit is not a
-    conservative choice but a wrong one:
+    Three things produce it, and all three are cases where an in-place edit is
+    not a conservative choice but a wrong one:
 
     - **Vision.** A CV read from pixels never had a character span to return to.
       There is no run to rewrite, no line number to patch.
     - **Redesign.** Once a bullet has been moved under a different heading, its
       old anchor points at where it *used to* live. Writing through it would put
       the new text back in the old place.
+    - **Claim.** A line the person wrote themselves in the skill-gap flow, about
+      work their CV did not already show. It is new text by definition: there is
+      no span in the uploaded file where it belongs, because it was never there.
 
     Carrying that as a distinct anchor kind means the exporter can detect it
     structurally instead of inferring it, and tell the user plainly that this
@@ -89,7 +92,13 @@ class SyntheticAnchor(BaseModel):
     """
 
     kind: Literal["synthetic"] = "synthetic"
-    origin: Literal["vision", "redesign"]
+    #: Keep in step with `addClaim` and friends in `frontend/src/lib/document.ts`.
+    #: The browser is the other author of this model — it holds the document for
+    #: the whole editing session and posts it back at export — so an origin it
+    #: can mint and this cannot name fails validation at the one moment the
+    #: person is trying to download their work. That is exactly how "claim" came
+    #: to be missing here.
+    origin: Literal["vision", "redesign", "claim"]
     #: Reading order at the time it was created. Purely for stable sorting.
     index: int = 0
     page: int | None = None
