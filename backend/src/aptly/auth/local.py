@@ -14,7 +14,12 @@ from __future__ import annotations
 
 from uuid import UUID, uuid5
 
-from aptly.auth.cookies import ANON_COOKIE, SESSION_COOKIE, CookieSigner
+from aptly.auth.cookies import (
+    ANON_COOKIE,
+    SESSION_COOKIE,
+    SESSION_TTL_SECONDS,
+    CookieSigner,
+)
 from aptly.config import Settings
 from aptly.errors import ConfigurationError
 from aptly.logging import get_logger
@@ -48,7 +53,10 @@ class LocalAuth:
             )
         owner_id = uuid5(_DEV_NAMESPACE, email)
         log.info("auth.local_sign_in", email=email, profile_id=str(owner_id))
-        return self._signer.sign({"sub": email, "oid": str(owner_id)}), owner_id
+        return (
+            self._signer.sign({"sub": email, "oid": str(owner_id)}, SESSION_TTL_SECONDS),
+            owner_id,
+        )
 
     def new_anon_token(self, anon_id: UUID) -> str:
         return self._signer.sign({"anon": str(anon_id)})
