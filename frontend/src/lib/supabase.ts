@@ -116,6 +116,33 @@ export async function sendMagicLink(email: string, redirectTo: string): Promise<
     : { ok: true, message: "Link sent. Open it on this device to finish signing in." };
 }
 
+/**
+ * Start a password reset.
+ *
+ * The one path a sign-in page cannot do without. Somebody who has forgotten
+ * their password has no way back in, and "create an account" is the wrong
+ * answer — Supabase refuses a second account on the same address, so they hit a
+ * dead end twice.
+ *
+ * The reply is deliberately the same whether or not the address is one we know.
+ * Anything else turns this box into a way to ask "does this person have an
+ * account here?", and the answer to that is nobody's business.
+ */
+export async function sendPasswordReset(
+  email: string,
+  redirectTo: string,
+): Promise<AuthResult> {
+  const supabase = client();
+  if (!supabase) return { ok: false, message: "Sign-in is not configured on this deployment." };
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+  if (error) return { ok: false, message: readable(error.message) };
+  return {
+    ok: true,
+    message: "If that address has an account, a reset link is on its way to it.",
+  };
+}
+
 export async function signOutEverywhere(): Promise<void> {
   await client()?.auth.signOut();
 }
