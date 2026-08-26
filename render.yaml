@@ -136,3 +136,23 @@ services:
           name: aptly-api
           type: web
           property: host
+
+      # The browser's half of Supabase Auth, and it has to be set in the same
+      # breath as the API's half.
+      #
+      # The two halves decide independently whether real authentication is on —
+      # the API from SUPABASE_URL / SUPABASE_JWT_SECRET, the browser from these
+      # — and a mismatch fails silently in both directions. Set on the API only,
+      # the browser shows the development email box and the API answers it with
+      # "this deployment uses Supabase Auth", so nobody can sign in at all. Set
+      # here only, the browser sends a bearer token the API never looks at, so
+      # sign-in appears to work and the Library is empty forever.
+      #
+      # The anon key is publishable by design — it ends up in the bundle either
+      # way, and row-level security is what protects the data. It is `sync:
+      # false` because it belongs to a project, not to this blueprint. The JWT
+      # *secret* is a real secret and never goes here; it lives on the API.
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false

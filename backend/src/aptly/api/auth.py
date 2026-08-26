@@ -19,7 +19,6 @@ from aptly.api.deps import (
 )
 from aptly.auth import get_auth
 from aptly.auth.local import LocalAuth
-from aptly.config import get_settings
 from aptly.db import repository
 from aptly.errors import AptlyError
 from aptly.logging import get_logger
@@ -95,8 +94,17 @@ async def sign_out(response: Response) -> Session:
 
 @router.get("/session", response_model=Session)
 async def whoami(caller: CallerDep) -> Session:
+    # Asked of the provider, not re-derived from one setting.
+    #
+    # This used to read `not supabase_jwt_secret`, which is a different question
+    # from the one `get_auth` answers: a project that signs asymmetrically has no
+    # shared secret at all and is configured by SUPABASE_URL alone. With only
+    # that set, the API was verifying Supabase tokens while this endpoint
+    # reported the development sign-in — so the one call you would make to find
+    # out which mode a deployment is in gave the wrong answer for the newer of
+    # the two Supabase projects.
     return Session(
         signed_in=caller.is_authenticated,
         email=caller.email,
-        development_mode=not get_settings().supabase_jwt_secret,
+        development_mode=isinstance(get_auth(), LocalAuth),
     )
