@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 
+import { ApiError, signIn } from "@/lib/api";
 import { Nav } from "@/components/marketing/Nav";
 import { EASE, SPRING } from "@/components/motion/primitives";
 import {
@@ -167,10 +168,12 @@ function SignIn() {
               className="text-balance font-display font-semibold tracking-[-0.03em] text-ink"
               style={{ fontSize: "clamp(1.75rem, 6vw, 2.25rem)", lineHeight: 1.1 }}
             >
-              {copy.title}
+              {authConfigured ? copy.title : "Sign in"}
             </h1>
             <p className="mx-auto max-w-xs pt-2.5 text-sm leading-relaxed text-slate">
-              {copy.blurb}
+              {authConfigured
+                ? copy.blurb
+                : "Your email is enough here. Everything you tailor from now on is kept against it."}
             </p>
           </div>
 
@@ -326,7 +329,7 @@ function SignIn() {
                 </div>
               </div>
             ) : (
-              <Unconfigured />
+              <DevelopmentSignIn next={next} />
             )}
           </div>
 
@@ -385,30 +388,97 @@ function Secondary({
 }
 
 /**
- * What this page says where no Supabase project is configured.
+ * Signing in where no Supabase project is configured.
  *
- * Which is every local checkout. Rendering a form that cannot possibly work is
- * how somebody spends ten minutes deciding their password is wrong.
+ * This page used to stop here and say "accounts are not set up yet", which was
+ * true about Supabase and wrong about the deployment: there *is* a working
+ * sign-in in this mode — email only, no password — and it was reachable from a
+ * small box tucked into the Library's toolbar and nowhere else. So the page
+ * everybody navigates to in order to sign in was the one place that could not.
+ *
+ * The same sign-in lives here now. What it cannot do is pretend to be the other
+ * one: it has no password, so anybody who knows an address can open that
+ * account, and the warning says so in those words rather than as "development
+ * mode", which reads as a reassurance to anyone who does not already know what
+ * it means.
  */
-function Unconfigured() {
+function DevelopmentSignIn({ next }: { next: string }) {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await signIn(email);
+      router.push(next);
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError
+          ? caught.message
+          : "Aptly could not reach the server to sign you in.",
+      );
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="rounded-2xl bg-raised p-5 shadow-hero ring-1 ring-ink/5 sm:p-6">
-      <h2 className="font-display text-lg font-semibold text-ink">
-        Accounts are not set up here yet.
-      </h2>
-      <p className="pt-2 text-sm leading-relaxed text-slate">
-        This deployment has no Supabase project behind it, so there is nothing to
-        sign in to. Everything else works.
-      </p>
-      <ul className="cv-literal space-y-1 rounded-lg bg-sunken px-3.5 py-3 text-2xs text-slate [margin-top:1rem]">
-        <li>NEXT_PUBLIC_SUPABASE_URL</li>
-        <li>NEXT_PUBLIC_SUPABASE_ANON_KEY</li>
-      </ul>
+      <form onSubmit={submit}>
+        <Field
+          label="Email"
+          type="email"
+          value={email}
+          onChange={setEmail}
+          autoComplete="email"
+          placeholder="you@example.com"
+          required
+          autoFocus
+        />
+
+        {error && (
+          <p
+            role="alert"
+            className="mt-4 rounded-lg bg-danger-soft px-3.5 py-2.5 text-sm leading-relaxed text-danger"
+          >
+            {error}
+          </p>
+        )}
+
+        <button
+          type="submit"
+          disabled={busy}
+          className="mt-5 inline-flex h-12 w-full items-center justify-center rounded-pill bg-signal font-display text-sm font-medium text-paper shadow-float transition-colors hover:bg-signal-hover disabled:opacity-50"
+        >
+          {busy ? "One moment…" : "Continue"}
+        </button>
+      </form>
+
+      <div className="mt-5 rounded-lg bg-amber-soft px-3.5 py-3">
+        <p className="font-display text-2xs font-semibold uppercase tracking-[0.1em] text-amber-ink">
+          No password on this deployment
+        </p>
+        <p className="pt-1.5 text-2xs leading-relaxed text-ink/80">
+          Anyone who types your address can open your applications. Fine for
+          trying Aptly out; do not keep anything here you would mind a stranger
+          reading.
+        </p>
+        <p className="pt-2 text-2xs leading-relaxed text-slate">
+          Real accounts need a Supabase project —{" "}
+          <span className="cv-literal">NEXT_PUBLIC_SUPABASE_URL</span> and{" "}
+          <span className="cv-literal">NEXT_PUBLIC_SUPABASE_ANON_KEY</span> on the
+          web service, <span className="cv-literal">SUPABASE_URL</span> on the API.
+        </p>
+      </div>
+
       <Link
         href="/tailor"
-        className="mt-5 inline-flex h-12 w-full items-center justify-center rounded-pill bg-signal font-display text-sm font-medium text-paper transition-colors hover:bg-signal-hover"
+        className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-pill font-display text-sm text-ink ring-1 ring-hairline transition-colors hover:bg-sunken"
       >
-        Tailor a CV instead
+        Skip — tailor a CV without an account
       </Link>
     </div>
   );
