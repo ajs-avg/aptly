@@ -130,9 +130,16 @@ export function Nav() {
           >
             Library
           </Link>
+
+          {/* On the bar at every width, not behind the menu button.
+              Sign in is a destination people arrive already looking for, and
+              putting it behind `lg` — as this briefly did — means anyone on a
+              laptop with a window narrower than 1024px has to guess that it
+              lives under a hamburger. It reads as the page not existing. It
+              costs about fifty pixels, and there is room for it even at 320. */}
           <Link
             href="/sign-in"
-            className="hidden rounded-pill px-2.5 py-2 font-display text-xs text-slate transition-colors hover:bg-sunken hover:text-ink lg:inline-flex"
+            className="inline-flex shrink-0 whitespace-nowrap rounded-pill px-2.5 py-2 font-display text-xs text-slate transition-colors hover:bg-sunken hover:text-ink"
           >
             Sign in
           </Link>
@@ -182,6 +189,9 @@ export function Nav() {
               ))}
             </div>
 
+            {/* Sign in is not repeated here — it is on the bar at every width
+                now, and a menu that duplicates a visible control is a second
+                place for the same thing to be. */}
             <div className="mt-2 flex items-center gap-2 border-t border-hairline pt-2">
               <Link
                 href="/library"
@@ -189,13 +199,6 @@ export function Nav() {
                 className="flex flex-1 items-center justify-center rounded-2xl px-3 py-3 font-display text-sm text-slate transition-colors hover:bg-sunken hover:text-ink"
               >
                 Library
-              </Link>
-              <Link
-                href="/sign-in"
-                onClick={() => setOpen(false)}
-                className="flex flex-1 items-center justify-center rounded-2xl px-3 py-3 font-display text-sm text-slate transition-colors hover:bg-sunken hover:text-ink"
-              >
-                Sign in
               </Link>
               {/* The one control that belongs in here on a phone and on the bar
                   from `md` up. It is a preference, not a destination, so it
