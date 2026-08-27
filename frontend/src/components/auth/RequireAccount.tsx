@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-import { authConfigured, client, currentSession } from "@/lib/supabase";
+import { useAccount } from "@/lib/account";
 
 /**
  * The app, behind an account.
@@ -13,82 +13,39 @@ import { authConfigured, client, currentSession } from "@/lib/supabase";
  * wanted to *keep* it — and that is still the better funnel. This gate is a
  * product decision to require one up front instead.
  *
+ * It used to stand aside entirely wherever Supabase was not configured, on the
+ * grounds that there was nothing to sign in to. That was true of Supabase and
+ * false of the deployment: the development sign-in is a real session with a
+ * real profile behind it, so the gate simply was not running anywhere it was
+ * actually deployed. Pressing "Tailor a CV" signed out opened the CV screen,
+ * and the work went to an anonymous session that the next sign-in would have to
+ * claim.
+ *
+ * Both modes now go through `useAccount`, which is also what the nav reads — so
+ * the gate and the button that leads to it can no longer disagree about whether
+ * somebody is signed in.
+ *
  * Two things it must not do:
  *
- * **Lock out a deployment with no auth.** Where Supabase is not configured
- * there is nothing to sign in to, so the gate stands aside entirely. Otherwise
- * every local checkout becomes an unopenable door.
+ * **Redirect on a maybe.** "Unknown" is a third state, distinct from "signed
+ * out", and only the second should send anybody anywhere. Treating them the
+ * same bounces a signed-in person to the sign-in page on every reload, for the
+ * moment it takes to read a token.
  *
  * **Flash the page before redirecting.** Somebody signed out would otherwise
- * see the CV they cannot use for a frame, which reads as the app breaking. The
- * children render only once the session is known to exist.
+ * see the CV screen for a frame, which reads as the app breaking.
  */
 export function RequireAccount({ children }: { children: React.ReactNode }) {
+  const account = useAccount();
   const router = useRouter();
   const pathname = usePathname();
 
-  // `undefined` while unknown, deliberately distinct from `false`. The two mean
-  // "still asking" and "definitely signed out", and only the second should
-  // redirect — treating them the same bounces a signed-in person to the
-  // sign-in page on every reload.
-  const [allowed, setAllowed] = useState<boolean | undefined>(
-    authConfigured ? undefined : true,
-  );
-
   useEffect(() => {
-    if (!authConfigured) return;
+    if (account.status !== "out") return;
+    router.replace(`/sign-in?next=${encodeURIComponent(pathname)}`);
+  }, [account.status, pathname, router]);
 
-    let live = true;
-
-    void currentSession().then((session) => {
-      if (!live) return;
-      if (session) {
-        setAllowed(true);
-        return;
-      }
-      setAllowed(false);
-      router.replace(`/sign-in?next=${encodeURIComponent(pathname)}`);
-    });
-
-    // Signing out in another tab, or a refresh token that finally expires,
-    // should close this tab's door too rather than leaving a dead session
-    // whose every API call quietly returns nothing.
-    //
-    // But only on `SIGNED_OUT`, and that distinction is the difference between
-    // staying signed in and not. Supabase emits several events with a null
-    // session that do not mean the person has been signed out — a token refresh
-    // that failed because the tab was offline for a moment, or was asleep, is
-    // the common one, and treating it as a sign-out threw somebody out of a CV
-    // they were editing and made them log in again. A failed refresh is
-    // retried; an expired refresh token arrives here as `SIGNED_OUT`.
-    const subscription = client()?.auth.onAuthStateChange((event, session) => {
-      if (!live) return;
-      if (session) {
-        setAllowed(true);
-        return;
-      }
-      if (event !== "SIGNED_OUT") return;
-      setAllowed(false);
-      router.replace(`/sign-in?next=${encodeURIComponent(pathname)}`);
-    });
-
-    // A tab that has been in the background for hours comes back with an access
-    // token that expired while nothing was running. Asking for the session on
-    // return refreshes it before the first API call is made with a dead one —
-    // otherwise the Library loads empty and reads as having been signed out.
-    const onVisible = () => {
-      if (document.visibilityState === "visible") void currentSession();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-
-    return () => {
-      live = false;
-      document.removeEventListener("visibilitychange", onVisible);
-      subscription?.data.subscription.unsubscribe();
-    };
-  }, [pathname, router]);
-
-  if (!allowed) return <Waiting />;
+  if (account.status !== "in") return <Waiting />;
   return <>{children}</>;
 }
 

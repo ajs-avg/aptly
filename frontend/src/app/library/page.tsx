@@ -6,24 +6,20 @@ import { AnimatePresence } from "motion/react";
 
 import { RecordPanel } from "@/components/library/RecordPanel";
 import { RecordRow } from "@/components/library/RecordRow";
+import { AccountButton } from "@/components/marketing/AccountButton";
 import { AppBar, BarLink } from "@/components/app/AppBar";
 import { RequireAccount } from "@/components/auth/RequireAccount";
-import { authConfigured, signOutEverywhere } from "@/lib/supabase";
 import {
   ApiError,
   deleteRecord,
   getRecord,
-  getSession,
   listRecords,
-  signIn,
-  signOut,
   updateRecord,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
   STATUS_LABEL,
   STATUS_ORDER,
-  type AuthSession,
   type RecordDetail,
   type RecordStatus,
   type RecordSummary,
@@ -40,8 +36,6 @@ import {
 function LibraryScreen() {
   const [records, setRecords] = useState<RecordSummary[]>([]);
   const [selected, setSelected] = useState<RecordDetail | null>(null);
-  const [session, setSession] = useState<AuthSession | null>(null);
-  const [anonymous, setAnonymous] = useState(true);
 
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<string | null>(null);
@@ -60,7 +54,6 @@ function LibraryScreen() {
           status: statusFilter ?? undefined,
         });
         setRecords(page.records);
-        setAnonymous(page.anonymous);
         setError(null);
       } catch (caught) {
         const apiError = caught as ApiError;
@@ -71,12 +64,6 @@ function LibraryScreen() {
     },
     [],
   );
-
-  useEffect(() => {
-    getSession()
-      .then(setSession)
-      .catch(() => {});
-  }, []);
 
   // Searching on every keystroke would hammer the API; waiting for a submit
   // makes it feel dead. A short debounce is the honest middle.
@@ -126,20 +113,7 @@ function LibraryScreen() {
 
   return (
     <div className="min-h-dvh bg-mist">
-      <TopBar
-        session={session}
-        anonymous={anonymous}
-        recordCount={records.length}
-        onSignedIn={(next) => {
-          setSession(next);
-          void refresh(query, status);
-        }}
-        onSignedOut={(next) => {
-          setSession(next);
-          setSelected(null);
-          void refresh("", null);
-        }}
-      />
+      <TopBar recordCount={records.length} />
 
       {/* `max-w-ultra`, from the shared ladder, rather than the 100rem it used
           to pick for itself. A page that invents its own measure is a page that
@@ -255,157 +229,41 @@ function LibraryScreen() {
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
-function TopBar({
-  session,
-  anonymous,
-  recordCount,
-  onSignedIn,
-  onSignedOut,
-}: {
-  session: AuthSession | null;
-  anonymous: boolean;
-  recordCount: number;
-  onSignedIn: (session: AuthSession) => void;
-  onSignedOut: (session: AuthSession) => void;
-}) {
-  const [email, setEmail] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [claimed, setClaimed] = useState<number | null>(null);
-
-  const submit = async () => {
-    if (!email.includes("@")) return;
-    setBusy(true);
-    try {
-      const next = await signIn(email);
-      setClaimed(next.claimed);
-      onSignedIn(next);
-    } catch {
-      // The inline hint below is enough; a failed dev sign-in is not an event.
-    } finally {
-      setBusy(false);
-    }
-  };
-
+/**
+ * The Library's bar.
+ *
+ * It used to carry a sign-in form, a sign-out button, an email address and two
+ * notices about anonymous work — a second, parallel account interface, with its
+ * own copy of the session, that the nav knew nothing about. Signing out here
+ * left the nav still showing an account, which is what made the button look
+ * broken: it worked, and then half the screen carried on disagreeing with it.
+ *
+ * All of it is gone. The page is behind `RequireAccount` in both modes now, so
+ * nobody reaches it signed out and there is no anonymous state left to explain,
+ * and the account lives in one control that every screen shares.
+ */
+function TopBar({ recordCount }: { recordCount: number }) {
   return (
-    <>
-      <AppBar
-        brandHref="/"
-        context="Library"
-        // The same measure the two columns below it use, so the wordmark sits
-        // over the left edge of the list rather than near it.
-        width="ultra"
-        status={
-          recordCount > 0 ? (
-            <span
-              className="shrink-0 whitespace-nowrap pr-1 text-2xs text-slate"
-              data-numeric
-            >
-              {recordCount} {recordCount === 1 ? "application" : "applications"}
-            </span>
-          ) : null
-        }
-      >
-        <BarLink href="/tailor">Tailor a CV</BarLink>
-
-        {session?.signed_in ? (
-          <>
-            <span className="hidden max-w-[14ch] truncate px-1 text-2xs text-slate lg:inline">
-              {session.email}
-            </span>
-            <button
-              type="button"
-              onClick={async () => {
-                // Both, in this order. Supabase holds the token in local
-                // storage and the API holds the session cookie; clearing one
-                // and not the other leaves somebody signed in to half the
-                // product, which reads as a bug rather than as a sign-out.
-                if (authConfigured) await signOutEverywhere();
-                onSignedOut(await signOut());
-              }}
-              className="inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-pill px-3 font-display text-xs text-slate transition-colors hover:bg-sunken hover:text-ink"
-            >
-              Sign out
-            </button>
-          </>
-        ) : (
-          // Real accounts: the sign-in page owns this, because a password field
-          // belongs on a page rather than in a toolbar. Where Supabase is not
-          // configured the same button is a no-op destination, so the
-          // development form sits under the bar instead — see below.
-          authConfigured && (
-            <BarLink href="/sign-in?next=/library">Keep these</BarLink>
-          )
-        )}
-      </AppBar>
-
-      {/*
-        * The development sign-in — email only, no password, refuses to run in
-        * production — on its own row rather than inside the bar.
-        *
-        * A text field is the one control that cannot shrink to fit: it is as
-        * wide as the address someone has to be able to read back. In the bar it
-        * left a phone carrying a wordmark, a primary action, a 10rem input and
-        * a submit button in 366px, and the submit button ended up off the end.
-        * Under the bar it has a whole row to itself at every width, which is
-        * what the comment above already says about the real sign-in.
-        */}
-      {!authConfigured && !session?.signed_in && (
-        <div className="gutter-bar mx-auto max-w-ultra pt-2">
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              void submit();
-            }}
-            className="flex items-center gap-2 rounded-pill bg-raised/85 px-2 py-2 shadow-raised ring-1 ring-ink/5 backdrop-blur-xl"
+    <AppBar
+      brandHref="/"
+      context="Library"
+      // The same measure the two columns below it use, so the wordmark sits
+      // over the left edge of the list rather than near it.
+      width="ultra"
+      status={
+        recordCount > 0 ? (
+          <span
+            className="shrink-0 whitespace-nowrap pr-1 text-2xs text-slate"
+            data-numeric
           >
-            <label htmlFor="dev-sign-in" className="sr-only">
-              Email address
-            </label>
-            <input
-              id="dev-sign-in"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@example.com"
-              // 16px. Anything smaller and iOS zooms the page in on focus, and
-              // the way back out is not obvious.
-              className="h-9 min-w-0 flex-1 rounded-pill bg-sunken px-3.5 text-[1rem] text-ink placeholder:text-slate/55 focus:outline-none focus:ring-1 focus:ring-signal sm:text-sm"
-            />
-            <button
-              type="submit"
-              disabled={busy}
-              className="inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-pill bg-ink px-4 font-display text-xs font-medium text-paper transition-colors hover:bg-ink-soft disabled:opacity-50"
-            >
-              {busy ? "…" : "Keep these"}
-            </button>
-          </form>
-        </div>
-      )}
-
-      {/* Two notices that only ever appear one at a time, sitting under the bar
-          rather than inside it — the bar has to stay a fixed height as state
-          changes, or the whole page jumps when you sign in. */}
-      {/* On the bar's own measure, like the bar. `mx-3` spans the display, so
-          on anything wide these ran out past both ends of the pill they belong
-          under. */}
-      {claimed !== null && claimed > 0 && (
-        <div className="gutter-bar mx-auto max-w-ultra pt-2">
-          <p className="rounded-pill bg-signal-soft px-4 py-1.5 text-center text-2xs text-signal">
-            {claimed} {claimed === 1 ? "item" : "items"} you saved before signing
-            in came with you.
-          </p>
-        </div>
-      )}
-
-      {anonymous && recordCount > 0 && !session?.signed_in && (
-        <div className="gutter-bar mx-auto max-w-ultra pt-2">
-          <p className="rounded-pill bg-amber-soft px-4 py-1.5 text-center text-2xs text-amber-ink">
-            These are saved to this browser for 7 days. Add an email to keep
-            them.
-          </p>
-        </div>
-      )}
-    </>
+            {recordCount} {recordCount === 1 ? "application" : "applications"}
+          </span>
+        ) : null
+      }
+    >
+      <BarLink href="/tailor">Tailor a CV</BarLink>
+      <AccountButton />
+    </AppBar>
   );
 }
 

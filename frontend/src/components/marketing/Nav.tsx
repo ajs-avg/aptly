@@ -5,7 +5,9 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useId, useRef, useState } from "react";
 
 import { EASE_QUICK, SPRING } from "@/components/motion/primitives";
+import { AccountButton } from "@/components/marketing/AccountButton";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { useAccount } from "@/lib/account";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
@@ -41,7 +43,23 @@ const LINKS = [
  * duplicating a row that is fully visible is a second way to do one thing.
  */
 export function Nav() {
+  const account = useAccount();
   const [scrolled, setScrolled] = useState(false);
+
+  /*
+   * Where "Tailor a CV" goes.
+   *
+   * Straight in when there is an account, and to the sign-in page when there is
+   * not — carrying where they were headed, so signing in lands them on the
+   * screen they pressed for rather than on a home page they have already read.
+   *
+   * The gate is on `/tailor` itself as well; this only saves somebody the
+   * bounce. While the answer is still unknown the link points at `/tailor`,
+   * because that is where the press means to go and the gate there will make
+   * the same decision with better information a moment later.
+   */
+  const tailorHref =
+    account.status === "out" ? "/sign-in?next=%2Ftailor" : "/tailor";
   const [open, setOpen] = useState(false);
   const menuId = useId();
   const shell = useRef<HTMLDivElement>(null);
@@ -124,29 +142,27 @@ export function Nav() {
         <div className="ml-auto flex shrink-0 items-center gap-1 lg:ml-0">
           <ThemeToggle className="mr-0.5 hidden md:inline-flex" />
 
-          <Link
-            href="/library"
-            className="hidden rounded-pill px-2.5 py-2 font-display text-xs text-slate transition-colors hover:bg-sunken hover:text-ink lg:inline-flex"
-          >
-            Library
-          </Link>
+          {/* Signed in it is a destination; signed out it is a promise about
+              a feature, and the account menu already offers it. */}
+          {account.status === "in" && (
+            <Link
+              href="/library"
+              className="hidden rounded-pill px-2.5 py-2 font-display text-xs text-slate transition-colors hover:bg-sunken hover:text-ink lg:inline-flex"
+            >
+              Library
+            </Link>
+          )}
 
-          {/* On the bar at every width, not behind the menu button.
-              Sign in is a destination people arrive already looking for, and
+          {/* On the bar at every width, not behind the menu button. Signed out
+              this is "Sign in", which people arrive already looking for;
               putting it behind `lg` — as this briefly did — means anyone on a
-              laptop with a window narrower than 1024px has to guess that it
-              lives under a hamburger. It reads as the page not existing. It
-              costs about fifty pixels, and there is room for it even at 320. */}
-          <Link
-            href="/sign-in"
-            className="inline-flex shrink-0 whitespace-nowrap rounded-pill px-2.5 py-2 font-display text-xs text-slate transition-colors hover:bg-sunken hover:text-ink"
-          >
-            Sign in
-          </Link>
+              window narrower than 1024px has to guess it lives under a
+              hamburger, and that reads as the page not existing. */}
+          <AccountButton />
 
           <Link
-            href="/tailor"
-            className="inline-flex h-9 items-center rounded-pill bg-ink px-3.5 font-display text-xs font-medium text-paper transition-colors hover:bg-ink-soft"
+            href={tailorHref}
+            className="inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-pill bg-ink px-3.5 font-display text-xs font-medium text-paper transition-colors hover:bg-ink-soft"
           >
             Tailor a CV
           </Link>
@@ -189,16 +205,16 @@ export function Nav() {
               ))}
             </div>
 
-            {/* Sign in is not repeated here — it is on the bar at every width
-                now, and a menu that duplicates a visible control is a second
-                place for the same thing to be. */}
+            {/* Neither the account nor Library is repeated here — both live on
+                the bar at every width now, and a menu that duplicates a visible
+                control is a second place for the same thing to be. */}
             <div className="mt-2 flex items-center gap-2 border-t border-hairline pt-2">
               <Link
-                href="/library"
+                href={tailorHref}
                 onClick={() => setOpen(false)}
                 className="flex flex-1 items-center justify-center rounded-2xl px-3 py-3 font-display text-sm text-slate transition-colors hover:bg-sunken hover:text-ink"
               >
-                Library
+                Tailor a CV
               </Link>
               {/* The one control that belongs in here on a phone and on the bar
                   from `md` up. It is a preference, not a destination, so it

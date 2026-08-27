@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 
+import { AccountButton } from "@/components/marketing/AccountButton";
 import { AppBar, BarLink } from "@/components/app/AppBar";
 import { RequireAccount } from "@/components/auth/RequireAccount";
 import { SPRING } from "@/components/motion/primitives";
@@ -324,7 +325,10 @@ function TailorScreen() {
         }
       >
         <BarLink href="/library">Library</BarLink>
-        <BarLink href="/sign-in?next=/library">Sign in</BarLink>
+        {/* The account, not a "Sign in" link. This screen is behind the gate,
+            so anybody reading it is signed in and being offered a way to sign
+            in again is the confusion this replaced. */}
+        <AccountButton />
         <button
           type="button"
           onClick={() => {

@@ -5,12 +5,12 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 
+import { refreshAccount, useAccount } from "@/lib/account";
 import { ApiError, signIn } from "@/lib/api";
 import { Nav } from "@/components/marketing/Nav";
 import { EASE, SPRING } from "@/components/motion/primitives";
 import {
   authConfigured,
-  currentSession,
   sendMagicLink,
   sendPasswordReset,
   signInWithPassword,
@@ -83,6 +83,7 @@ function SignIn() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const account = useAccount();
 
   const copy = COPY[mode];
 
@@ -93,17 +94,14 @@ function SignIn() {
    * second tab — was previously shown a sign-in form that would refuse them for
    * having an account. Sending them where they were going is the only sensible
    * reading of the request.
+   *
+   * Read from the account store rather than from Supabase directly, so it is
+   * true in the development mode too, where the session is a cookie this side
+   * cannot see.
    */
   useEffect(() => {
-    if (!authConfigured) return;
-    let live = true;
-    void currentSession().then((session) => {
-      if (live && session) router.replace(next);
-    });
-    return () => {
-      live = false;
-    };
-  }, [next, router]);
+    if (account.status === "in") router.replace(next);
+  }, [account.status, next, router]);
 
   const go = (to: Mode) => {
     setMode(to);
@@ -139,6 +137,7 @@ function SignIn() {
       setNotice(result.message);
       return;
     }
+    await refreshAccount();
     router.push(next);
   };
 
@@ -460,6 +459,10 @@ function DevelopmentSignIn({ next }: { next: string }) {
     setError(null);
     try {
       await signIn(email);
+      // Before navigating. The nav and the gate on the next screen both read
+      // the account store, and neither has any way to learn about a cookie the
+      // browser will not let them see.
+      await refreshAccount();
       router.push(next);
     } catch (caught) {
       setError(
