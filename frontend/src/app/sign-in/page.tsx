@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { refreshAccount, useAccount } from "@/lib/account";
 import { ApiError, resetPassword, signIn, signUp } from "@/lib/api";
 import { Nav } from "@/components/marketing/Nav";
+import { Showreel } from "@/components/marketing/Showreel";
 import { EASE, SPRING } from "@/components/motion/primitives";
 import {
   authConfigured,
@@ -202,36 +203,27 @@ function SignIn() {
               Be ready when they call.
             </h1>
 
-            <p className="max-w-md pt-4 text-pretty leading-relaxed text-slate" style={{ fontSize: "clamp(1rem, 1.15vw, 1.15rem)" }}>
-              A recruiter rings about something you sent five weeks ago. The job
-              post is gone from the site and you cannot remember which version you
-              sent. That is what this is for.
+            <p
+              className="max-w-md pt-4 text-pretty leading-relaxed text-slate"
+              style={{ fontSize: "clamp(1rem, 1.15vw, 1.15rem)" }}
+            >
+              A recruiter rings about something you sent five weeks ago. Here is
+              what your account has waiting.
             </p>
           </motion.div>
 
           {/* Under the headline on a wide screen, under the card on a narrow
               one. Either way it is read by somebody deciding whether to bother,
-              not by somebody already typing. */}
-          <motion.ul
+              and what decides that is seeing the thing work rather than being
+              told that it does. */}
+          <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...SPRING, delay: 0.14 }}
-            className="order-3 grid max-w-md gap-3 lg:order-none"
+            className="order-3 lg:order-none"
           >
-            {[
-              ["Every application", "With the CV you actually sent, not a copy of it."],
-              ["The post, frozen", "Exactly as it stood the day you applied."],
-              ["What to say", "Your fit points and the gaps to own, before the call."],
-            ].map(([title, body]) => (
-              <li key={title} className="flex items-start gap-3">
-                <Tick />
-                <p className="text-sm leading-relaxed text-slate">
-                  <span className="font-medium text-ink">{title}. </span>
-                  {body}
-                </p>
-              </li>
-            ))}
-          </motion.ul>
+            <Showreel />
+          </motion.div>
           </div>
 
           <motion.div
@@ -727,22 +719,5 @@ function Field({
         className="h-12 w-full rounded-lg bg-sunken px-3.5 text-[1rem] text-ink ring-1 ring-hairline transition-shadow placeholder:text-slate/55 focus:outline-none focus:ring-2 focus:ring-signal"
       />
     </div>
-  );
-}
-
-function Tick() {
-  return (
-    <svg
-      aria-hidden
-      viewBox="0 0 16 16"
-      className="mt-1 h-3.5 w-3.5 shrink-0 text-signal"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M2.5 8.5l3.5 3.5 7.5-8" />
-    </svg>
   );
 }
