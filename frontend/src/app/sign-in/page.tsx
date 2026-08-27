@@ -21,20 +21,16 @@ import { cn } from "@/lib/utils";
 /**
  * Signing in.
  *
- * One centred column, and that is the design decision rather than an absence of
- * one. A sign-in page has exactly one job, and the two-column arrangement it
- * replaces spent half the screen arguing for the account while the form — the
- * only thing anybody came here to use — sat in a narrow gutter on the right,
- * starting on a different line from the words beside it at every width between
- * the two breakpoints it was tuned for.
+ * Two columns on a wide screen: what an account is for on the left, the form on
+ * the right. A centred single column was tried in between and read as empty —
+ * a small card adrift in a page with nothing either side of it — which is the
+ * failure a sign-in page has when it says nothing while asking for something.
  *
- * Centred, there is one measure to get right instead of two to keep in step.
- * Every element in the card shares one left edge, the card shares its centre
- * with the nav above it, and nothing needs a breakpoint to stay aligned —
- * because there is nothing beside it to fall out of line with.
- *
- * The reasons to have an account still get made, underneath, where they are
- * read by somebody deciding rather than by somebody typing.
+ * What the two-column version had to fix was alignment, and it does that by
+ * construction rather than by eye: both columns are children of one grid row,
+ * so the headline and the top of the card start on the same line at every
+ * width. No column carries a hand-picked top padding to make it look level at
+ * one of them.
  */
 
 type Mode = "signin" | "signup" | "link" | "reset";
@@ -151,35 +147,109 @@ function SignIn() {
       <Nav />
 
       {/*
-       * One measure, `max-w-sm`, and everything inside shares it: the card, the
-       * heading above it, the reassurance below. That is what makes the column
-       * read as one object rather than as three that happen to be near each
-       * other — and it holds at 320px and at 2560 without a breakpoint, because
-       * a centred column has nothing to stay in step with.
+       * Two columns on a wide screen, one on a narrow one — and the order
+       * changes between them, which is the whole reason for the shape below.
+       *
+       * Wide: the pitch on the left, the card on the right, both starting at
+       * the top of the same row. Narrow: headline, then the card, then the
+       * reasons — because the form is what somebody came for and it should not
+       * sit under three paragraphs arguing that they should want it.
+       *
+       * So the left column's two halves are wrapped in `display: contents`
+       * until `lg`. Below that the wrapper is not a box at all and its children
+       * are direct children of this flex row, where `order` can put the card
+       * between them. At `lg` the wrapper becomes a real column and they stack
+       * inside it.
+       *
+       * The alternative — three grid cells with the card spanning both rows —
+       * is what this looked like twenty minutes ago, and a spanning card sets
+       * the height of the row above the reasons, so they landed most of a card
+       * further down the page with nothing in the gap.
        */}
-      <main className="gutter mx-auto flex max-w-sm flex-col pb-20 pt-10 sm:pt-16">
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={SPRING}
-        >
-          <div className="text-center">
-            <h1
-              className="text-balance font-display font-semibold tracking-[-0.03em] text-ink"
-              style={{ fontSize: "clamp(1.75rem, 6vw, 2.25rem)", lineHeight: 1.1 }}
-            >
-              {authConfigured ? copy.title : "Sign in"}
-            </h1>
-            <p className="mx-auto max-w-xs pt-2.5 text-sm leading-relaxed text-slate">
-              {authConfigured
-                ? copy.blurb
-                : "Your email is enough here. Everything you tailor from now on is kept against it."}
+      <main className="gutter mx-auto max-w-content pb-20 pt-10 sm:pt-14">
+        <div className="flex flex-col gap-10 lg:grid lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-start lg:gap-x-14 xl:gap-x-20">
+          <div className="contents lg:flex lg:flex-col lg:gap-10">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={SPRING}
+            className="order-1 lg:order-none"
+          >
+            <p className="flex items-center gap-2 font-display text-2xs font-medium uppercase tracking-[0.16em] text-signal">
+              <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-signal" />
+              Your account
             </p>
+
+            <h1
+              className="text-balance pt-5 font-display font-semibold tracking-[-0.035em] text-ink"
+              style={{ fontSize: "clamp(2rem, 4.6vw, 3rem)", lineHeight: 1.06 }}
+            >
+              Be ready when they call.
+            </h1>
+
+            <p className="max-w-md pt-4 text-pretty leading-relaxed text-slate" style={{ fontSize: "clamp(1rem, 1.15vw, 1.15rem)" }}>
+              A recruiter rings about something you sent five weeks ago. The job
+              post is gone from the site and you cannot remember which version you
+              sent. That is what this is for.
+            </p>
+          </motion.div>
+
+          {/* Under the headline on a wide screen, under the card on a narrow
+              one. Either way it is read by somebody deciding whether to bother,
+              not by somebody already typing. */}
+          <motion.ul
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...SPRING, delay: 0.14 }}
+            className="order-3 grid max-w-md gap-3 lg:order-none"
+          >
+            {[
+              ["Every application", "With the CV you actually sent, not a copy of it."],
+              ["The post, frozen", "Exactly as it stood the day you applied."],
+              ["What to say", "Your fit points and the gaps to own, before the call."],
+            ].map(([title, body]) => (
+              <li key={title} className="flex items-start gap-3">
+                <Tick />
+                <p className="text-sm leading-relaxed text-slate">
+                  <span className="font-medium text-ink">{title}. </span>
+                  {body}
+                </p>
+              </li>
+            ))}
+          </motion.ul>
           </div>
 
-          <div className="pt-7">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...SPRING, delay: 0.08 }}
+            className="order-2 lg:order-none"
+          >
+            {/* No top padding. The card's edge and the headline's cell both
+                start at the top of row 1, and any offset added here to make
+                them "look" level is an offset that is wrong at every width
+                except the one it was eyeballed at. */}
             {authConfigured ? (
               <div className="rounded-2xl bg-raised p-5 shadow-hero ring-1 ring-ink/5 sm:p-6">
+                {/* The card's own title, because it changes with the mode and
+                    the headline beside it does not. Height-animated so
+                    switching to a reset does not jolt the column. */}
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={mode}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={EASE}
+                    className="pb-5"
+                  >
+                    <h2 className="font-display text-lg font-semibold text-ink">
+                      {copy.title}
+                    </h2>
+                    <p className="pt-1 text-sm leading-relaxed text-slate">{copy.blurb}</p>
+                  </motion.div>
+                </AnimatePresence>
+
                 {/* Only where there is a choice to make. In reset and magic-link
                     the tabs would offer to switch away from the thing the person
                     has just chosen to do. */}
@@ -213,7 +283,7 @@ function SignIn() {
                   </div>
                 )}
 
-                <form onSubmit={submit} className={cn(NEEDS_PASSWORD.has(mode) && "pt-5")}>
+                <form onSubmit={submit} className={cn(NEEDS_PASSWORD.has(mode) && "pt-4")}>
                   <Field
                     label="Email"
                     type="email"
@@ -331,37 +401,13 @@ function SignIn() {
             ) : (
               <DevelopmentSignIn next={next} />
             )}
-          </div>
 
-          <p className="pt-6 text-center text-2xs leading-relaxed text-slate">
-            Your CV is read to tailor it and stored only against your own account.
-            Nothing is shared, and you can erase all of it in one click.
-          </p>
-        </motion.div>
-
-        {/* The argument for having an account, under the thing it is arguing
-            for. Somebody who arrived to sign in is not reading this; somebody
-            deciding whether to is, and they scroll. */}
-        <motion.ul
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ ...SPRING, delay: 0.1 }}
-          className="grid gap-2.5 pt-10"
-        >
-          {[
-            ["Every application", "With the CV you actually sent, not a copy of it."],
-            ["The post, frozen", "Exactly as it stood the day you applied."],
-            ["What to say", "Your fit points and the gaps to own, before the call."],
-          ].map(([title, body]) => (
-            <li key={title} className="flex items-start gap-3">
-              <Tick />
-              <p className="text-sm leading-relaxed text-slate">
-                <span className="font-medium text-ink">{title}. </span>
-                {body}
-              </p>
-            </li>
-          ))}
-        </motion.ul>
+            <p className="pt-5 text-2xs leading-relaxed text-slate">
+              Your CV is read to tailor it and stored only against your own
+              account. Nothing is shared, and you can erase all of it in one click.
+            </p>
+          </motion.div>
+        </div>
       </main>
     </div>
   );
