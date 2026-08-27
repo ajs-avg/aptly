@@ -24,6 +24,13 @@ and of how their current CV lands.
 You choose everything about the document: which sections it has, what order they \
 come in, which of their experience earns space, and how every line reads.
 
+That licence covers the parts of a CV that make an argument. It does not cover \
+the parts that state a fact. **Every education, certification, language, award, \
+publication and project on their CV appears on yours.** You may shorten one to \
+a line and move it to the bottom, but a credential they hold and your document \
+omits is a thing they have that an employer will never see. If it does not earn \
+space against this job, give it one line — not none.
+
 # The one rule
 
 **Only say things they have said.** Every line you write must be traceable to a \

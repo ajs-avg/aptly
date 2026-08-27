@@ -11,10 +11,14 @@ Structure inference lives here, once, so the same CV uploaded as .docx and as
 
 from __future__ import annotations
 
+import re
 import statistics
 from dataclasses import dataclass, field
 
 from aptly.ingest.sections import (
+    EMAIL,
+    PHONE,
+    URL,
     classify_heading,
     extract_contact_bits,
     is_bullet,
@@ -338,19 +342,13 @@ def _build_contact(header_lines: list[ParsedLine], *, all_lines: list[ParsedLine
     else:
         name_value = name
 
-    # "Berlin, Germany" — a short comma-joined phrase with no digits and no
-    # address sign is a place, not a job title or a contact row.
-    location = None
-    for ln in header_lines[1:]:
-        text = ln.text.strip()
-        if (
-            2 <= len(text.split()) <= 5
-            and "," in text
-            and "@" not in text
-            and not any(ch.isdigit() for ch in text)
-        ):
-            location = text
-            break
+    # The same wider net the email and phone get, and for the same reason. The
+    # detected header is often just the name — a CV that puts its city on its
+    # own line below is not recognised as having a three-line header, so
+    # searching only `header_lines` never saw the city at all. Bounded to the
+    # top of the document so a "Location:" line inside a job entry cannot be
+    # mistaken for where the person lives.
+    location = _read_location(header_lines) or _read_location(all_lines[:_CONTACT_WINDOW])
 
     return ContactBlock(
         name=name_value,
@@ -359,6 +357,78 @@ def _build_contact(header_lines: list[ParsedLine], *, all_lines: list[ParsedLine
         location=location,
         links=bits["links"],  # type: ignore[arg-type]
     )
+
+
+#: How far down to look for a contact detail before it stops being one. A CV
+#: puts its address block in the first few lines or not at all; past that, a
+#: line that looks like a place is the location of a *job*.
+_CONTACT_WINDOW = 6
+
+#: How a contact row separates its parts. The same set the entry-heading
+#: splitter uses, minus the comma — a comma is *inside* a place name
+#: ("Bengaluru, India") far more often than it is between two contact details.
+_CONTACT_PARTS = re.compile(r"\s*(?:\||·|•|—|–)\s*|\s{3,}")
+
+
+def _read_location(header_lines: list[ParsedLine]) -> str | None:
+    """Where they are, from the top of the CV.
+
+    Two layouts, and the first version only understood one of them.
+
+    **A line of its own.** "Berlin, Germany" under the name: a short
+    comma-joined phrase with no digits and no address sign.
+
+    **A segment of the contact row.** Far more common, and the case that was
+    being missed: `Bengaluru, India | +91 98765 43210 | aman@example.com`. The
+    whole-line test rejected it — the line has digits and an `@` — so the phone
+    and the email were read and the city between them was dropped. It then
+    never reached the rebuilt CV or the download, which is exactly the kind of
+    quiet loss that makes somebody stop trusting the export.
+
+    Inside a row that already carries an email or a phone, the segments are
+    contact details by construction. So the ones that are *not* an email, a
+    phone or a link are read as the place — which finds a bare "Bengaluru" as
+    readily as a comma-joined one, without having to guess at city names.
+    """
+    for line in header_lines:
+        text = line.text.strip()
+        if not text:
+            continue
+
+        parts = [p.strip() for p in _CONTACT_PARTS.split(text) if p and p.strip()]
+
+        # A row that carries a contact detail: read the leftovers.
+        if EMAIL.search(text) or PHONE.search(text):
+            for part in parts:
+                if EMAIL.search(part) or PHONE.search(part) or URL.search(part):
+                    continue
+                if _is_place(part):
+                    return part
+            continue
+
+        # A line of its own, which is the layout the original test was written
+        # for. Kept, because a CV that puts the city under the name has no
+        # contact row for the branch above to look inside.
+        if len(parts) == 1 and "," in text and _is_place(text):
+            return text
+
+    return None
+
+
+def _is_place(text: str) -> bool:
+    """Could this fragment be somewhere a person lives?
+
+    Deliberately shallow — no gazetteer, no guessing at city names. It only
+    rules out what a place demonstrably is not: something with a digit in it, an
+    address sign, or more words than a place is ever written with. A job title
+    sitting in a contact row would pass, and that is the accepted cost of not
+    shipping a list of every city on earth.
+    """
+    if not (1 <= len(text.split()) <= 5):
+        return False
+    if any(ch.isdigit() for ch in text):
+        return False
+    return "@" not in text and "/" not in text
 
 
 def _read_name(header_lines: list[ParsedLine]) -> str:

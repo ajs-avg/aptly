@@ -42,6 +42,7 @@ from aptly.rebuild.schemas import (
     DroppedLine,
     RebuildResult,
     RebuiltCV,
+    RebuiltEntry,
     RebuiltLine,
     RebuiltSection,
 )
@@ -89,6 +90,7 @@ async def rebuild_cv(
         reasons=sorted({item.reason for item in result.dropped}),
         output_tokens=completion.usage.output_tokens,
     )
+    result = carry_over_facts(result, document)
     return result, to_document(result, document), completion.usage
 
 
@@ -133,6 +135,124 @@ def _check(built: RebuiltCV, source: SourceMaterial) -> RebuildResult:
         sections=sections,
         dropped=dropped,
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Nothing about the person disappears
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: Sections that state a fact about the person rather than make a case for them.
+#:
+#: A certification is held or it is not. A language is spoken or it is not. A
+#: degree was awarded. These can be shortened, reordered, or moved down the
+#: page — but a CV that arrives without them is missing something true, and the
+#: person will not notice until an employer does.
+#:
+#: Experience and skills are deliberately absent. Those *are* the argument, and
+#: trimming a weak bullet is the tailoring working rather than failing.
+FACTUAL_SECTIONS: frozenset[str] = frozenset(
+    {
+        "education",
+        "certifications",
+        "languages",
+        "publications",
+        "awards",
+        "volunteering",
+        "projects",
+        "interests",
+    }
+)
+
+
+def _heading_text(entry) -> str:
+    """An entry's heading exactly as it was written on the CV.
+
+    Falls back to the parsed fields only when there is no heading node to read,
+    which happens for an entry assembled rather than parsed.
+    """
+    if entry.heading_nodes:
+        return " ".join(node.text.strip() for node in entry.heading_nodes if node.text.strip())
+    return " · ".join(part for part in (entry.role, entry.org) if part)
+
+
+def carry_over_facts(result: RebuildResult, original: CVDocument) -> RebuildResult:
+    """Put back any factual section the rebuild left out entirely.
+
+    The prompt tells the model it chooses which sections the document has, and
+    that licence is right for the parts that make an argument. Applied to
+    credentials it is silent data loss: a CV goes in with certifications,
+    languages and interests on it, the model decides they do not earn space
+    against this particular job, and the person downloads a document that is
+    missing things they actually have. Nobody reads a rebuilt CV line by line
+    against the original to notice.
+
+    So this is a backstop in code rather than another sentence in the prompt. A
+    prompt rule is a request; the model is free to weigh it against everything
+    else it was asked for, and under pressure it will. This cannot be weighed
+    against anything — a factual section that went in comes out.
+
+    Carried verbatim from the parsed original, so nothing here can invent: the
+    lines are the person's own, already on the CV they uploaded. Appended at the
+    end, because the model's ordering of what it *did* choose reflects a reading
+    of the job that is worth keeping.
+    """
+    present = {section.kind for section in result.sections}
+    restored: list[RebuiltSection] = []
+
+    for section in original.sections:
+        if section.kind not in FACTUAL_SECTIONS or section.kind in present:
+            continue
+
+        lines = [
+            RebuiltLine(text=node.text, drawn_from=node.text)
+            for node in section.loose_nodes
+            if node.text.strip()
+        ]
+        # The entry's *heading line*, not its parsed fields.
+        #
+        # Parsing an entry heading is lossy by design — it splits a line into a
+        # role, an organisation and a location, and a heading with more parts
+        # than that loses the surplus. "B.Tech, Computer Science, VIT - 2018"
+        # becomes role "B.Tech" and org "Computer Science", and the institution
+        # is gone. Reassembling from those fields would carry that loss into
+        # the very function whose job is to prevent loss, so the original line
+        # is used as written.
+        entries = [
+            RebuiltEntry(
+                title=title,
+                location=entry.location or "",
+                start=entry.start or "",
+                end=entry.end or "",
+                lines=[
+                    RebuiltLine(text=node.text, drawn_from=node.text)
+                    for node in entry.bullets
+                    if node.text.strip()
+                ],
+            )
+            for entry in section.entries
+            if (title := _heading_text(entry))
+        ]
+        if not lines and not entries:
+            continue
+
+        restored.append(
+            RebuiltSection(
+                kind=section.kind,  # type: ignore[arg-type]
+                title=section.title or section.kind.replace("_", " ").title(),
+                lines=lines,
+                entries=entries,
+            )
+        )
+
+    if not restored:
+        return result
+
+    log.info(
+        "rebuild.carried_over",
+        sections=[section.kind for section in restored],
+        reason="the rebuild omitted a factual section the original had",
+    )
+    return result.model_copy(update={"sections": [*result.sections, *restored]})
 
 
 def _survives(line: RebuiltLine, source: SourceMaterial, dropped: list[DroppedLine]) -> bool:
@@ -367,4 +487,4 @@ def _rebuilt_name(filename: str) -> str:
     return f"{stem or filename}-rebuilt.{extension}" if extension else f"{filename}-rebuilt"
 
 
-__all__ = ["RebuildResult", "rebuild_cv", "to_document"]
+__all__ = ["FACTUAL_SECTIONS", "RebuildResult", "carry_over_facts", "rebuild_cv", "to_document"]
