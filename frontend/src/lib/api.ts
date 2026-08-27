@@ -435,12 +435,50 @@ export async function deleteRecord(id: string): Promise<void> {
 
 // ── auth ──────────────────────────────────────────────────────────────────
 
-export async function signIn(email: string): Promise<AuthSession> {
+export async function signIn(
+  email: string,
+  password: string,
+): Promise<AuthSession> {
   const response = await call(`${API}/api/auth/sign-in`, {
     ...(await authed()),
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ email, password }),
+  });
+  if (!response.ok) await fail(response);
+  return response.json();
+}
+
+export async function signUp(
+  name: string,
+  email: string,
+  password: string,
+): Promise<AuthSession> {
+  const response = await call(`${API}/api/auth/sign-up`, {
+    ...(await authed()),
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, email, password }),
+  });
+  if (!response.ok) await fail(response);
+  return response.json();
+}
+
+/**
+ * Set a new password without proving the address, and sign in with it.
+ *
+ * The server decides whether this is allowed — see `direct_reset` on the
+ * session — and refuses in production, where the emailed link is the only way.
+ */
+export async function resetPassword(
+  email: string,
+  password: string,
+): Promise<AuthSession> {
+  const response = await call(`${API}/api/auth/reset-password`, {
+    ...(await authed()),
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
   });
   if (!response.ok) await fail(response);
   return response.json();

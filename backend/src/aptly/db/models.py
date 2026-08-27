@@ -92,6 +92,14 @@ class Profile(Base, TimestampMixin):
     auth_subject: Mapped[str] = mapped_column(String(320), unique=True, index=True)
     email: Mapped[str | None] = mapped_column(String(320), index=True)
     display_name: Mapped[str | None] = mapped_column(String(200))
+    #: scrypt, salted, with its cost written into the string. See
+    #: :mod:`aptly.auth.passwords`.
+    #:
+    #: Nullable, and it has to be: a profile authenticated by Supabase has no
+    #: password here and never will, because Supabase holds it. Null means "this
+    #: person does not sign in with a password", not "any password will do" —
+    #: `verify` returns False for it either way.
+    password_hash: Mapped[str | None] = mapped_column(String(255))
     target_roles: Mapped[list[str]] = mapped_column(default=list)
     preferences: Mapped[dict[str, Any]] = mapped_column(default=dict)
 

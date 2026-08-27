@@ -44,6 +44,23 @@ def client(tmp_path, monkeypatch) -> Iterator[TestClient]:
     db_session.get_sessionmaker.cache_clear()
 
 
+def _account(client, email: str):
+    """Sign in, creating the account on first sight.
+
+    These tests are about ownership and claiming rather than about credentials,
+    so they want "be this person" in one line. Sign-up is the call that does it;
+    a second visit for the same address is a sign-in.
+    """
+    password = f"passphrase-for-{email}"
+    created = client.post(
+        "/api/auth/sign-up",
+        json={"name": email.split("@")[0].title(), "email": email, "password": password},
+    )
+    if created.status_code == 200:
+        return created
+    return client.post("/api/auth/sign-in", json={"email": email, "password": password})
+
+
 def _save(client: TestClient, **overrides) -> dict:
     payload = {
         "job_text": JOB_TEXT,
@@ -118,7 +135,7 @@ def test_signing_in_brings_your_work_with_you(client: TestClient) -> None:
     """
     record = _save(client)
 
-    signed_in = client.post("/api/auth/sign-in", json={"email": "priya@example.com"}).json()
+    signed_in = _account(client, "priya@example.com").json()
     assert signed_in["signed_in"] is True
     assert signed_in["claimed"] >= 1
 
@@ -131,10 +148,10 @@ def test_signing_in_brings_your_work_with_you(client: TestClient) -> None:
 
 
 def test_signing_in_twice_reaches_the_same_library(client: TestClient) -> None:
-    client.post("/api/auth/sign-in", json={"email": "priya@example.com"})
+    _account(client, "priya@example.com")
     _save(client)
     client.post("/api/auth/sign-out")
-    client.post("/api/auth/sign-in", json={"email": "priya@example.com"})
+    _account(client, "priya@example.com")
 
     assert client.get("/api/records").json()["total_shown"] == 1
 
@@ -145,11 +162,11 @@ def test_one_persons_records_are_invisible_to_another(client: TestClient) -> Non
     SQLite has no row-level security to fall back on: a query that forgets its
     owner filter shows one applicant another's job search.
     """
-    client.post("/api/auth/sign-in", json={"email": "priya@example.com"})
+    _account(client, "priya@example.com")
     hers = _save(client)
     client.post("/api/auth/sign-out")
 
-    client.post("/api/auth/sign-in", json={"email": "daniel@example.com"})
+    _account(client, "daniel@example.com")
     assert client.get("/api/records").json()["total_shown"] == 0
     assert client.get(f"/api/records/{hers['id']}").status_code == 404
 
@@ -215,7 +232,7 @@ def test_a_record_can_be_deleted(client: TestClient) -> None:
 def test_erase_everything_leaves_nothing(client: TestClient) -> None:
     """The doc promises plain controls to delete everything, and a delete that
     leaves rows behind is worse than none."""
-    client.post("/api/auth/sign-in", json={"email": "priya@example.com"})
+    _account(client, "priya@example.com")
     _save(client)
     _save(client)
 
@@ -237,15 +254,18 @@ def test_erasing_everything_needs_an_account(client: TestClient) -> None:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def test_the_development_sign_in_refuses_to_run_in_production() -> None:
-    """It is a convenience, not authentication, and must never be mistaken for it."""
+def test_aptlys_own_sign_in_may_run_in_production() -> None:
+    """It refused to, and that refusal was right for what it was then: a
+    sign-in that took an email and nothing else, where knowing an address was
+    the same as owning the account.
+
+    It is a real password now, hashed with scrypt, so the ban is lifted. What
+    is still gated is the part that is still a stand-in — see
+    `test_production_refuses_a_reset_without_the_email_step`."""
     from aptly.auth.local import LocalAuth
     from aptly.config import Settings
-    from aptly.errors import ConfigurationError
 
-    settings = Settings(APTLY_ENV="production")  # type: ignore[call-arg]
-    with pytest.raises(ConfigurationError):
-        LocalAuth(settings)
+    assert LocalAuth(Settings(APTLY_ENV="production"))  # type: ignore[call-arg]
 
 
 def test_supabase_takes_over_when_its_secret_is_present(monkeypatch) -> None:

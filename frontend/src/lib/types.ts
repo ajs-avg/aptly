@@ -411,8 +411,19 @@ export interface LibraryPage {
 export interface AuthSession {
   signed_in: boolean;
   email: string | null;
+  /** What they asked to be called, given at sign-up. */
+  name: string | null;
   claimed: number;
+  /** True when Aptly's own password sign-in is in use rather than Supabase. */
   development_mode: boolean;
+  /**
+   * True where a password can be reset without an emailed link.
+   *
+   * A stand-in for the email step, off in production. The UI reads it rather
+   * than assuming: a build that offers a reset the server will refuse is worse
+   * than one that does not offer it.
+   */
+  direct_reset: boolean;
 }
 
 /** A suggestion plus the local state of whether it has been applied. */

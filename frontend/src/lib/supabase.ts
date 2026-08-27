@@ -5,12 +5,12 @@ import { createClient, type Session, type SupabaseClient } from "@supabase/supab
 /**
  * Supabase Auth, when it is configured.
  *
- * Both halves of the product have to work without it. Locally there is no
- * Supabase project, and the development sign-in stands in — email only, no
- * password, and it refuses to run in production for exactly that reason. So
- * everything here is written to answer "is real auth available?" rather than to
- * assume it is: `client()` returns null when the keys are absent, and every
- * caller has a path for that.
+ * Both halves of the product have to work without it. Where there is no
+ * Supabase project, Aptly's own accounts stand in — the same email, password
+ * and name, verified by the API against a scrypt hash. So everything here is
+ * written to answer "is Supabase available?" rather than to assume it is:
+ * `client()` returns null when the keys are absent, and every caller has a path
+ * for that.
  *
  * The anonymous visitor is untouched either way. They are the person this
  * product is designed around — they tailor a CV before being asked for
@@ -85,13 +85,21 @@ export async function signInWithPassword(
 }
 
 export async function signUpWithPassword(
+  name: string,
   email: string,
   password: string,
 ): Promise<AuthResult> {
   const supabase = client();
   if (!supabase) return { ok: false, message: "Sign-up is not configured on this deployment." };
 
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  // The name rides along in user metadata, which is where Supabase keeps
+  // anything about a person that is not a credential. Asked for once, at
+  // sign-up, so nothing has to greet them by half their email address.
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { name: name.trim() } },
+  });
   if (error) return { ok: false, message: readable(error.message) };
 
   // With email confirmation on, Supabase returns a user but no session. Saying
@@ -101,19 +109,6 @@ export async function signUpWithPassword(
     return { ok: true, message: "Check your email to confirm the address, then sign in." };
   }
   return { ok: true };
-}
-
-export async function sendMagicLink(email: string, redirectTo: string): Promise<AuthResult> {
-  const supabase = client();
-  if (!supabase) return { ok: false, message: "Sign-in is not configured on this deployment." };
-
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: redirectTo },
-  });
-  return error
-    ? { ok: false, message: readable(error.message) }
-    : { ok: true, message: "Link sent. Open it on this device to finish signing in." };
 }
 
 /**

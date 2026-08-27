@@ -80,6 +80,18 @@ class Settings(BaseSettings):
     supabase_jwt_secret: str = Field(default="", alias="SUPABASE_JWT_SECRET")
     supabase_storage_bucket: str = Field(default="aptly-cvs", alias="SUPABASE_STORAGE_BUCKET")
 
+    # ── accounts ─────────────────────────────────────────────────────────────
+    #: Allow "forgot password" to set a new one without proving the address.
+    #:
+    #: A stand-in for the email step, which is not built yet. Unset, it follows
+    #: the environment: on in development and staging so the flow can be shown,
+    #: off in production — because without the email, a password reset is a way
+    #: to take over any account whose address you can guess, and that must not
+    #: reach production by being forgotten about.
+    direct_password_reset: bool | None = Field(
+        default=None, alias="APTLY_ALLOW_DIRECT_PASSWORD_RESET"
+    )
+
     # ── frontend ─────────────────────────────────────────────────────────────
     cors_origins: str = Field(default="http://localhost:3000", alias="CORS_ORIGINS")
 
@@ -198,6 +210,18 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         """Production specifically — the environment that requires real auth."""
         return self.env == "production"
+
+    @property
+    def allow_direct_password_reset(self) -> bool:
+        """Whether a password may be reset without an emailed link.
+
+        Explicit setting wins, so a staging box can be locked down and a
+        production demo can be opened up deliberately. Unset, production says
+        no and everywhere else says yes.
+        """
+        if self.direct_password_reset is not None:
+            return self.direct_password_reset
+        return not self.is_production
 
     @property
     def is_deployed(self) -> bool:

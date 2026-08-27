@@ -44,14 +44,16 @@ export interface Account {
   /**
    * What to call them.
    *
-   * Neither provider is asked for a display name here, so it comes from the
-   * address: the part before the `@`, tidied. "aman.mishra@x.com" becomes
-   * "Aman". It is a greeting, not an identity — the full address is shown
-   * wherever the difference could matter.
+   * Their own answer where there is one — sign-up asks for it — and otherwise
+   * derived from the address: the part before the `@`, tidied, so
+   * "aman.mishra@x.com" becomes "Aman". A greeting, not an identity; the full
+   * address is shown wherever the difference could matter.
    */
   name: string | null;
-  /** True where sign-in is email-only and has no password behind it. */
+  /** True where Aptly's own password sign-in is in use rather than Supabase. */
   development: boolean;
+  /** True where "forgot password" can set a new one without an emailed link. */
+  directReset: boolean;
 }
 
 const SIGNED_OUT: Account = {
@@ -59,6 +61,7 @@ const SIGNED_OUT: Account = {
   email: null,
   name: null,
   development: false,
+  directReset: false,
 };
 
 let current: Account = { ...SIGNED_OUT, status: "unknown" };
@@ -73,7 +76,9 @@ function publish(next: Account): Account {
   if (
     next.status === current.status &&
     next.email === current.email &&
-    next.development === current.development
+    next.name === current.name &&
+    next.development === current.development &&
+    next.directReset === current.directReset
   ) {
     return current;
   }
@@ -99,7 +104,13 @@ export function refreshAccount(): Promise<Account> {
         const email = session?.user?.email ?? null;
         return publish(
           session
-            ? { status: "in", email, name: firstName(email), development: false }
+            ? {
+                status: "in",
+                email,
+                name: (session.user?.user_metadata?.name as string) || firstName(email),
+                development: false,
+                directReset: false,
+              }
             : SIGNED_OUT,
         );
       }
@@ -110,10 +121,17 @@ export function refreshAccount(): Promise<Account> {
           ? {
               status: "in",
               email: session.email,
-              name: firstName(session.email),
-              development: true,
+              // Their own answer first; the address is only the fallback for a
+              // profile made before sign-up asked for a name.
+              name: session.name || firstName(session.email),
+              development: session.development_mode,
+              directReset: session.direct_reset,
             }
-          : { ...SIGNED_OUT, development: session.development_mode },
+          : {
+              ...SIGNED_OUT,
+              development: session.development_mode,
+              directReset: session.direct_reset,
+            },
       );
     } catch {
       // The API being unreachable is not evidence of being signed out, and
@@ -146,7 +164,11 @@ export async function signOutAccount(): Promise<void> {
       // sees, and it is not worth stranding them on a page that still says they
       // are signed in because a network call failed.
     }
-    publish({ ...SIGNED_OUT, development: current.development });
+    publish({
+      ...SIGNED_OUT,
+      development: current.development,
+      directReset: current.directReset,
+    });
   }
 }
 

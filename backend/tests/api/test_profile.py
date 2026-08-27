@@ -13,6 +13,24 @@ from aptly.profile.schemas import Achievement, CareerProfile, Identity, Role, Sk
 from aptly.validate import SourceMaterial
 from fastapi.testclient import TestClient
 
+
+def _account(client, email: str):
+    """Sign in, creating the account on first sight.
+
+    These tests are about ownership and claiming rather than about credentials,
+    so they want "be this person" in one line. Sign-up is the call that does it;
+    a second visit for the same address is a sign-in.
+    """
+    password = f"passphrase-for-{email}"
+    created = client.post(
+        "/api/auth/sign-up",
+        json={"name": email.split("@")[0].title(), "email": email, "password": password},
+    )
+    if created.status_code == 200:
+        return created
+    return client.post("/api/auth/sign-in", json={"email": email, "password": password})
+
+
 CV = """\
 Rahul Menon
 rahul.menon@example.com | Bengaluru
@@ -51,7 +69,7 @@ FILLED = CareerProfile(
 
 @pytest.fixture
 def signed_in(client: TestClient) -> TestClient:
-    response = client.post("/api/auth/sign-in", json={"email": "rahul@example.com"})
+    response = _account(client, "rahul@example.com")
     assert response.status_code == 200
     return client
 

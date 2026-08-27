@@ -1,17 +1,15 @@
 "use client";
 
 import { Suspense, useEffect, useId, useState } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 
 import { refreshAccount, useAccount } from "@/lib/account";
-import { ApiError, signIn } from "@/lib/api";
+import { ApiError, resetPassword, signIn, signUp } from "@/lib/api";
 import { Nav } from "@/components/marketing/Nav";
 import { EASE, SPRING } from "@/components/motion/primitives";
 import {
   authConfigured,
-  sendMagicLink,
   sendPasswordReset,
   signInWithPassword,
   signUpWithPassword,
@@ -33,7 +31,7 @@ import { cn } from "@/lib/utils";
  * one of them.
  */
 
-type Mode = "signin" | "signup" | "link" | "reset";
+type Mode = "signin" | "signup" | "reset";
 
 const COPY: Record<Mode, { title: string; blurb: string; action: string }> = {
   signin: {
@@ -44,17 +42,33 @@ const COPY: Record<Mode, { title: string; blurb: string; action: string }> = {
   signup: {
     title: "Create your account",
     blurb: "It takes a moment, and everything you tailor from here is kept.",
-    action: "Create account",
-  },
-  link: {
-    title: "No password needed",
-    blurb: "We will email you a link. Open it on this device and you are in.",
-    action: "Email me a link",
+    action: "Create my account",
   },
   reset: {
     title: "Reset your password",
     blurb: "Tell us the address you signed up with and we will send a way back in.",
     action: "Send reset link",
+  },
+};
+
+/** The three things Aptly's own account card can be doing. */
+type LocalMode = "signin" | "signup" | "reset";
+
+const LOCAL_COPY: Record<LocalMode, { title: string; blurb: string; action: string }> = {
+  signin: {
+    title: "Welcome back",
+    blurb: "Your applications, the CVs you sent, and the job posts as they stood.",
+    action: "Sign in",
+  },
+  signup: {
+    title: "Create your account",
+    blurb: "A name, an address and a password. Everything you tailor is kept against it.",
+    action: "Create my account",
+  },
+  reset: {
+    title: "Set a new password",
+    blurb: "Choose a new one and you will be signed in with it straight away.",
+    action: "Set password and sign in",
   },
 };
 
@@ -77,6 +91,7 @@ function SignIn() {
   const [mode, setMode] = useState<Mode>(
     params.get("mode") === "signup" ? "signup" : "signin",
   );
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [reveal, setReveal] = useState(false);
@@ -84,6 +99,9 @@ function SignIn() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const account = useAccount();
+  const [localMode, setLocalMode] = useState<LocalMode>(
+    params.get("mode") === "signup" ? "signup" : "signin",
+  );
 
   const copy = COPY[mode];
 
@@ -120,10 +138,8 @@ function SignIn() {
       mode === "signin"
         ? await signInWithPassword(email, password)
         : mode === "signup"
-          ? await signUpWithPassword(email, password)
-          : mode === "link"
-            ? await sendMagicLink(email, `${origin}${next}`)
-            : await sendPasswordReset(email, `${origin}/sign-in`);
+          ? await signUpWithPassword(name, email, password)
+          : await sendPasswordReset(email, `${origin}/sign-in`);
 
     setBusy(false);
 
@@ -283,6 +299,33 @@ function SignIn() {
                 )}
 
                 <form onSubmit={submit} className={cn(NEEDS_PASSWORD.has(mode) && "pt-4")}>
+                  {/* Height-animated so the card grows into the field rather
+                      than jumping by its height when the tab changes. */}
+                  <AnimatePresence initial={false}>
+                    {mode === "signup" && (
+                      <motion.div
+                        key="name"
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={EASE}
+                        className="overflow-hidden"
+                      >
+                        <div className="pb-4">
+                          <Field
+                            label="Your name"
+                            value={name}
+                            onChange={setName}
+                            autoComplete="name"
+                            placeholder="Aman Mishra"
+                            required
+                            maxLength={80}
+                          />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   <Field
                     label="Email"
                     type="email"
@@ -369,36 +412,32 @@ function SignIn() {
                   </button>
                 </form>
 
-                <div className="flex items-center gap-3 pt-5">
-                  <span className="h-px flex-1 bg-hairline" />
-                  <span className="font-display text-2xs uppercase tracking-[0.1em] text-slate">
-                    or
-                  </span>
-                  <span className="h-px flex-1 bg-hairline" />
-                </div>
-
-                {/* Every way out of the current mode, on one grid so they share
-                    a width and a baseline whatever combination is showing. */}
-                <div className="grid gap-2 pt-4">
-                  {mode !== "link" && (
-                    <Secondary onClick={() => go("link")}>
-                      Email me a link instead
-                    </Secondary>
-                  )}
-                  {mode === "signin" && (
-                    <Secondary onClick={() => go("reset")}>
-                      I have forgotten my password
-                    </Secondary>
-                  )}
-                  {mode !== "signin" && (
-                    <Secondary onClick={() => go("signin")}>
-                      Back to signing in
-                    </Secondary>
-                  )}
-                </div>
+                {/* Supabase's own reset, which is the emailed link. No magic-link
+                    sign-in beside it: two passwordless ways in, one of which is
+                    a sign-in and the other a recovery, read as the same button
+                    twice — and both spend the free tier's handful of emails an
+                    hour on a demo. */}
+                {mode === "signin" && (
+                  <button
+                    type="button"
+                    onClick={() => go("reset")}
+                    className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-pill px-4 font-display text-sm text-ink ring-1 ring-hairline transition-colors hover:bg-sunken"
+                  >
+                    I have forgotten my password
+                  </button>
+                )}
+                {mode !== "signin" && (
+                  <button
+                    type="button"
+                    onClick={() => go("signin")}
+                    className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-pill px-4 font-display text-sm text-ink ring-1 ring-hairline transition-colors hover:bg-sunken"
+                  >
+                    Back to signing in
+                  </button>
+                )}
               </div>
             ) : (
-              <DevelopmentSignIn next={next} />
+              <LocalAccount next={next} mode={localMode} onMode={setLocalMode} />
             )}
 
             <p className="pt-5 text-2xs leading-relaxed text-slate">
@@ -414,51 +453,52 @@ function SignIn() {
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
-function Secondary({
-  onClick,
-  children,
-}: {
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex h-11 w-full items-center justify-center rounded-pill px-4 font-display text-sm text-ink ring-1 ring-hairline transition-colors hover:bg-sunken"
-    >
-      {children}
-    </button>
-  );
-}
-
 /**
- * Signing in where no Supabase project is configured.
+ * Aptly's own accounts: an email, a password, and a name.
  *
- * This page used to stop here and say "accounts are not set up yet", which was
- * true about Supabase and wrong about the deployment: there *is* a working
- * sign-in in this mode — email only, no password — and it was reachable from a
- * small box tucked into the Library's toolbar and nowhere else. So the page
- * everybody navigates to in order to sign in was the one place that could not.
+ * In force wherever Supabase is not configured. It used to be email-only with
+ * no password at all — anybody who typed an address owned that account — and it
+ * is a real credential now, hashed with scrypt on the server.
  *
- * The same sign-in lives here now. What it cannot do is pretend to be the other
- * one: it has no password, so anybody who knows an address can open that
- * account, and the warning says so in those words rather than as "development
- * mode", which reads as a reassurance to anyone who does not already know what
- * it means.
+ * Three things one card can do, because they are three answers to the same
+ * question and splitting them across pages makes people navigate to find out
+ * which one they needed:
+ *
+ * - **Sign in.** Email and password.
+ * - **Create account.** A name as well, asked once and used everywhere after —
+ *   the alternative is greeting somebody by the first half of their address for
+ *   the life of the account.
+ * - **Reset.** A new password, set directly. The server decides whether that is
+ *   allowed and refuses in production, so the option only appears when the
+ *   session says `direct_reset` — a build that offers a reset the server will
+ *   refuse is worse than one that does not offer it.
  */
-function DevelopmentSignIn({ next }: { next: string }) {
+function LocalAccount({ next, mode, onMode }: {
+  next: string;
+  mode: LocalMode;
+  onMode: (mode: LocalMode) => void;
+}) {
   const router = useRouter();
+  const account = useAccount();
+
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [reveal, setReveal] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const copy = LOCAL_COPY[mode];
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      await signIn(email);
+      if (mode === "signup") await signUp(name, email, password);
+      else if (mode === "reset") await resetPassword(email, password);
+      else await signIn(email, password);
+
       // Before navigating. The nav and the gate on the next screen both read
       // the account store, and neither has any way to learn about a cookie the
       // browser will not let them see.
@@ -467,8 +507,8 @@ function DevelopmentSignIn({ next }: { next: string }) {
     } catch (caught) {
       setError(
         caught instanceof ApiError
-          ? caught.message
-          : "Aptly could not reach the server to sign you in.",
+          ? [caught.message, caught.hint].filter(Boolean).join(" ")
+          : "Aptly could not reach the server.",
       );
       setBusy(false);
     }
@@ -476,7 +516,78 @@ function DevelopmentSignIn({ next }: { next: string }) {
 
   return (
     <div className="rounded-2xl bg-raised p-5 shadow-hero ring-1 ring-ink/5 sm:p-6">
-      <form onSubmit={submit}>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={mode}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={EASE}
+          className="pb-5"
+        >
+          <h2 className="font-display text-lg font-semibold text-ink">{copy.title}</h2>
+          <p className="pt-1 text-sm leading-relaxed text-slate">{copy.blurb}</p>
+        </motion.div>
+      </AnimatePresence>
+
+      {mode !== "reset" && (
+        <div className="flex gap-1 rounded-pill bg-sunken p-1">
+          {(["signin", "signup"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => onMode(option)}
+              aria-pressed={mode === option}
+              className="relative flex-1 rounded-pill py-2 font-display text-xs font-medium"
+            >
+              {mode === option && (
+                <motion.span
+                  layoutId="local-tab"
+                  className="absolute inset-0 rounded-pill bg-raised shadow-raised"
+                  transition={SPRING}
+                />
+              )}
+              <span
+                className={cn(
+                  "relative transition-colors",
+                  mode === option ? "text-ink" : "text-slate",
+                )}
+              >
+                {option === "signin" ? "Sign in" : "Create account"}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <form onSubmit={submit} className={cn(mode !== "reset" && "pt-4")}>
+        {/* Height-animated so the card grows into the name field rather than
+            jumping by its height the instant the tab changes. */}
+        <AnimatePresence initial={false}>
+          {mode === "signup" && (
+            <motion.div
+              key="name"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={EASE}
+              className="overflow-hidden"
+            >
+              <div className="pb-4">
+                <Field
+                  label="Your name"
+                  value={name}
+                  onChange={setName}
+                  autoComplete="name"
+                  placeholder="Aman Mishra"
+                  required
+                  maxLength={80}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <Field
           label="Email"
           type="email"
@@ -485,50 +596,94 @@ function DevelopmentSignIn({ next }: { next: string }) {
           autoComplete="email"
           placeholder="you@example.com"
           required
-          autoFocus
         />
 
-        {error && (
-          <p
-            role="alert"
-            className="mt-4 rounded-lg bg-danger-soft px-3.5 py-2.5 text-sm leading-relaxed text-danger"
-          >
-            {error}
-          </p>
-        )}
+        <div className="pt-4">
+          <Field
+            label={mode === "reset" ? "New password" : "Password"}
+            type={reveal ? "text" : "password"}
+            value={password}
+            onChange={setPassword}
+            // Tells a password manager to offer a new one rather than trying to
+            // fill one that does not exist yet.
+            autoComplete={mode === "signin" ? "current-password" : "new-password"}
+            placeholder={mode === "signin" ? "" : "At least 8 characters"}
+            minLength={mode === "signin" ? undefined : 8}
+            required
+            aside={
+              <button
+                type="button"
+                onClick={() => setReveal((value) => !value)}
+                className="font-display text-2xs font-medium text-slate transition-colors hover:text-ink"
+              >
+                {reveal ? "Hide" : "Show"}
+              </button>
+            }
+          />
+        </div>
+
+        <AnimatePresence initial={false}>
+          {error && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={EASE}
+              className="overflow-hidden"
+            >
+              <p
+                role="alert"
+                className="mt-4 rounded-lg bg-danger-soft px-3.5 py-2.5 text-sm leading-relaxed text-danger"
+              >
+                {error}
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <button
           type="submit"
           disabled={busy}
           className="mt-5 inline-flex h-12 w-full items-center justify-center rounded-pill bg-signal font-display text-sm font-medium text-paper shadow-float transition-colors hover:bg-signal-hover disabled:opacity-50"
         >
-          {busy ? "One moment…" : "Continue"}
+          {busy ? "One moment…" : copy.action}
         </button>
       </form>
 
-      <div className="mt-5 rounded-lg bg-amber-soft px-3.5 py-3">
-        <p className="font-display text-2xs font-semibold uppercase tracking-[0.1em] text-amber-ink">
-          No password on this deployment
-        </p>
-        <p className="pt-1.5 text-2xs leading-relaxed text-ink/80">
-          Anyone who types your address can open your applications. Fine for
-          trying Aptly out; do not keep anything here you would mind a stranger
-          reading.
-        </p>
-        <p className="pt-2 text-2xs leading-relaxed text-slate">
-          Real accounts need a Supabase project —{" "}
-          <span className="cv-literal">NEXT_PUBLIC_SUPABASE_URL</span> and{" "}
-          <span className="cv-literal">NEXT_PUBLIC_SUPABASE_ANON_KEY</span> on the
-          web service, <span className="cv-literal">SUPABASE_URL</span> on the API.
-        </p>
-      </div>
+      {/* Only where the server will honour it. `direct_reset` is off in
+          production, where the emailed link is the only way back in. */}
+      {mode === "signin" && account.directReset && (
+        <button
+          type="button"
+          onClick={() => onMode("reset")}
+          className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-pill px-4 font-display text-sm text-ink ring-1 ring-hairline transition-colors hover:bg-sunken"
+        >
+          I have forgotten my password
+        </button>
+      )}
+      {mode === "reset" && (
+        <button
+          type="button"
+          onClick={() => onMode("signin")}
+          className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-pill px-4 font-display text-sm text-ink ring-1 ring-hairline transition-colors hover:bg-sunken"
+        >
+          Back to signing in
+        </button>
+      )}
 
-      <Link
-        href="/tailor"
-        className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-pill font-display text-sm text-ink ring-1 ring-hairline transition-colors hover:bg-sunken"
-      >
-        Skip — tailor a CV without an account
-      </Link>
+      {mode === "reset" && (
+        <div className="mt-5 rounded-lg bg-amber-soft px-3.5 py-3">
+          <p className="font-display text-2xs font-semibold uppercase tracking-[0.1em] text-amber-ink">
+            No email step yet
+          </p>
+          <p className="pt-1.5 text-2xs leading-relaxed text-ink/80">
+            This sets the password straight away, without checking that the
+            address is yours. It is here so the flow can be shown, and it is
+            switched off in production — where a reset link will be emailed
+            instead.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

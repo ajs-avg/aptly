@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from functools import lru_cache
+from typing import Any
 
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -130,11 +131,118 @@ async def create_all() -> None:
 
     async with get_engine().begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
+        await connection.run_sync(_add_missing_columns)
     log.info(
         "db.ready",
         url=_redact(settings.resolved_database_url),
         auto_created=not settings.is_sqlite,
     )
+
+
+def _add_missing_columns(connection: Any) -> None:
+    """Add columns the models declare and the tables do not have.
+
+    ``create_all`` creates missing *tables* and is silent about missing
+    *columns*, which is the failure mode nobody expects: a database made before
+    a column was added keeps working right up until something reads it, and
+    then every query against that table fails with a message about SQL rather
+    than about the release that changed. A checked-in development database sat
+    broken this way for exactly that reason.
+
+    Deliberately narrow. It only ever adds a nullable column, and it never
+    drops, renames or retypes one — those are decisions with data loss behind
+    them and they belong in a migration a person has read. This is the subset
+    that is always safe and that accounts for nearly every schema change a
+    young project makes.
+
+    Alembic remains the answer once there is a migration to write; this is what
+    keeps the door open until then.
+    """
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(connection)
+    existing_tables = set(inspector.get_table_names())
+
+    for table in Base.metadata.sorted_tables:
+        if table.name not in existing_tables:
+            continue
+        present = {column["name"] for column in inspector.get_columns(table.name)}
+        for column in table.columns:
+            if column.name in present:
+                continue
+            clause = _default_clause(column)
+            if not column.nullable and clause is None:
+                # A NOT NULL column with nothing to put in the existing rows
+                # cannot be added at all. Say so rather than failing at the next
+                # query with something that reads like a driver bug.
+                log.warning(
+                    "db.column_needs_migration",
+                    table=table.name,
+                    column=column.name,
+                    reason="not nullable and no default to backfill with",
+                )
+                continue
+
+            ddl = column.type.compile(connection.dialect)
+            null = "" if column.nullable else " NOT NULL"
+            connection.execute(
+                text(
+                    f'ALTER TABLE "{table.name}" '
+                    f'ADD COLUMN "{column.name}" {ddl}{clause or ""}{null}'
+                )
+            )
+            log.info("db.column_added", table=table.name, column=column.name)
+
+
+def _default_clause(column: Any) -> str | None:
+    """A literal DEFAULT for backfilling existing rows, if one can be derived.
+
+    A `NOT NULL` column needs something to put in the rows that are already
+    there, and the models express their defaults in Python — `default=dict` on
+    a JSON column — which the database cannot see. Rendering the empty value
+    those callables produce is what lets a JSON column be added to a populated
+    table, which is the common case here and was otherwise a hand-written
+    migration for `{}`.
+
+    Anything less obvious than an empty container or a plain scalar returns
+    None, and the caller declines to guess.
+    """
+    import json
+
+    if column.server_default is not None:
+        return ""  # SQLAlchemy renders it as part of the type compilation.
+
+    default = getattr(column.default, "arg", None)
+    if default is None:
+        return None
+
+    # SQLAlchemy wraps a plain `default=dict` in a function that takes the
+    # execution context, so the zero-argument call fails and the one-argument
+    # call is the real one. There is no execution context here — the value
+    # wanted is what an empty row would get — so `None` is passed for it.
+    if callable(default):
+        try:
+            value = default()
+        except TypeError:
+            try:
+                value = default(None)
+            except Exception:
+                return None
+    else:
+        value = default
+
+    if callable(value):
+        return None
+
+    if isinstance(value, dict | list):
+        return f" DEFAULT '{json.dumps(value)}'"
+    if isinstance(value, bool):
+        return f" DEFAULT {int(value)}"
+    if isinstance(value, int | float):
+        return f" DEFAULT {value}"
+    if isinstance(value, str):
+        return " DEFAULT '{}'".format(value.replace("'", "''"))
+    return None
 
 
 async def dispose() -> None:
