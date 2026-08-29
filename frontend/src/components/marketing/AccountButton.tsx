@@ -129,6 +129,16 @@ export function AccountButton({ className }: { className?: string }) {
 
             <div className="my-1 h-px bg-hairline" />
 
+            {/* First, and named for what it holds rather than for what it is.
+                It is the one screen here that makes every future tailoring
+                better, and nobody opens "Settings" expecting that. */}
+            <Link
+              href="/profile"
+              onClick={() => setOpen(false)}
+              className="flex items-center rounded-xl px-2.5 py-2 font-display text-sm text-ink transition-colors hover:bg-sunken"
+            >
+              Your profile
+            </Link>
             <Link
               href="/library"
               onClick={() => setOpen(false)}

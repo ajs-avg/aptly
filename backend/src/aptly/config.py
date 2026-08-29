@@ -88,6 +88,10 @@ class Settings(BaseSettings):
     #: off in production — because without the email, a password reset is a way
     #: to take over any account whose address you can guess, and that must not
     #: reach production by being forgotten about.
+    #: How many CVs one caller may read into their profile per day. An LLM call
+    #: behind an account is still an LLM call somebody else pays for.
+    profile_extracts_per_day: int = Field(default=10, alias="APTLY_PROFILE_EXTRACTS_PER_DAY")
+
     direct_password_reset: bool | None = Field(
         default=None, alias="APTLY_ALLOW_DIRECT_PASSWORD_RESET"
     )

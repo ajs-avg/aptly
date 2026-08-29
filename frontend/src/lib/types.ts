@@ -436,3 +436,163 @@ export interface Change {
   /** Kept so Apply can be undone exactly, without re-deriving anything. */
   previousText?: string;
 }
+
+// ── The career profile ────────────────────────────────────────────────────
+//
+// Mirrors `aptly/profile/schemas.py`. This is what makes a rebuilt CV better
+// than the document it came from: it holds what somebody has done across their
+// whole career rather than what one CV had room for, and the no-fabrication
+// checker pools it with the uploaded file — so a fuller profile widens what the
+// model is *allowed* to say without loosening the rule that it may only say
+// true things.
+
+export type Proficiency = "learning" | "working" | "strong" | "expert";
+export type WorkStyle = "no_preference" | "remote" | "hybrid" | "onsite";
+
+export interface Identity {
+  full_name: string;
+  headline: string;
+  email: string;
+  phone: string;
+  location: string;
+  open_to_relocation: boolean;
+  work_authorisation: string;
+  links: string[];
+  summary: string;
+}
+
+export interface Achievement {
+  text: string;
+  /** The number, kept separately — this is the field later scoring reads. */
+  metric: string;
+  skills_used: string[];
+}
+
+export interface Role {
+  title: string;
+  company: string;
+  location: string;
+  start: string;
+  end: string;
+  is_current: boolean;
+  employment_type: string;
+  team_size: string;
+  reported_to: string;
+  what_you_did: string;
+  achievements: Achievement[];
+  technologies: string[];
+  reason_for_leaving: string;
+}
+
+export interface Education {
+  degree: string;
+  field_of_study: string;
+  institution: string;
+  location: string;
+  start: string;
+  end: string;
+  grade: string;
+  highlights: string[];
+}
+
+export interface ProfileProject {
+  name: string;
+  description: string;
+  role: string;
+  technologies: string[];
+  link: string;
+  outcome: string;
+  is_professional: boolean;
+}
+
+export interface Skill {
+  name: string;
+  category: string;
+  proficiency: Proficiency;
+  years: string;
+  last_used: string;
+}
+
+export interface Certification {
+  name: string;
+  issuer: string;
+  issued: string;
+  expires: string;
+  credential_id: string;
+}
+
+export interface ProfileLanguage {
+  name: string;
+  level: string;
+}
+
+export interface Publication {
+  title: string;
+  venue: string;
+  date: string;
+  link: string;
+  description: string;
+}
+
+export interface Award {
+  name: string;
+  issuer: string;
+  date: string;
+  description: string;
+}
+
+export interface Volunteering {
+  organisation: string;
+  role: string;
+  start: string;
+  end: string;
+  description: string;
+}
+
+export interface Preferences {
+  target_roles: string[];
+  target_industries: string[];
+  seniority: string;
+  work_style: WorkStyle;
+  locations: string[];
+  notice_period: string;
+  salary_expectation: string;
+  avoid: string[];
+}
+
+export interface CareerProfile {
+  identity: Identity;
+  roles: Role[];
+  education: Education[];
+  projects: ProfileProject[];
+  skills: Skill[];
+  certifications: Certification[];
+  languages: ProfileLanguage[];
+  publications: Publication[];
+  awards: Award[];
+  volunteering: Volunteering[];
+  preferences: Preferences;
+  notes: string;
+}
+
+export interface ProfileResponse {
+  profile: CareerProfile;
+  completeness: number;
+  next_steps: string[];
+}
+
+/** One thing a newly-read CV says differently from what is already on file. */
+export interface ProfileConflict {
+  field: string;
+  label: string;
+  existing: string;
+  incoming: string;
+}
+
+export interface ExtractResponse {
+  profile: CareerProfile;
+  completeness: number;
+  conflicts: ProfileConflict[];
+  added: string[];
+  remaining_today: number;
+}

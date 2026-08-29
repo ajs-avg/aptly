@@ -10,10 +10,13 @@
 import { accessToken } from "./supabase";
 import type {
   AuthSession,
+  CareerProfile,
   CVDocument,
+  ExtractResponse,
   IngestResponse,
   JobPost,
   LibraryPage,
+  ProfileResponse,
   RecordDetail,
   TailorEvent,
   TailorMode,
@@ -503,6 +506,58 @@ export async function getSession(): Promise<AuthSession> {
 
 export async function ready(): Promise<{ ready: boolean; missing: string[] }> {
   const response = await call(`${API}/ready`);
+  if (!response.ok) await fail(response);
+  return response.json();
+}
+
+// ── career profile ────────────────────────────────────────────────────────
+
+export async function getProfile(): Promise<ProfileResponse> {
+  const response = await call(`${API}/api/profile`, await authed());
+  if (!response.ok) await fail(response);
+  return response.json();
+}
+
+export async function saveProfile(profile: CareerProfile): Promise<ProfileResponse> {
+  const response = await call(`${API}/api/profile`, {
+    ...(await authed({ headers: { "Content-Type": "application/json" } })),
+    method: "PUT",
+    body: JSON.stringify(profile),
+  });
+  if (!response.ok) await fail(response);
+  return response.json();
+}
+
+/**
+ * Read a CV into the profile, without saving it.
+ *
+ * The response is a proposal, not a write. The person sees what was read, fixes
+ * what the model got wrong, and saves with `saveProfile` — an extraction that
+ * saved itself would put a model's reading of a PDF into somebody's career
+ * history with nobody having looked at it.
+ */
+export async function extractProfile(
+  document: CVDocument,
+  mode: "merge" | "replace" = "merge",
+): Promise<ExtractResponse> {
+  const response = await call(`${API}/api/profile/extract`, {
+    ...(await authed({ headers: { "Content-Type": "application/json" } })),
+    method: "POST",
+    body: JSON.stringify({ document, mode }),
+  });
+  if (!response.ok) await fail(response);
+  return response.json();
+}
+
+/**
+ * The saved profile, rendered as a CV the tailoring pass can read.
+ *
+ * What makes keeping the profile up to date worth doing: somebody who has
+ * filled it in never has to find a resume file again, because the thing Aptly
+ * already knows *is* a CV it can tailor.
+ */
+export async function profileAsCv(): Promise<{ document: CVDocument; usable: boolean }> {
+  const response = await call(`${API}/api/profile/as-cv`, await authed());
   if (!response.ok) await fail(response);
   return response.json();
 }

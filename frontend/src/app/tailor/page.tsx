@@ -8,6 +8,7 @@ import { AppBar, BarLink } from "@/components/app/AppBar";
 import { RequireAccount } from "@/components/auth/RequireAccount";
 import { SPRING } from "@/components/motion/primitives";
 import { CvPanel } from "@/components/tailor/CvPanel";
+import { CvSource } from "@/components/tailor/CvSource";
 import { DropBox } from "@/components/tailor/DropBox";
 import { PitchNotes } from "@/components/tailor/PitchNotes";
 import { RevealScreen } from "@/components/tailor/Reveal";
@@ -17,6 +18,7 @@ import {
   exportCv,
   ingestFile,
   ingestPaste,
+  profileAsCv,
   rescore,
   saveRecord,
   streamTailor,
@@ -49,6 +51,16 @@ function TailorScreen() {
   const [jobText, setJobText] = useState("");
   const [cvText, setCvText] = useState("");
   const [cvFile, setCvFile] = useState<File | null>(null);
+  /**
+   * Tailor from the saved profile instead of a file.
+   *
+   * The profile holds a whole career where a CV holds what fitted on two
+   * pages, so somebody who keeps it current has a better starting document
+   * than the resume in their downloads folder — and does not have to go and
+   * find that resume. `/api/profile/as-cv` renders it on request, so it is
+   * never a stale second copy.
+   */
+  const [useProfile, setUseProfile] = useState(false);
   const [ingesting, setIngesting] = useState(false);
   /**
    * Whether the person has moved past the score screen.
@@ -144,13 +156,21 @@ function TailorScreen() {
     };
   }, [restored, state, jobText, cvText, cvFile, pastReveal, verified]);
 
-  const canStart = jobText.trim().length >= MIN_JOB_CHARS && Boolean(cvFile || cvText.trim());
+  const canStart =
+    jobText.trim().length >= MIN_JOB_CHARS &&
+    (useProfile || Boolean(cvFile || cvText.trim()));
 
   const start = useCallback(async () => {
     setIngesting(true);
     setInputError(null);
     try {
-      const parsed = cvFile ? await ingestFile(cvFile) : await ingestPaste(cvText);
+      // Three ways in, one document out. The profile path skips ingest
+      // entirely — there is no file to parse, only a profile to render.
+      const parsed = useProfile
+        ? { ...(await profileAsCv()), warnings: [] }
+        : cvFile
+          ? await ingestFile(cvFile)
+          : await ingestPaste(cvText);
       actions.start(parsed.document, parsed.warnings);
       setPastReveal(false);
 
@@ -174,7 +194,7 @@ function TailorScreen() {
     } finally {
       setIngesting(false);
     }
-  }, [actions, cvFile, cvText, jobText, state.phase]);
+  }, [actions, cvFile, cvText, jobText, state.phase, useProfile]);
 
   const download = useCallback(
     async (side: Side, format: TargetFormat) => {
@@ -293,6 +313,8 @@ function TailorScreen() {
           setCvText("");
         }}
         onClearFile={() => setCvFile(null)}
+        useProfile={useProfile}
+        onUseProfile={setUseProfile}
         canStart={canStart}
         busy={ingesting}
         error={inputError}
@@ -337,6 +359,7 @@ function TailorScreen() {
             setJobText("");
             setCvText("");
             setCvFile(null);
+            setUseProfile(false);
             setVerified({});
             // Erased now, not left to expire. Start over is the one control
             // that means "this is finished with" — on a shared machine it is
@@ -581,6 +604,8 @@ function DropScreen({
   onCvText,
   onCvFile,
   onClearFile,
+  useProfile,
+  onUseProfile,
   canStart,
   busy,
   error,
@@ -593,6 +618,8 @@ function DropScreen({
   onCvText: (value: string) => void;
   onCvFile: (file: File) => void;
   onClearFile: () => void;
+  useProfile: boolean;
+  onUseProfile: (value: boolean) => void;
   canStart: boolean;
   busy: boolean;
   error: { message: string; hint: string } | null;
@@ -640,23 +667,14 @@ function DropScreen({
             value={jobText}
             onTextChange={onJobText}
           />
-          <DropBox
-            label="Your CV"
-            hint=".docx · .pdf · .tex · .txt"
-            placeholder="Paste your CV, or drop a file anywhere in this box."
-            accept=".docx,.pdf,.tex,.txt,.md"
-            value={cvText}
-            onTextChange={onCvText}
-            onFile={onCvFile}
-            file={cvFile}
+          <CvSource
+            cvText={cvText}
+            cvFile={cvFile}
+            useProfile={useProfile}
+            onUseProfile={onUseProfile}
+            onCvText={onCvText}
+            onCvFile={onCvFile}
             onClearFile={onClearFile}
-            emphasis
-            footer={
-              <p className="text-2xs leading-relaxed text-slate">
-                Word and LaTeX files are edited in place, so your formatting is kept
-                exactly.
-              </p>
-            }
           />
         </motion.div>
 

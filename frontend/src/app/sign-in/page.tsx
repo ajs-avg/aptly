@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useId, useState } from "react";
+import { Suspense, useEffect, useId, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 
@@ -100,6 +100,8 @@ function SignIn() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const account = useAccount();
+  /** Set the moment a form here decides where to go next. See the guard below. */
+  const navigating = useRef(false);
   const [localMode, setLocalMode] = useState<LocalMode>(
     params.get("mode") === "signup" ? "signup" : "signin",
   );
@@ -118,7 +120,18 @@ function SignIn() {
    * true in the development mode too, where the session is a cookie this side
    * cannot see.
    */
+  /*
+   * Not while we are the ones signing them in.
+   *
+   * Submitting calls `refreshAccount`, which flips the status to "in" — and
+   * this effect then fired and replaced whatever the form had just navigated
+   * to. A new account went to `/profile?welcome=1` and arrived at `/tailor`,
+   * because a `replace` a frame later beats a `push`. The guard is for somebody
+   * who was *already* signed in when they got here, so it stands down the
+   * moment a form on this page takes over the navigation.
+   */
   useEffect(() => {
+    if (navigating.current) return;
     if (account.status === "in") router.replace(next);
   }, [account.status, next, router]);
 
@@ -154,8 +167,12 @@ function SignIn() {
       setNotice(result.message);
       return;
     }
+    navigating.current = true;
     await refreshAccount();
-    router.push(next);
+    // A new account has nothing on file, and the minute spent reading a CV into
+    // the profile is what makes every later tailoring better. Offered rather
+    // than required: `?welcome` opens the importer and blocks nothing.
+    router.push(mode === "signup" ? "/profile?welcome=1" : next);
   };
 
   return (
@@ -429,7 +446,14 @@ function SignIn() {
                 )}
               </div>
             ) : (
-              <LocalAccount next={next} mode={localMode} onMode={setLocalMode} />
+              <LocalAccount
+                next={next}
+                mode={localMode}
+                onMode={setLocalMode}
+                onNavigating={() => {
+                  navigating.current = true;
+                }}
+              />
             )}
 
             <p className="pt-5 text-2xs leading-relaxed text-slate">
@@ -465,10 +489,12 @@ function SignIn() {
  *   session says `direct_reset` — a build that offers a reset the server will
  *   refuse is worse than one that does not offer it.
  */
-function LocalAccount({ next, mode, onMode }: {
+function LocalAccount({ next, mode, onMode, onNavigating }: {
   next: string;
   mode: LocalMode;
   onMode: (mode: LocalMode) => void;
+  /** Tell the page a form is steering, so its signed-in guard stands down. */
+  onNavigating: () => void;
 }) {
   const router = useRouter();
   const account = useAccount();
@@ -487,15 +513,21 @@ function LocalAccount({ next, mode, onMode }: {
     setBusy(true);
     setError(null);
     try {
-      if (mode === "signup") await signUp(name, email, password);
+      const created = mode === "signup";
+      if (created) await signUp(name, email, password);
       else if (mode === "reset") await resetPassword(email, password);
       else await signIn(email, password);
 
       // Before navigating. The nav and the gate on the next screen both read
       // the account store, and neither has any way to learn about a cookie the
       // browser will not let them see.
+      onNavigating();
       await refreshAccount();
-      router.push(next);
+      // A new account has nothing on file, and the minute spent reading a CV
+      // into the profile is what makes every later tailoring better. Offered
+      // rather than required — `?welcome` opens the importer and nothing else
+      // blocks the screen.
+      router.push(created ? "/profile?welcome=1" : next);
     } catch (caught) {
       setError(
         caught instanceof ApiError

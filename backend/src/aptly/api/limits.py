@@ -53,6 +53,7 @@ class _Window:
 
 
 _TAILORS = _Window()
+_EXTRACTS = _Window()
 _sweeps = 0
 
 
@@ -67,6 +68,39 @@ def caller_key(request: Request) -> str:
     if forwarded:
         return forwarded.split(",")[0].strip()
     return request.client.host if request.client else "unknown"
+
+
+def check_extract_quota(request: Request) -> int:
+    """Consume one profile extraction. Returns how many remain today.
+
+    On its own counter rather than sharing the tailoring one. Reading a CV into
+    a profile is a different act with a different shape: somebody sets their
+    profile up once and revisits it when a job changes, where tailoring is the
+    thing they do daily. Sharing a budget would mean an afternoon of tidying a
+    profile spends the tailorings they came for.
+
+    It needs *a* limit because it is an LLM call reachable by anyone with an
+    account, and a loop that uploads the same CV repeatedly is otherwise a way
+    to spend somebody else's money.
+    """
+    global _sweeps
+
+    settings = get_settings()
+    limit = settings.profile_extracts_per_day
+    if limit <= 0:
+        return 0
+
+    _sweeps += 1
+    if _sweeps % 500 == 0:
+        _EXTRACTS.sweep(_DAY)
+
+    remaining = _EXTRACTS.record(caller_key(request), limit=limit, window=_DAY)
+    if remaining < 0:
+        raise RateLimitedError(
+            f"You have read {limit} CVs into your profile today.",
+            hint="This resets every 24 hours. Your profile is still editable by hand.",
+        )
+    return remaining
 
 
 def check_tailor_quota(request: Request) -> int:
