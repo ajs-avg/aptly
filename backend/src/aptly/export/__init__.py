@@ -161,7 +161,7 @@ def _rebuild_as(
         else REBUILD_NOTE
     )
     return ExportResult(
-        data=render(document, target),
+        data=render(document, target, tex_renderer=template.tex_renderer if template else "stock"),
         filename=f"{stem}.{target}",
         media_type=MEDIA_TYPES[target],
         rebuilt=True,

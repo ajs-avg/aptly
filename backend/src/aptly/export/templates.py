@@ -50,6 +50,9 @@ class Template:
     #: Who it suits. The thing that actually helps somebody decide.
     suits: str
     profile: StyleProfile
+    #: A LaTeX writer of its own, for a template whose layout lives in macros
+    #: rather than in a style profile. See `latex_format1`.
+    tex_renderer: str = "stock"
 
 
 #: A serif face for the traditional layout.
@@ -65,6 +68,34 @@ _SERIF = "Cambria"
 #: else. A font the reader does not have is a font the reader does not see.
 _SANS = "Calibri"
 
+
+FORMAT_1 = Template(
+    key="format-1",
+    name="Format 1",
+    blurb="The LaTeX résumé — small-caps headings under a rule, dates on the right.",
+    suits=(
+        "Engineering and computer science, and anyone who wants the .tex to take "
+        "away and edit. Download it as LaTeX and it compiles on Overleaf as it is."
+    ),
+    # The .docx and .pdf approximation of its look. What gives this template its
+    # identity is macros — a title and a date on one ruled row, small caps under
+    # a rule — and none of that is a font size, so a style profile cannot carry
+    # it. Those two formats get its typography; the .tex gets both.
+    profile=StyleProfile(
+        margins=Margins(top_pt=36, bottom_pt=36, left_pt=40, right_pt=40),
+        body=FontSpec(family=_SERIF, size_pt=10.0),
+        name=FontSpec(family=_SERIF, size_pt=24.0, bold=True),
+        section_heading=FontSpec(family=_SERIF, size_pt=12.0, bold=True),
+        entry_heading=FontSpec(family=_SERIF, size_pt=11.0, bold=True),
+        heading_transform="upper",
+        heading_rule=True,
+        heading_space_before_pt=10.0,
+        heading_space_after_pt=3.0,
+        line_spacing=1.05,
+        paragraph_space_pt=2.0,
+    ),
+    tex_renderer="format1",
+)
 
 CLASSIC = Template(
     key="classic",
@@ -139,10 +170,12 @@ COMPACT = Template(
 )
 
 
-TEMPLATES: dict[str, Template] = {template.key: template for template in (CLASSIC, MODERN, COMPACT)}
+TEMPLATES: dict[str, Template] = {
+    template.key: template for template in (FORMAT_1, CLASSIC, MODERN, COMPACT)
+}
 
 #: What the UI offers, in the order it offers them.
-TEMPLATE_ORDER: tuple[str, ...] = ("modern", "classic", "compact")
+TEMPLATE_ORDER: tuple[str, ...] = ("format-1", "modern", "classic", "compact")
 
 
 def get_template(key: str | None) -> Template | None:

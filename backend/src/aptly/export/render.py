@@ -34,8 +34,14 @@ REBUILD_NOTE = (
 )
 
 
-def render(document: CVDocument, target: str) -> bytes:
-    """Build ``document`` afresh in ``target`` format."""
+def render(document: CVDocument, target: str, tex_renderer: str = "stock") -> bytes:
+    """Build ``document`` afresh in ``target`` format.
+
+    ``tex_renderer`` names a LaTeX writer for templates whose layout lives in
+    macros rather than in a style profile — a title and a date on one ruled
+    row, small caps under a rule — none of which is a font size and so none of
+    which a :class:`StyleProfile` can carry.
+    """
     if target == "pdf":
         from aptly.export.pdf import rebuild_pdf
 
@@ -43,6 +49,10 @@ def render(document: CVDocument, target: str) -> bytes:
     if target == "docx":
         return render_docx(document)
     if target == "tex":
+        if tex_renderer == "format1":
+            from aptly.export.latex_format1 import render_format1
+
+            return render_format1(document).encode("utf-8")
         return render_tex(document).encode("utf-8")
     if target == "md":
         return render_markdown(document).encode("utf-8")

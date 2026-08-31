@@ -43,8 +43,11 @@ def test_every_template_renders_in_every_format(key: str, fmt: str) -> None:
     assert result.rebuilt, "a template is a rebuild, never an edit"
 
 
-def test_the_three_layouts_are_actually_different() -> None:
-    """Otherwise the dialog is offering one thing three times."""
+def test_every_layout_is_actually_different() -> None:
+    """Otherwise the dialog is offering one thing several times.
+
+    Counted against the list rather than a literal, so adding a layout that
+    happens to duplicate an existing one still fails."""
     document = parse_pasted(CV)
 
     typography = {}
@@ -54,7 +57,7 @@ def test_the_three_layouts_are_actually_different() -> None:
         sizes = frozenset(re.findall(r'<w:sz w:val="(\d+)"', xml))
         typography[key] = (fonts, sizes)
 
-    assert len(set(typography.values())) == 3
+    assert len(set(typography.values())) == len(TEMPLATE_ORDER)
 
 
 def test_a_template_says_it_replaced_your_formatting() -> None:
