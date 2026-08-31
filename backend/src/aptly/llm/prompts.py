@@ -18,7 +18,7 @@ marks machine-written CVs, and require the person's own register be preserved.
 from __future__ import annotations
 
 from aptly.llm.schemas import JobPost
-from aptly.model.document import CVDocument, Section, TextNode
+from aptly.model.document import CVDocument, Section, TextNode, normalize_text
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Tailoring
@@ -179,6 +179,77 @@ from the post is a close but not exact description of their work.\
 """
 
 
+def profile_material(profile, already: str, *, limit: int = 24) -> list[str]:
+    """What the person has told us that this CV does not already say.
+
+    The delta, not the whole profile, and that is the point. The model is
+    already holding the CV; repeating it costs tokens and buries the part that
+    is actually new. What it has never seen is the material the person put in
+    their profile and left off this particular resume — the achievement from a
+    job that got one line, the tool used on a project the CV has no room for.
+
+    That gap was real and asymmetric. The profile has always reached the
+    tailoring path's *validator*, so a line drawing on it would survive the
+    no-fabrication check — but never reached the prompt, so the model had no way
+    to write one. Permission without material: the rebuild could use somebody's
+    profile and the tailored CV could not.
+
+    Everything here is still the person's own words, and every rule about
+    inventing applies to it exactly as it applies to the CV.
+    """
+    if profile is None:
+        return []
+
+    seen = normalize_text(already).lower()
+
+    def unseen(text: str) -> bool:
+        value = normalize_text(text).lower()
+        # A fragment rather than the whole line: a bullet reworded between the
+        # CV and the profile is one thing said twice, and offering it back as
+        # new material invites a suggestion that changes nothing.
+        return bool(value) and value[:60] not in seen
+
+    items: list[str] = []
+    for role in profile.roles:
+        where = " · ".join(filter(None, (role.title, role.company)))
+        for achievement in role.achievements:
+            if len(items) >= limit:
+                break
+            if unseen(achievement.text):
+                metric = f" [{achievement.metric}]" if achievement.metric else ""
+                items.append(f"- ({where}) {achievement.text}{metric}")
+
+    for project in profile.projects:
+        if len(items) >= limit:
+            break
+        if project.name and unseen(f"{project.name} {project.description}"):
+            outcome = f" — {project.outcome}" if project.outcome else ""
+            items.append(f"- (project: {project.name}) {project.description}{outcome}")
+
+    extras = [skill.name for skill in profile.skills if skill.name and unseen(skill.name)]
+    if extras:
+        items.append(
+            "- Skills on their profile that this CV does not name: " + ", ".join(extras[:20])
+        )
+
+    if not items:
+        return []
+
+    return [
+        "# Their career profile — things they told us that are NOT on this CV",
+        "",
+        "Their own words, from the profile they filled in. You may draw on these "
+        "exactly as you may draw on the CV: cite the sentence in `provenance`, "
+        "never add a figure or a technology that is not written here, and only "
+        "use one where it answers something this job is asking for. A line that "
+        "brings in real evidence the CV was missing is the most valuable "
+        "suggestion you can make.",
+        "",
+        *items,
+        "",
+    ]
+
+
 def tailor_user(
     *,
     section: Section,
@@ -187,6 +258,8 @@ def tailor_user(
     editable: list[TextNode],
     stories: list[dict[str, str]] | None = None,
     analysis: object | None = None,
+    profile=None,
+    cv_text: str = "",
 ) -> str:
     """Build the per-section tailoring request.
 
@@ -235,6 +308,8 @@ def tailor_user(
         for node in context:
             lines.append(f"- ({node.role}) {node.text}")
         lines.append("")
+
+    lines += profile_material(profile, cv_text)
 
     if stories:
         lines.append("# Story Bank — the person's own record of what they did")

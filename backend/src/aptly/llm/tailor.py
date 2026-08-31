@@ -408,6 +408,12 @@ async def _rewrite(
                         editable=[n for n in section.nodes if n.editable],
                         stories=[{"id": k, "text": v} for k, v in (stories or {}).items()],
                         analysis=analysis,
+                        # The profile reached this path's validator but never
+                        # its prompt, so a suggestion drawing on it would have
+                        # survived the no-fabrication check that the model had
+                        # no way to write. Permission without material.
+                        profile=profile,
+                        cv_text=document.plain_text(),
                     ),
                     schema=SuggestionBatch,
                     temperature=0.4,
