@@ -177,16 +177,45 @@ export function addClaim(document: CVDocument, text: string): CVDocument {
     document.sections.find((section) => section.kind === "skills") ??
     document.sections.find((section) => section.kind === "summary");
 
-  if (!target) return document;
-
   const node: TextNode = {
     // Marked so the UI can show which lines came from a claim rather than from
     // the uploaded file, and so an export knows it has no place in the original.
     id: `claim_${slug(sentence)}`,
-    role: target.kind === "skills" ? "skill_line" : "summary",
+    role: target?.kind === "summary" ? "summary" : "skill_line",
     text: sentence,
     anchor: { kind: "synthetic", origin: "claim" },
   };
+
+  /*
+   * No skills or summary section? Then make one.
+   *
+   * This used to return the document untouched, which meant the person wrote a
+   * sentence about work their CV was missing, pressed Add, and watched nothing
+   * happen — no line, no error, no explanation. Whether it worked depended
+   * entirely on whether the parser had recognised a heading, and a CV whose
+   * skills section is called "Core Competencies" or "Technical Toolkit" is
+   * classified as `custom` and has neither.
+   *
+   * Refusing somebody's own true statement about themselves because their CV
+   * lacks a particular heading is the wrong answer to that. A CV with no skills
+   * section is precisely the CV that needs one.
+   */
+  if (!target) {
+    return {
+      ...document,
+      sections: [
+        ...document.sections,
+        {
+          id: `sec_claimed`,
+          kind: "skills",
+          title: "Skills",
+          title_node: null,
+          entries: [],
+          loose_nodes: [node],
+        },
+      ],
+    };
+  }
 
   return {
     ...document,

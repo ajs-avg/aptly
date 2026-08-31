@@ -357,6 +357,12 @@ export async function rescore(document: CVDocument, jobText: string): Promise<Re
  * The token is read per request rather than captured once. Supabase rotates the
  * access token roughly hourly, and a stale one is rejected — which would show
  * up as the Library quietly going empty rather than as a prompt to sign in.
+ *
+ * **Pass a content type in here, never beside the spread.** `headers` written
+ * after `...(await authed())` replaces the Headers object this builds rather
+ * than adding to it, and takes the bearer token with it. Five call sites did
+ * exactly that, so every authenticated POST reached the API anonymously —
+ * invisible on a cookie deployment, and a flat refusal on a Supabase one.
  */
 async function authed(init: RequestInit = {}): Promise<RequestInit> {
   const token = await accessToken();
@@ -380,9 +386,8 @@ export async function saveRecord(
   input: SaveRecordInput,
 ): Promise<RecordDetail> {
   const response = await call(`${API}/api/records`, {
-    ...(await authed()),
+    ...(await authed({ headers: { "Content-Type": "application/json" } })),
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       job_text: input.jobText,
       job: input.job ?? null,
@@ -430,9 +435,8 @@ export async function updateRecord(
   }>,
 ): Promise<RecordDetail> {
   const response = await call(`${API}/api/records/${id}`, {
-    ...(await authed()),
+    ...(await authed({ headers: { "Content-Type": "application/json" } })),
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(patch),
   });
   if (!response.ok) await fail(response);
@@ -454,9 +458,8 @@ export async function signIn(
   password: string,
 ): Promise<AuthSession> {
   const response = await call(`${API}/api/auth/sign-in`, {
-    ...(await authed()),
+    ...(await authed({ headers: { "Content-Type": "application/json" } })),
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
   if (!response.ok) await fail(response);
@@ -469,9 +472,8 @@ export async function signUp(
   password: string,
 ): Promise<AuthSession> {
   const response = await call(`${API}/api/auth/sign-up`, {
-    ...(await authed()),
+    ...(await authed({ headers: { "Content-Type": "application/json" } })),
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, email, password }),
   });
   if (!response.ok) await fail(response);
@@ -489,9 +491,8 @@ export async function resetPassword(
   password: string,
 ): Promise<AuthSession> {
   const response = await call(`${API}/api/auth/reset-password`, {
-    ...(await authed()),
+    ...(await authed({ headers: { "Content-Type": "application/json" } })),
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
   if (!response.ok) await fail(response);
