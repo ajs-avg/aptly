@@ -90,6 +90,9 @@ class Settings(BaseSettings):
     #: reach production by being forgotten about.
     #: How many CVs one caller may read into their profile per day. An LLM call
     #: behind an account is still an LLM call somebody else pays for.
+    #: How many times one caller may ask an agent to edit a CV per day.
+    agent_turns_per_day: int = Field(default=60, alias="APTLY_AGENT_TURNS_PER_DAY")
+
     profile_extracts_per_day: int = Field(default=10, alias="APTLY_PROFILE_EXTRACTS_PER_DAY")
 
     direct_password_reset: bool | None = Field(

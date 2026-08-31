@@ -133,11 +133,25 @@ class SourceMaterial:
         document: CVDocument,
         stories: dict[str, str] | None = None,
         profile_text: str = "",
+        extra: str = "",
     ) -> SourceMaterial:
+        """Pool everything the person has written.
+
+        ``extra`` is what they have said *just now* — in a message to the CV
+        agent, say. It belongs here for the same reason the profile does: these
+        are their own words about their own history, and the rule is that a line
+        must be traceable to something they wrote, not that they wrote it before
+        today. Without it an agent told "my GitHub is github.com/aman" writes
+        the link in and the validator rejects the very thing it was handed.
+
+        Note what is still absent: the job post. Terms from the advert are not
+        evidence about the applicant, and the agent is exactly where somebody
+        will ask for them to be treated as though they were.
+        """
         stories = stories or {}
         pooled = "\n".join(
             part
-            for part in [document.plain_text(), *stories.values(), profile_text]
+            for part in [document.plain_text(), *stories.values(), profile_text, extra]
             if part.strip()
         )
         return cls(

@@ -235,3 +235,84 @@ function slug(text: string): string {
   }
   return Math.abs(hash).toString(36);
 }
+
+/**
+ * Put a new line into the CV, after the one it belongs with.
+ *
+ * The agent's other operation. A rewrite has something to replace and can wait
+ * in the change list to be compared against; an addition has nothing to compare
+ * against, so it goes in and its card records what was added.
+ *
+ * `after` is a node id or a section id. A node id puts the line directly below
+ * that line, which is what "add a bullet under this job" means; a section id
+ * appends to the section, which is what "add my GitHub to the links" means.
+ * Neither found, the line goes to the end of the first section that will take
+ * it rather than being dropped — an addition the person asked for and cannot
+ * see is the worst of the three outcomes.
+ */
+export function addLine(
+  document: CVDocument,
+  after: string,
+  text: string,
+): CVDocument {
+  const sentence = text.trim();
+  if (!sentence) return document;
+
+  const node: TextNode = {
+    id: `agent_${slug(sentence)}`,
+    role: "bullet",
+    text: sentence,
+    anchor: { kind: "synthetic", origin: "claim" },
+  };
+
+  let placed = false;
+
+  const sections = document.sections.map((section) => {
+    if (placed) return section;
+
+    // Appended to a section named outright.
+    if (section.id === after) {
+      placed = true;
+      return { ...section, loose_nodes: [...section.loose_nodes, node] };
+    }
+
+    // Or directly below a line, wherever in the section that line sits.
+    const looseAt = section.loose_nodes.findIndex((item) => item.id === after);
+    if (looseAt !== -1) {
+      placed = true;
+      const loose = [...section.loose_nodes];
+      loose.splice(looseAt + 1, 0, { ...node, role: section.kind === "skills" ? "skill_line" : "freeform" });
+      return { ...section, loose_nodes: loose };
+    }
+
+    const entries = section.entries.map((entry) => {
+      if (placed) return entry;
+      const isEntry = entry.id === after;
+      const bulletAt = entry.bullets.findIndex((item) => item.id === after);
+      if (!isEntry && bulletAt === -1) return entry;
+      placed = true;
+      const bullets = [...entry.bullets];
+      bullets.splice(isEntry ? bullets.length : bulletAt + 1, 0, node);
+      return { ...entry, bullets };
+    });
+
+    return placed ? { ...section, entries } : section;
+  });
+
+  if (placed) return { ...document, sections };
+
+  // Nowhere named. The last section that holds loose lines will take it.
+  const fallback = [...document.sections]
+    .reverse()
+    .find((section) => section.kind !== "header");
+  if (!fallback) return document;
+
+  return {
+    ...document,
+    sections: document.sections.map((section) =>
+      section.id === fallback.id
+        ? { ...section, loose_nodes: [...section.loose_nodes, node] }
+        : section,
+    ),
+  };
+}

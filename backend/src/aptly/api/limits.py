@@ -54,6 +54,7 @@ class _Window:
 
 _TAILORS = _Window()
 _EXTRACTS = _Window()
+_AGENT = _Window()
 _sweeps = 0
 
 
@@ -68,6 +69,34 @@ def caller_key(request: Request) -> str:
     if forwarded:
         return forwarded.split(",")[0].strip()
     return request.client.host if request.client else "unknown"
+
+
+def check_agent_quota(request: Request) -> int:
+    """Consume one agent turn. Returns how many remain today.
+
+    Its own counter, because the shape of the use is different: a conversation
+    is several turns in a few minutes where a tailoring is a handful in a day,
+    and sharing a budget would mean editing a CV by asking costs the tailorings
+    somebody came for.
+    """
+    global _sweeps
+
+    settings = get_settings()
+    limit = settings.agent_turns_per_day
+    if limit <= 0:
+        return 0
+
+    _sweeps += 1
+    if _sweeps % 500 == 0:
+        _AGENT.sweep(_DAY)
+
+    remaining = _AGENT.record(caller_key(request), limit=limit, window=_DAY)
+    if remaining < 0:
+        raise RateLimitedError(
+            f"You have used today's {limit} edits by conversation.",
+            hint="This resets every 24 hours. Every line is still editable by hand.",
+        )
+    return remaining
 
 
 def check_extract_quota(request: Request) -> int:

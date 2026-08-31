@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from aptly import __version__
-from aptly.api import auth, cv, health, profile, records, tailor
+from aptly.api import agent, auth, cv, health, profile, records, tailor
 from aptly.config import get_settings
 from aptly.db.session import create_all, dispose
 from aptly.errors import AptlyError
@@ -96,6 +96,7 @@ async def _aptly_error_handler(request: Request, exc: AptlyError) -> JSONRespons
     )
 
 
+app.include_router(agent.router)
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(cv.router)

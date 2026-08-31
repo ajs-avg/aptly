@@ -8,6 +8,7 @@ import { AppBar, BarLink } from "@/components/app/AppBar";
 import { RequireAccount } from "@/components/auth/RequireAccount";
 import { SPRING } from "@/components/motion/primitives";
 import { CvPanel } from "@/components/tailor/CvPanel";
+import { AgentPanel } from "@/components/tailor/AgentPanel";
 import { CvSource } from "@/components/tailor/CvSource";
 import { DropBox } from "@/components/tailor/DropBox";
 import { PitchNotes } from "@/components/tailor/PitchNotes";
@@ -23,7 +24,9 @@ import {
   saveRecord,
   streamTailor,
 } from "@/lib/api";
+import { addLine, setNodeText, toPlainText } from "@/lib/document";
 import { clearSession, loadSession, saveSession } from "@/lib/persist";
+import { evaluate } from "@/lib/score";
 import { cn, motionTokens } from "@/lib/utils";
 import { useTailorRun, type RunState, type Side } from "@/lib/useTailorRun";
 import type { TargetFormat } from "@/lib/types";
@@ -86,6 +89,16 @@ function TailorScreen() {
     Partial<Record<Side, { score: number; essentialMet: number; essentialTotal: number }>>
   >({});
   const [inputError, setInputError] = useState<{ message: string; hint: string } | null>(null);
+
+  /**
+   * What the person has told either agent this session.
+   *
+   * Held here rather than in each panel, because that is what makes it shared:
+   * a GitHub link given to the left-hand agent is a fact about them, not about
+   * a document, and the right-hand one should not have to be told again. It
+   * never leaves the page — no database, gone when the tab is.
+   */
+  const [agentFacts, setAgentFacts] = useState<Record<string, string>>({});
 
   /*
    * ── Surviving a reload ──────────────────────────────────────────────────
@@ -195,6 +208,36 @@ function TailorScreen() {
       setIngesting(false);
     }
   }, [actions, cvFile, cvText, jobText, state.phase, useProfile]);
+
+  /**
+   * What this CV would score if a set of proposed edits were applied.
+   *
+   * Computed here rather than asked of the server: the scorecard is already in
+   * the browser and evaluating it is a few hundred regex tests over a page of
+   * text. A round trip for a number that has to appear the instant a review
+   * opens would be the slowest part of the whole interaction.
+   */
+  const scoreWith = useCallback(
+    (side: Side, edits: { node_id: string; kind: string; before: string; after: string }[]) => {
+      const card = state.scorecard;
+      const document = state[side].document;
+      if (!card || !document) return { before: 0, after: 0 };
+
+      const before = toPlainText(document);
+      let projected = document;
+      for (const edit of edits) {
+        projected =
+          edit.kind === "add"
+            ? addLine(projected, edit.node_id, edit.after)
+            : setNodeText(projected, edit.node_id, edit.after);
+      }
+      return {
+        before: evaluate(card, before).score,
+        after: evaluate(card, toPlainText(projected)).score,
+      };
+    },
+    [state],
+  );
 
   const download = useCallback(
     async (side: Side, format: TargetFormat, template: string | null) => {
@@ -575,6 +618,17 @@ function TailorScreen() {
                     rechecking={rechecking === side}
                     verified={verified[side] ?? null}
                     onClaim={(lines) => actions.claim(side, lines)}
+                    agent={
+                      <AgentPanel
+                        side={side}
+                        document={state[side].document}
+                        jobText={jobText}
+                        facts={agentFacts}
+                        onFacts={setAgentFacts}
+                        onEdits={(edits) => actions.agentEdits(side, edits)}
+                        scoreFor={(edits) => scoreWith(side, edits)}
+                      />
+                    }
                   />
                 );
               })}

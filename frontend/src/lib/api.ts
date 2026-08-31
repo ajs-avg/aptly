@@ -9,6 +9,8 @@
 
 import { accessToken } from "./supabase";
 import type {
+  AgentResponse,
+  AgentTurn,
   AuthSession,
   CareerProfile,
   CvTemplate,
@@ -593,6 +595,39 @@ export async function proofreadCv(document: CVDocument): Promise<ProofreadRespon
 /** The layouts a CV can be set in. */
 export async function getTemplates(): Promise<CvTemplate[]> {
   const response = await call(`${API}/api/cv/templates`);
+  if (!response.ok) await fail(response);
+  return response.json();
+}
+
+/**
+ * One turn with the agent for one CV.
+ *
+ * Stateless on the server: the conversation and everything said during it go
+ * up with each message and come back down. That is what makes "session only,
+ * nothing stored" true rather than merely intended — and it is how the two
+ * agents share what somebody told either of them without either being able to
+ * read the other's document.
+ */
+export async function askAgent(input: {
+  document: CVDocument;
+  jobText: string;
+  instruction: string;
+  history: AgentTurn[];
+  facts: Record<string, string>;
+  side: "tailored" | "rebuilt";
+}): Promise<AgentResponse> {
+  const response = await call(`${API}/api/agent/edit`, {
+    ...(await authed({ headers: { "Content-Type": "application/json" } })),
+    method: "POST",
+    body: JSON.stringify({
+      document: input.document,
+      job_text: input.jobText,
+      instruction: input.instruction,
+      history: input.history,
+      facts: input.facts,
+      side: input.side,
+    }),
+  });
   if (!response.ok) await fail(response);
   return response.json();
 }

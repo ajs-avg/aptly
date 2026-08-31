@@ -647,3 +647,45 @@ export interface CvTemplate {
   body_size_pt: number;
   line_spacing: number;
 }
+
+// ── The CV agent ──────────────────────────────────────────────────────────
+//
+// One per document, and they cannot read each other. What crosses between them
+// is what the *person* said — see `facts` — because that is a fact about them
+// rather than about a document. It lives in the browser for the length of the
+// session and reaches no database.
+
+export type AgentScale = "small" | "large";
+export type AgentEditKind = "replace" | "add";
+
+export interface AgentEdit {
+  node_id: string;
+  kind: AgentEditKind;
+  before: string;
+  after: string;
+  reason: string;
+  drawn_from: string;
+}
+
+export interface AgentRefusal {
+  what: string;
+  why: string;
+}
+
+export interface AgentTurn {
+  role: "user" | "agent";
+  content: string;
+}
+
+export interface AgentResponse {
+  reply: string;
+  edits: AgentEdit[];
+  refused: AgentRefusal[];
+  questions: string[];
+  learned: Record<string, string>;
+  /** Everything said to either agent this session, including this turn. */
+  facts: Record<string, string>;
+  /** `large` is shown in full before it happens; `small` lands as cards. */
+  scale: AgentScale;
+  remaining_today: number;
+}

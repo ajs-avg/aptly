@@ -2,9 +2,10 @@
 
 import { useCallback, useMemo, useReducer } from "react";
 
-import { addClaim, applySuggestion, setNodeText, toPlainText } from "@/lib/document";
+import { addClaim, addLine, applySuggestion, sectionOf, setNodeText, toPlainText } from "@/lib/document";
 import { evaluate, type ScoreCard, type ScoreResult } from "@/lib/score";
 import type {
+  AgentEdit,
   Analysis,
   Change,
   CVDocument,
@@ -121,6 +122,7 @@ type Action =
   | { type: "applyAll"; side: Side }
   | { type: "edit"; side: Side; nodeId: string; text: string }
   | { type: "claim"; side: Side; lines: string[] }
+  | { type: "agentEdits"; side: Side; edits: AgentEdit[] }
   | { type: "expand"; side: Side | null }
   | { type: "approve"; side: Side }
   | { type: "fail"; message: string; hint: string }
@@ -209,6 +211,52 @@ function sideReducer(state: SideState, action: Action): SideState {
       };
     }
 
+    case "agentEdits": {
+      if (!state.document) return state;
+
+      /*
+       * The agent's edits join the same list every other suggestion is in.
+       *
+       * Not applied here, deliberately. The whole product is built on the
+       * person seeing a change before it happens, and an agent is exactly the
+       * feature that would erode that — it is fast, it feels conversational,
+       * and "just do it" is the natural thing to say to one. So its output is a
+       * proposal like any other, with the same apply and the same undo.
+       *
+       * An addition arrives with nothing to replace, so it is written into the
+       * document immediately and its card records what was added rather than
+       * what it replaced. There is no "before" for it to be stale against, and
+       * leaving it pending would mean a line the person asked for and cannot
+       * see.
+       */
+      let document = state.document;
+      const changes = [...state.changes];
+
+      for (const edit of action.edits) {
+        if (edit.kind === "add") {
+          document = addLine(document, edit.node_id, edit.after);
+          continue;
+        }
+        changes.push({
+          suggestion: {
+            node_id: edit.node_id,
+            before: edit.before,
+            after: edit.after,
+            reason: edit.reason,
+            provenance: { kind: "cv_node", source_id: edit.node_id, quote: edit.drawn_from },
+            confidence: "high",
+            requires_confirmation: false,
+          },
+          sectionId: sectionOf(document, edit.node_id)?.id ?? "",
+          sectionTitle: sectionOf(document, edit.node_id)?.title ?? "",
+          flags: [],
+          status: "pending",
+        });
+      }
+
+      return { ...state, document, changes };
+    }
+
     case "approve":
       return { ...state, approved: true };
 
@@ -282,6 +330,7 @@ function reducer(state: RunState, action: Action): RunState {
     case "applyAll":
     case "edit":
     case "claim":
+    case "agentEdits":
     case "approve":
       return { ...state, [action.side]: sideReducer(state[action.side], action) };
 
@@ -457,6 +506,8 @@ export function useTailorRun() {
       edit: (side: Side, nodeId: string, text: string) =>
         dispatch({ type: "edit", side, nodeId, text }),
       claim: (side: Side, lines: string[]) => dispatch({ type: "claim", side, lines }),
+      agentEdits: (side: Side, edits: AgentEdit[]) =>
+        dispatch({ type: "agentEdits", side, edits }),
       expand: (side: Side | null) => dispatch({ type: "expand", side }),
       approve: (side: Side) => dispatch({ type: "approve", side }),
       fail: (message: string, hint: string) => dispatch({ type: "fail", message, hint }),
