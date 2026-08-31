@@ -25,6 +25,38 @@ from aptly.model.style import FontSpec, StyleProfile
 _MD_ATX = re.compile(r"^(#{1,6})\s+(.*)$")
 _MD_BOLD_ONLY = re.compile(r"^\s*\*\*(.+?)\*\*\s*$")
 _MD_SETEXT = re.compile(r"^\s*(=|-){3,}\s*$")
+#: A rule across the page — ``---``, ``***``, ``___``. Decoration, not content.
+_MD_RULE = re.compile(r"^\s*([-*_])(?:\s*\1){2,}\s*$")
+
+#: Signals that pasted text is Markdown rather than plain prose.
+#:
+#: Any one of these is enough, because none of them occurs by accident in a CV
+#: written as plain text: nobody types ``## EXPERIENCE`` or ``**Kalyra**`` and
+#: means the punctuation.
+_MD_SIGNALS = (
+    re.compile(r"^#{1,6}\s+\S", re.MULTILINE),  # ## Experience
+    re.compile(r"\*\*\S.*?\S\*\*"),  # **Kalyra**
+    re.compile(r"`[^`\n]+`"),  # `Python`
+    re.compile(r"\[[^\]\n]+\]\([^)\n]+\)"),  # [site](https://…)
+    re.compile(r"^\s*[*+]\s+\S", re.MULTILINE),  # * bullet / + bullet
+)
+
+
+def looks_like_markdown(text: str) -> bool:
+    """Is this pasted text actually Markdown?
+
+    It usually is, and nothing was asking. Pasted CVs come out of ChatGPT,
+    Notion, Obsidian and GitHub READMEs, all of which emit Markdown — and
+    `parse_pasted` called the parser without the flag that strips it, so the
+    syntax was read as content. The name became "# Aman Mishra", section
+    headings kept their hashes, `**Product Manager**` kept its asterisks, and a
+    `---` between sections was parsed as a bullet point. All of that then
+    reached the rebuilt CV and the download.
+
+    Sniffed rather than asked, because the paste box cannot sensibly ask
+    somebody what syntax their clipboard is in.
+    """
+    return any(signal.search(text) for signal in _MD_SIGNALS)
 
 
 def parse_text(
@@ -46,11 +78,17 @@ def parse_text(
             prev_blank = True
             continue
 
-        # A setext underline styles the line above; it is not content itself.
+        # A row of dashes is one of two things, and the blank line before it
+        # decides which. Directly under a line, it underlines it — that is a
+        # setext heading. After a blank, it is a horizontal rule: decoration,
+        # belonging to no line, and it was being parsed as a bullet point of
+        # its own that then appeared on the finished CV as "---".
         if is_markdown and _MD_SETEXT.match(raw_line):
-            if parsed:
+            if parsed and not prev_blank:
                 parsed[-1].bold = True
                 parsed[-1].size_pt = 13.0
+            continue
+        if is_markdown and _MD_RULE.match(raw_line):
             continue
 
         text, bold, size = stripped, False, None

@@ -12,6 +12,7 @@ they have an account and have asked us to keep it.
 from __future__ import annotations
 
 import json
+from dataclasses import asdict
 
 from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import Response
@@ -22,6 +23,7 @@ from aptly.errors import FileTooLargeError, ParseError, UnsupportedFormatError
 from aptly.export import TARGET_FORMATS, export_cv
 from aptly.ingest import SUPPORTED_EXTENSIONS, parse_cv, parse_pasted
 from aptly.model.document import CVDocument
+from aptly.validate.proofread import proofread
 
 router = APIRouter(prefix="/api/cv", tags=["cv"])
 
@@ -66,6 +68,48 @@ async def paste(payload: PasteRequest) -> IngestResponse:
     """Parse a CV the person pasted rather than uploaded."""
     document = parse_pasted(payload.text)
     return IngestResponse(document=document, warnings=document.warnings)
+
+
+class ProofreadRequest(BaseModel):
+    document: CVDocument
+
+
+class ProofreadFinding(BaseModel):
+    severity: str
+    kind: str
+    message: str
+    hint: str
+    node_id: str | None = None
+    quote: str = ""
+
+
+class ProofreadResponse(BaseModel):
+    """Everything mechanically wrong with this CV, worst first."""
+
+    findings: list[ProofreadFinding] = Field(default_factory=list)
+    #: Counted per severity so the UI can say "2 to fix" without re-tallying.
+    errors: int = 0
+    warnings: int = 0
+    polish: int = 0
+
+
+@router.post("/proofread", response_model=ProofreadResponse)
+async def proofread_cv(payload: ProofreadRequest) -> ProofreadResponse:
+    """Check a CV for the mistakes a person is embarrassed to have sent.
+
+    No model, no account, no rate limit — every check is deterministic and runs
+    in about a millisecond, so this can be called on every edit without costing
+    anything or being able to invent a problem that is not there.
+    """
+    findings = proofread(payload.document)
+    return ProofreadResponse(
+        # `asdict`, not `vars`: the finding is a slots dataclass and has no
+        # `__dict__` to read.
+        findings=[ProofreadFinding(**asdict(finding)) for finding in findings],
+        errors=sum(1 for f in findings if f.severity == "error"),
+        warnings=sum(1 for f in findings if f.severity == "warning"),
+        polish=sum(1 for f in findings if f.severity == "polish"),
+    )
 
 
 @router.post("/export")

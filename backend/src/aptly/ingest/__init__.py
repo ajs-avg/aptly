@@ -114,13 +114,16 @@ def parse_pasted(text: str, *, doc_id: str | None = None) -> CVDocument:
     """Parse a CV the user pasted rather than uploaded."""
     data = text.encode("utf-8")
     content_hash = hashlib.sha256(data).hexdigest()
-    from aptly.ingest.text import parse_text
+    from aptly.ingest.text import looks_like_markdown, parse_text
 
     return parse_text(
         text,
         doc_id=doc_id or make_node_id("doc", content_hash),
         source_filename="pasted.txt",
         content_hash=content_hash,
+        # Sniffed, because a paste box cannot ask what syntax the clipboard is
+        # in — and most pasted CVs come from somewhere that emits Markdown.
+        is_markdown=looks_like_markdown(text),
     )
 
 
