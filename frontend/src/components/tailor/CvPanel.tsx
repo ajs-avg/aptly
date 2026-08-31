@@ -7,6 +7,7 @@ import { ChangeSummary } from "./ChangeSummary";
 import { ScoreDial } from "./ScoreDial";
 import { SkillGaps } from "./SkillGaps";
 import { EditableCv } from "./EditableCv";
+import { Proofread } from "./Proofread";
 import { EASE, SPRING } from "@/components/motion/primitives";
 import { useMediaQuery } from "@/lib/browser";
 import { cn } from "@/lib/utils";
@@ -332,6 +333,9 @@ export function CvPanel({
           </div>
         )}
       </div>
+
+      {/* ── Before you send it ────────────────────────────────────────── */}
+      {expanded && <Proofread document={state.document} />}
 
       {/* ── What it left out ──────────────────────────────────────────── */}
       {expanded && state.dropped.length > 0 && (

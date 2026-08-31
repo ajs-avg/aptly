@@ -375,6 +375,162 @@ def _check_text(document: CVDocument) -> list[Finding]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Duties, where achievements belong
+#
+# The most-repeated advice about CVs, and the one thing a checker can genuinely
+# help with: "responsible for managing social media" says what the job was,
+# "grew engagement 35%" says what the person did. Aptly cannot turn one into the
+# other — it has no evidence for the number — but it can say which bullets are
+# missing one, which is what sends somebody to their career profile to supply it.
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: Openings that describe a job description rather than a person.
+_DUTY_OPENING = re.compile(
+    r"^\s*(responsible for|helped (with|to)|assisted (with|in)|worked on|"
+    r"participated in|involved in|duties included|tasked with|in charge of|"
+    r"contributed to)\b",
+    re.IGNORECASE,
+)
+
+#: Any figure a reader would register as a result.
+_HAS_NUMBER = re.compile(r"\d|\b(doubled|tripled|halved|first|only)\b", re.IGNORECASE)
+
+
+def _check_achievements(document: CVDocument) -> list[Finding]:
+    findings: list[Finding] = []
+    bullets = [node for node in document.nodes if node.role == "bullet"]
+    if not bullets:
+        return findings
+
+    for node in bullets:
+        if match := _DUTY_OPENING.match(node.text):
+            findings.append(
+                Finding(
+                    severity="warning",
+                    kind="duty_not_achievement",
+                    message=f"“{match.group(0).strip()}” describes the job, not what you did.",
+                    hint=(
+                        "Say what changed because you were there. Aptly cannot add "
+                        "the result for you — it may only use what you have told it."
+                    ),
+                    node_id=node.id,
+                    quote=node.text[:100],
+                )
+            )
+
+    # The whole-CV version, which is the one that actually moves somebody: a
+    # single flagged bullet reads as nitpicking, "three of fourteen" reads as a
+    # problem with the document.
+    quantified = sum(1 for node in bullets if _HAS_NUMBER.search(node.text))
+    if len(bullets) >= 4 and quantified * 3 < len(bullets):
+        findings.append(
+            Finding(
+                severity="warning",
+                kind="few_numbers",
+                message=f"Only {quantified} of {len(bullets)} bullets carry a number.",
+                hint=(
+                    "Scale, money, time, headcount, percentages. Add them to your "
+                    "career profile and every tailored CV can use them."
+                ),
+            )
+        )
+
+    return findings
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Length
+#
+# More is not better. A recruiter spends seconds on a first pass, and the
+# qualification that wins the interview is the one they did not have to scroll
+# to find.
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: Words a CV page holds at a readable size, with headings and white space.
+_WORDS_PER_PAGE = 500
+#: A bullet longer than this is a paragraph pretending to be one.
+_LONG_BULLET_WORDS = 45
+
+
+def _check_length(document: CVDocument) -> list[Finding]:
+    findings: list[Finding] = []
+    words = document.word_count
+    pages = words / _WORDS_PER_PAGE
+
+    if pages > 2.4:
+        findings.append(
+            Finding(
+                severity="warning",
+                kind="too_long",
+                message=f"This is around {pages:.1f} pages.",
+                hint=(
+                    "Two is the usual ceiling. Cut the oldest roles to a line each "
+                    "before cutting anything recent."
+                ),
+            )
+        )
+
+    for node in document.nodes:
+        if node.role != "bullet":
+            continue
+        count = len(node.text.split())
+        if count > _LONG_BULLET_WORDS:
+            findings.append(
+                Finding(
+                    severity="polish",
+                    kind="bullet_too_long",
+                    message=f"One bullet runs to {count} words.",
+                    hint="A bullet is skimmed, not read. Split it, or cut it to the result.",
+                    node_id=node.id,
+                    quote=node.text[:100],
+                )
+            )
+
+    return findings
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Details that do not belong on a CV any more
+#
+# Unambiguous, which is why it is safe to check for mechanically. Most employers
+# outside a handful of countries ask candidates *not* to send these, and several
+# create a legal problem for the person reading them — so a CV carrying them is
+# sometimes discarded before anybody assesses it.
+# ═══════════════════════════════════════════════════════════════════════════
+
+_PERSONAL = (
+    ("date_of_birth", re.compile(r"\b(date of birth|d\.?o\.?b\.?)\b", re.I), "Date of birth"),
+    ("marital_status", re.compile(r"\bmarital status\b", re.I), "Marital status"),
+    ("family", re.compile(r"\b(father'?s|mother'?s|spouse'?s) name\b", re.I), "A parent's name"),
+    ("gender", re.compile(r"^\s*(gender|sex)\s*[:\-]", re.I | re.M), "Gender"),
+    ("religion", re.compile(r"\b(religion|caste|nationality)\s*[:\-]", re.I), "Religion or caste"),
+    ("photo", re.compile(r"\b(passport size|attach(ed)? photo|photograph)\b", re.I), "A photo"),
+)
+
+
+def _check_personal(document: CVDocument) -> list[Finding]:
+    findings: list[Finding] = []
+    text = document.plain_text()
+
+    for kind, pattern, label in _PERSONAL:
+        if pattern.search(text):
+            findings.append(
+                Finding(
+                    severity="warning",
+                    kind=f"personal_{kind}",
+                    message=f"{label} is on this CV.",
+                    hint=(
+                        "Most employers ask you to leave this out, and in several "
+                        "countries reading it creates a problem for them. It takes "
+                        "space from something that would help you."
+                    ),
+                )
+            )
+
+    return findings
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # All of it
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -393,6 +549,9 @@ def proofread(document: CVDocument) -> list[Finding]:
         *_check_contact(document),
         *_check_dates(document),
         *_check_text(document),
+        *_check_achievements(document),
+        *_check_length(document),
+        *_check_personal(document),
     ]
     findings.sort(key=lambda finding: _ORDER[finding.severity])
     return findings

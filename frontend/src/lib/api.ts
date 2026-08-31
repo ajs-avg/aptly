@@ -17,6 +17,7 @@ import type {
   JobPost,
   LibraryPage,
   ProfileResponse,
+  ProofreadResponse,
   RecordDetail,
   TailorEvent,
   TailorMode,
@@ -558,6 +559,22 @@ export async function extractProfile(
  */
 export async function profileAsCv(): Promise<{ document: CVDocument; usable: boolean }> {
   const response = await call(`${API}/api/profile/as-cv`, await authed());
+  if (!response.ok) await fail(response);
+  return response.json();
+}
+
+/**
+ * Check a CV for mechanical mistakes.
+ *
+ * No account and no rate limit: every check on the other side is deterministic
+ * and costs nothing, so this can run whenever the document changes.
+ */
+export async function proofreadCv(document: CVDocument): Promise<ProofreadResponse> {
+  const response = await call(`${API}/api/cv/proofread`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ document }),
+  });
   if (!response.ok) await fail(response);
   return response.json();
 }

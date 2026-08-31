@@ -596,3 +596,30 @@ export interface ExtractResponse {
   added: string[];
   remaining_today: number;
 }
+
+// ── Proofreading ──────────────────────────────────────────────────────────
+//
+// Mechanical mistakes, found without a model. Every check is deterministic and
+// runs in about a millisecond, so this is called on every edit — and cannot
+// invent a problem that is not there, which is what lets it be trusted enough
+// to be worth reading.
+
+export type FindingSeverity = "error" | "warning" | "polish";
+
+export interface ProofreadFinding {
+  severity: FindingSeverity;
+  /** A stable slug, so the UI can group without matching on prose. */
+  kind: string;
+  message: string;
+  /** What to do about it. Never just "this is wrong". */
+  hint: string;
+  node_id: string | null;
+  quote: string;
+}
+
+export interface ProofreadResponse {
+  findings: ProofreadFinding[];
+  errors: number;
+  warnings: number;
+  polish: number;
+}

@@ -205,3 +205,101 @@ def test_the_proofreader_reports_markdown_it_still_finds() -> None:
     section.entries[0].bullets[0].text = "Built **the** thing."
 
     assert "markdown_left_in" in {finding.kind for finding in proofread(document)}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Duties where achievements belong
+#
+# The most-repeated advice about CVs, and the part a checker can genuinely
+# help with. Aptly cannot turn "responsible for social media" into "grew
+# engagement 35%" — it has no evidence for the number — but it can say which
+# bullets are missing one, which is what sends somebody to their profile to
+# supply it.
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.parametrize(
+    "opening",
+    ["Responsible for", "Helped with", "Worked on", "Participated in", "Involved in"],
+)
+def test_a_bullet_that_describes_the_job_rather_than_the_person(opening: str) -> None:
+    cv = CLEAN + f"- {opening} the onboarding process.\n"
+
+    assert "duty_not_achievement" in _kinds(cv)
+
+
+def test_a_cv_where_almost_nothing_is_quantified() -> None:
+    """One flagged bullet reads as nitpicking. "One of six" reads as a problem
+    with the document, which is the version that moves somebody."""
+    cv = (
+        "Aman Mishra\naman@example.com | +91 98765 43210\n\n"
+        "EXPERIENCE\nPM, Kalyra - Jan 2021 to Dec 2024\n"
+        + "".join(
+            f"- Ran the {word} process end to end.\n"
+            for word in ["onboarding", "pricing", "discovery", "launch", "retention"]
+        )
+        + "- Grew signups by 12%.\n"
+    )
+
+    findings = {f.kind: f.message for f in proofread(parse_pasted(cv))}
+    assert "1 of 6" in findings["few_numbers"]
+
+
+def test_a_well_quantified_cv_is_left_alone() -> None:
+    assert "few_numbers" not in _kinds(CLEAN)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Length
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_a_cv_that_runs_past_two_pages() -> None:
+    cv = CLEAN + "".join(
+        f"- Delivered project {i} with a 12% lift in activation across the platform.\n"
+        for i in range(130)
+    )
+
+    assert "too_long" in _kinds(cv)
+
+
+def test_a_bullet_that_is_really_a_paragraph() -> None:
+    cv = CLEAN + "- " + " ".join(["word"] * 60) + " and finished it.\n"
+
+    assert "bullet_too_long" in _kinds(cv)
+
+
+def test_a_two_page_cv_is_not_flagged() -> None:
+    assert "too_long" not in _kinds(CLEAN)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Details that do not belong on a CV any more
+#
+# Safe to check mechanically because they are unambiguous. Most employers ask
+# candidates not to send these, and in several countries reading one creates a
+# problem for the reader — so a CV carrying them is sometimes discarded before
+# anybody assesses it.
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.parametrize(
+    ("line", "kind"),
+    [
+        ("Date of Birth: 12 March 1996", "personal_date_of_birth"),
+        ("Marital Status: Single", "personal_marital_status"),
+        ("Father's Name: R. Mishra", "personal_family"),
+        ("Gender: Male", "personal_gender"),
+        ("Nationality: Indian", "personal_religion"),
+    ],
+)
+def test_a_personal_detail_that_should_not_be_there(line: str, kind: str) -> None:
+    cv = CLEAN.replace("SUMMARY", f"{line}\n\nSUMMARY")
+
+    assert kind in _kinds(cv)
+
+
+def test_a_cv_without_any_of_them_is_left_alone() -> None:
+    personal = {kind for kind in _kinds(CLEAN) if kind.startswith("personal_")}
+
+    assert personal == set()
