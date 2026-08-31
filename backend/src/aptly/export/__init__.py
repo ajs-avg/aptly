@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from aptly.errors import UnsupportedFormatError
+from aptly.export.templates import Template, get_template
 from aptly.ingest import _decode, parse_cv
 from aptly.model.document import CVDocument, TextNode
 
@@ -52,11 +53,16 @@ MEDIA_TYPES = {
 }
 
 
-def export_cv(original: bytes, document: CVDocument, target: str | None = None) -> ExportResult:
+def export_cv(
+    original: bytes,
+    document: CVDocument,
+    target: str | None = None,
+    template: str | None = None,
+) -> ExportResult:
     """Write ``document`` out, in its original format or a chosen one.
 
-    Two genuinely different operations behind one entry point, and which one
-    happens is decided by ``target``:
+    Three genuinely different operations behind one entry point, and which one
+    happens is decided by ``target`` and ``template``:
 
     - **No target, or the source format.** An *edit*. Only changed lines are
       rewritten and everything else — fonts, spacing, headers, the lot — is the
@@ -65,7 +71,24 @@ def export_cv(original: bytes, document: CVDocument, target: str | None = None) 
       content is exactly what was approved; the layout is ours. Someone who
       uploaded a .docx and needs a PDF for an application form gets one without
       opening Word, and is told plainly that it is a new document.
+    - **A template.** Also a rebuild, and the choice that makes the difference
+      explicit: the person is asking for *our* layout rather than theirs. It
+      takes precedence over everything else, because it is the only one of the
+      three they can have asked for by name.
+
+    A template therefore gives up in-place editing, and that trade has to be
+    made on screen rather than here. Keeping somebody's own file is the
+    product's central promise; a template is them setting it aside deliberately,
+    which is a different thing from us setting it aside for them.
     """
+    if chosen := get_template(template):
+        # Rendered through the template's profile rather than the one the
+        # parser measured off their file. Nothing else changes: every renderer
+        # already reads its layout from this object, which is what makes a
+        # template a preset rather than a second rendering path.
+        document = document.model_copy(update={"style_profile": chosen.profile})
+        return _rebuild_as(document, target or document.source_format, template=chosen)
+
     fmt = document.source_format
     if target and target != fmt:
         return _rebuild_as(document, target)
@@ -119,7 +142,9 @@ def export_cv(original: bytes, document: CVDocument, target: str | None = None) 
     )
 
 
-def _rebuild_as(document: CVDocument, target: str) -> ExportResult:
+def _rebuild_as(
+    document: CVDocument, target: str, template: Template | None = None
+) -> ExportResult:
     """Build the document afresh in a format it did not arrive in."""
     from aptly.export.render import REBUILD_NOTE, render
 
@@ -130,12 +155,17 @@ def _rebuild_as(document: CVDocument, target: str) -> ExportResult:
         )
 
     stem = _stem(document)
+    note = (
+        f"Set in the {template.name} layout. Your own formatting is not used here."
+        if template
+        else REBUILD_NOTE
+    )
     return ExportResult(
         data=render(document, target),
         filename=f"{stem}.{target}",
         media_type=MEDIA_TYPES[target],
         rebuilt=True,
-        notes=(REBUILD_NOTE,),
+        notes=(note,),
     )
 
 

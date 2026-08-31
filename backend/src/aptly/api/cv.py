@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 from aptly.config import get_settings
 from aptly.errors import FileTooLargeError, ParseError, UnsupportedFormatError
 from aptly.export import TARGET_FORMATS, export_cv
+from aptly.export.templates import TEMPLATE_ORDER, TEMPLATES
 from aptly.ingest import SUPPORTED_EXTENSIONS, parse_cv, parse_pasted
 from aptly.model.document import CVDocument
 from aptly.validate.proofread import proofread
@@ -68,6 +69,45 @@ async def paste(payload: PasteRequest) -> IngestResponse:
     """Parse a CV the person pasted rather than uploaded."""
     document = parse_pasted(payload.text)
     return IngestResponse(document=document, warnings=document.warnings)
+
+
+class TemplateInfo(BaseModel):
+    """One layout, as the download dialog describes it."""
+
+    key: str
+    name: str
+    blurb: str
+    suits: str
+    #: The typography, so the dialog can preview a layout it does not render.
+    body_font: str
+    heading_rule: bool
+    name_size_pt: float
+    body_size_pt: float
+    line_spacing: float
+
+
+@router.get("/templates", response_model=list[TemplateInfo])
+async def templates() -> list[TemplateInfo]:
+    """The layouts a CV can be set in.
+
+    Served rather than hard-coded in the browser so the dialog's preview and the
+    exporter cannot drift: both read the same profile, and a font changed here
+    changes what the preview shows without a second edit.
+    """
+    return [
+        TemplateInfo(
+            key=item.key,
+            name=item.name,
+            blurb=item.blurb,
+            suits=item.suits,
+            body_font=item.profile.body.family,
+            heading_rule=item.profile.heading_rule,
+            name_size_pt=item.profile.name.size_pt,
+            body_size_pt=item.profile.body.size_pt,
+            line_spacing=item.profile.line_spacing,
+        )
+        for item in (TEMPLATES[key] for key in TEMPLATE_ORDER)
+    ]
 
 
 class ProofreadRequest(BaseModel):
@@ -123,6 +163,14 @@ async def export(
         default=None,
         description="Download as this format instead. Omit to keep the original's.",
     ),
+    template: str | None = Form(
+        default=None,
+        description=(
+            "Set the CV in one of Aptly's layouts instead of the person's own. "
+            "Omit to keep theirs — which is the only option that can edit their "
+            "file in place."
+        ),
+    ),
 ) -> Response:
     """Write the edited CV back out.
 
@@ -151,7 +199,7 @@ async def export(
         )
 
     original = await file.read() if file is not None else b""
-    result = export_cv(original, parsed, target)
+    result = export_cv(original, parsed, target, template=template)
 
     headers = {
         "Content-Disposition": f'attachment; filename="{result.filename}"',

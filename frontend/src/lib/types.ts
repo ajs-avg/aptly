@@ -623,3 +623,27 @@ export interface ProofreadResponse {
   warnings: number;
   polish: number;
 }
+
+// ── Download layouts ──────────────────────────────────────────────────────
+//
+// A template is a StyleProfile on the server: page, margins, three font specs,
+// heading treatment, body rhythm. Every renderer already reads its layout from
+// that one object, which is why choosing one is a preset swap rather than a
+// second rendering path.
+//
+// The typography comes down with each template so the dialog can preview a
+// layout it does not itself render — and cannot drift from what the exporter
+// will actually produce, because both read the same profile.
+
+export interface CvTemplate {
+  key: string;
+  name: string;
+  blurb: string;
+  /** Who it suits. The thing that actually helps somebody decide. */
+  suits: string;
+  body_font: string;
+  heading_rule: boolean;
+  name_size_pt: number;
+  body_size_pt: number;
+  line_spacing: number;
+}

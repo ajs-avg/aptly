@@ -11,6 +11,7 @@ import { accessToken } from "./supabase";
 import type {
   AuthSession,
   CareerProfile,
+  CvTemplate,
   CVDocument,
   ExtractResponse,
   IngestResponse,
@@ -155,11 +156,20 @@ export async function exportCv(
    * uploaded a .docx gets the PDF an application form is asking for.
    */
   target?: TargetFormat,
+  /**
+   * Set the CV in one of Aptly's layouts instead of the person's own.
+   *
+   * Mutually exclusive with keeping their formatting, and deliberately so: a
+   * template is them setting their own file aside on purpose, which is a
+   * different thing from us setting it aside for them.
+   */
+  template?: string,
 ): Promise<ExportResult> {
   const body = new FormData();
   body.append("document", JSON.stringify(document));
   if (original) body.append("file", original);
   if (target) body.append("target", target);
+  if (template) body.append("template", template);
 
   const response = await call(`${API}/api/cv/export`, {
     method: "POST",
@@ -575,6 +585,13 @@ export async function proofreadCv(document: CVDocument): Promise<ProofreadRespon
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ document }),
   });
+  if (!response.ok) await fail(response);
+  return response.json();
+}
+
+/** The layouts a CV can be set in. */
+export async function getTemplates(): Promise<CvTemplate[]> {
+  const response = await call(`${API}/api/cv/templates`);
   if (!response.ok) await fail(response);
   return response.json();
 }

@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { motion } from "motion/react";
 
 import { ChangeSummary } from "./ChangeSummary";
 import { ScoreDial } from "./ScoreDial";
 import { SkillGaps } from "./SkillGaps";
 import { EditableCv } from "./EditableCv";
+import { DownloadDialog } from "./DownloadDialog";
 import { Proofread } from "./Proofread";
-import { EASE, SPRING } from "@/components/motion/primitives";
+import { SPRING } from "@/components/motion/primitives";
 import { useMediaQuery } from "@/lib/browser";
 import { cn } from "@/lib/utils";
 import type { ScoreResult, TargetFormat } from "@/lib/types";
@@ -28,13 +29,6 @@ import type { Side, SideState } from "@/lib/useTailorRun";
  * comparison screen the thing you want after deciding is the other one open.
  */
 
-const FORMATS: { value: TargetFormat; label: string }[] = [
-  { value: "docx", label: "Word (.docx)" },
-  { value: "pdf", label: "PDF" },
-  { value: "tex", label: "LaTeX (.tex)" },
-  { value: "md", label: "Markdown" },
-  { value: "txt", label: "Plain text" },
-];
 
 interface Props {
   side: Side;
@@ -53,8 +47,10 @@ interface Props {
   onApplyAll: () => void;
   onEdit: (nodeId: string, text: string) => void;
   onApprove: () => void;
-  onDownload: (format: TargetFormat) => void;
+  onDownload: (format: TargetFormat, template: string | null) => void;
   sourceFormat: string;
+  /** Whether there is an uploaded file whose formatting could be kept. */
+  canKeepFormat: boolean;
   busy?: boolean;
   /** Ask the server to read the edited document again. */
   onRecheck?: () => void;
@@ -83,13 +79,14 @@ export function CvPanel({
   onApprove,
   onDownload,
   sourceFormat,
+  canKeepFormat,
   busy = false,
   onRecheck,
   rechecking = false,
   verified = null,
   onClaim,
 }: Props) {
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [downloadOpen, setDownloadOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [gapsOpen, setGapsOpen] = useState(false);
 
@@ -226,53 +223,16 @@ export function CvPanel({
                 {rechecking ? "Re-reading…" : "Re-check score"}
               </button>
             )}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setMenuOpen((open) => !open)}
-                aria-expanded={menuOpen}
-                className="inline-flex h-8 items-center gap-1.5 rounded-pill px-3 font-display text-xs text-ink ring-1 ring-ink/10 transition-colors hover:bg-sunken"
-              >
-                Download
-                <svg viewBox="0 0 24 24" className="size-3" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
-                </svg>
-              </button>
-
-              <AnimatePresence>
-                {menuOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -4, scale: 0.97 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -4, scale: 0.97 }}
-                    transition={EASE}
-                    className="absolute right-0 top-full z-20 mt-1.5 w-52 overflow-hidden rounded-lg bg-raised p-1 shadow-card ring-1 ring-ink/10"
-                  >
-                    {FORMATS.map((format) => {
-                      const lossless = format.value === sourceFormat;
-                      return (
-                        <button
-                          key={format.value}
-                          type="button"
-                          onClick={() => {
-                            setMenuOpen(false);
-                            onDownload(format.value);
-                          }}
-                          className="flex w-full items-center justify-between gap-2 rounded-sm px-2.5 py-1.5 text-left text-sm text-ink transition-colors hover:bg-sunken"
-                        >
-                          {format.label}
-                          {/* Which one keeps their formatting, said before they
-                              choose rather than discovered after. */}
-                          <span className="font-display text-2xs text-slate">
-                            {lossless ? "your layout" : "rebuilt"}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+            <button
+              type="button"
+              onClick={() => setDownloadOpen(true)}
+              className="inline-flex h-8 items-center gap-1.5 rounded-pill px-3 font-display text-xs text-ink ring-1 ring-ink/10 transition-colors hover:bg-sunken"
+            >
+              Download
+              <svg viewBox="0 0 24 24" className="size-3" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v12m0 0-4-4m4 4 4-4M5 20h14" />
+              </svg>
+            </button>
 
             <button
               type="button"
@@ -366,6 +326,18 @@ export function CvPanel({
           }}
         />
       )}
+
+      <DownloadDialog
+        open={downloadOpen}
+        onClose={() => setDownloadOpen(false)}
+        document={state.document}
+        // Only the tailored side has a file behind it. The rebuilt CV is a new
+        // document by definition, so "keep my formatting" would be offering to
+        // keep a formatting that never existed.
+        canKeepFormat={canKeepFormat}
+        sourceFormat={sourceFormat}
+        onDownload={onDownload}
+      />
 
       <ChangeSummary
         open={summaryOpen}

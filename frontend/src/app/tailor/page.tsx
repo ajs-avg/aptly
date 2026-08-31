@@ -197,11 +197,15 @@ function TailorScreen() {
   }, [actions, cvFile, cvText, jobText, state.phase, useProfile]);
 
   const download = useCallback(
-    async (side: Side, format: TargetFormat) => {
+    async (side: Side, format: TargetFormat, template: string | null) => {
       const document = state[side].document;
       if (!document) return;
       try {
-        const result = await exportCv(document, side === "tailored" ? cvFile : null, format);
+        // A template replaces their formatting, so the original file is not
+        // sent with it — an in-place edit and a chosen layout are mutually
+        // exclusive by definition.
+        const original = side === "tailored" && !template ? cvFile : null;
+        const result = await exportCv(document, original, format, template ?? undefined);
         const url = URL.createObjectURL(result.blob);
         const anchor = window.document.createElement("a");
         anchor.href = url;
@@ -560,8 +564,12 @@ function TailorScreen() {
                     onApplyAll={() => actions.applyAll(side)}
                     onEdit={(nodeId, text) => actions.edit(side, nodeId, text)}
                     onApprove={() => void approve(side)}
-                    onDownload={(format) => void download(side, format)}
+                    onDownload={(format, template) => void download(side, format, template)}
                     sourceFormat={state[side].document?.source_format ?? "docx"}
+                    // Only the tailored side has a file behind it: the rebuilt
+                    // CV is a new document, so there is no formatting of theirs
+                    // to keep.
+                    canKeepFormat={side === "tailored" && Boolean(cvFile)}
                     busy={saving === side}
                     onRecheck={() => void recheck(side)}
                     rechecking={rechecking === side}
