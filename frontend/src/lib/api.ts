@@ -629,5 +629,76 @@ export async function askAgent(input: {
     }),
   });
   if (!response.ok) await fail(response);
-  return response.json();
+  if (!response.body) throw new ApiError("The agent did not answer.");
+
+  /*
+   * Read as a stream, for the reason the endpoint is one.
+   *
+   * The agent thinks for as long as the model takes — twenty to sixty seconds
+   * on a real CV — and a request that sits silent that long is not reliably a
+   * request that finishes. A proxy in between sees an idle connection and
+   * closes it, and the page it substitutes carries none of the API's CORS
+   * headers, so the browser reports "no Access-Control-Allow-Origin": a true
+   * statement about a response the application never sent, and a completely
+   * misleading description of what went wrong.
+   *
+   * The first event arrives immediately and holds the connection; the answer
+   * is the last one.
+   */
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let answer: AgentResponse | null = null;
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      // SSE frames are separated by a blank line; a frame's payload is its
+      // `data:` lines joined.
+      let split = buffer.indexOf("\n\n");
+      while (split !== -1) {
+        const frame = buffer.slice(0, split);
+        buffer = buffer.slice(split + 2);
+        split = buffer.indexOf("\n\n");
+
+        const payload = frame
+          .split("\n")
+          .filter((line) => line.startsWith("data:"))
+          .map((line) => line.slice(5).trim())
+          .join("");
+        if (!payload) continue;
+
+        let event: Record<string, unknown>;
+        try {
+          event = JSON.parse(payload);
+        } catch {
+          continue;
+        }
+
+        if (event.kind === "working") continue;
+        if (event.kind === "error") {
+          throw new ApiError(
+            String(event.message ?? "The agent could not finish that."),
+            String(event.hint ?? ""),
+          );
+        }
+        answer = event as unknown as AgentResponse;
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  if (!answer) {
+    // The stream opened and closed without an answer, which is what a
+    // connection cut mid-thought looks like from here.
+    throw new ApiError(
+      "The agent stopped before it finished.",
+      "Ask again — a shorter instruction is more likely to get through.",
+    );
+  }
+  return answer;
 }

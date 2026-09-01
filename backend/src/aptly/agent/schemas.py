@@ -58,6 +58,22 @@ class AgentEdit(BaseModel):
     )
 
 
+class LearnedFact(BaseModel):
+    """Something they said that is worth carrying to the other agent.
+
+    A list of pairs rather than a dictionary, and not for style: a free-form
+    object compiles to `additionalProperties` in JSON Schema, and the Gemini
+    Developer API refuses a schema containing it outright. Declared as a `dict`
+    this raised at the point of the call — so every single agent turn failed
+    with a 500 before the model was even asked, and the browser reported it as a
+    CORS error, because an unhandled 500 does not carry the CORS headers the
+    application would have added.
+    """
+
+    key: str = Field(description="Short and lowercase — 'github', 'phone'.")
+    value: str = Field(description="What they said, in their words.")
+
+
 class Refusal(BaseModel):
     """Something asked for that the agent will not do, and why."""
 
@@ -90,12 +106,11 @@ class AgentReply(BaseModel):
             "would genuinely change the CV. Never ask for something already here."
         ),
     )
-    learned: dict[str, str] = Field(
-        default_factory=dict,
+    learned: list[LearnedFact] = Field(
+        default_factory=list,
         description=(
             "Facts they told you in this message that are worth remembering — "
-            "'github: github.com/aman-spp', 'phone: +91…'. Keys are short and "
-            "lowercase. Only what they actually said."
+            "github, phone, a link. Only what they actually said."
         ),
     )
 
@@ -127,7 +142,11 @@ class AgentRequest(BaseModel):
 
 
 class AgentResponse(AgentReply):
-    """The reply, plus what the screen needs to present it."""
+    """The reply, plus what the screen needs to present it.
+
+    This one is never sent to the model, only to the browser, so it is free to
+    use the shape the browser wants — see `facts` below.
+    """
 
     scale: Scale = "small"
     #: Everything the person has told an agent this session, including whatever
@@ -143,6 +162,7 @@ __all__ = [
     "AgentResponse",
     "AgentTurn",
     "EditKind",
+    "LearnedFact",
     "Refusal",
     "Scale",
 ]

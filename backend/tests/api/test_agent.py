@@ -232,7 +232,12 @@ def test_one_very_long_rewrite_is_large() -> None:
 def test_facts_are_bounded_on_both_sides() -> None:
     """A key is a label, and a "fact" recorded at four hundred characters is a
     summary of the conversation rather than a fact from it."""
-    cleaned = _clean_facts({"K" * 100: "v" * 900, **{f"k{i}": "v" for i in range(40)}})
+    from aptly.agent.schemas import LearnedFact
+
+    cleaned = _clean_facts(
+        [LearnedFact(key="K" * 100, value="v" * 900)]
+        + [LearnedFact(key=f"k{i}", value="v") for i in range(40)]
+    )
 
     assert len(cleaned) <= 20
     assert all(len(key) <= 40 for key in cleaned)
@@ -335,3 +340,72 @@ def test_an_unusable_instruction_is_rejected(client, instruction: str) -> None:
     )
 
     assert response.status_code in (401, 403, 422)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# The schema the model is actually given
+#
+# Every agent turn failed with a 500 before the model was even asked, because
+# `learned` was declared as a free-form dict. Pydantic compiles that to
+# `additionalProperties`, and the Gemini Developer API refuses a schema
+# containing one. The browser reported it as a CORS error — an unhandled 500
+# does not carry the headers the application would have added — which is a
+# true statement about a response the app never sent and a useless description
+# of what went wrong.
+#
+# So the schema is asserted against the real validator rather than trusted.
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_the_reply_schema_is_one_gemini_will_accept() -> None:
+    from aptly.agent.schemas import AgentReply
+    from google.genai import Client
+    from google.genai import _transformers as transformers
+
+    client = Client(api_key="x" * 20)
+
+    # Raises ValueError naming the offending construct if it will not compile.
+    transformers.t_schema(client._api_client, AgentReply)
+
+
+def test_no_free_form_object_reaches_the_model_schema() -> None:
+    """The specific construct, named, so a future `dict[str, …]` fails here
+    rather than in production.
+
+    Walked structurally rather than searched as text: the schema carries every
+    docstring as a `description`, and the docstring explaining this rule
+    contains the word it is looking for.
+    """
+    from aptly.agent.schemas import AgentReply
+
+    def offenders(node, path="") -> list[str]:
+        if isinstance(node, dict):
+            found = ["additionalProperties" for key in node if key == "additionalProperties"]
+            return [f"{path}: {name}" for name in found] + [
+                item
+                for key, value in node.items()
+                if key != "description"
+                for item in offenders(value, f"{path}.{key}")
+            ]
+        if isinstance(node, list):
+            return [item for value in node for item in offenders(value, path)]
+        return []
+
+    assert offenders(AgentReply.model_json_schema()) == []
+
+
+def test_learned_facts_still_arrive_as_a_dictionary() -> None:
+    """A list on the way in from the model, a dictionary on the way out to the
+    browser — which is what makes a repeated key one fact rather than two."""
+    from aptly.agent import _clean_facts
+    from aptly.agent.schemas import LearnedFact
+
+    facts = _clean_facts(
+        [
+            LearnedFact(key="GitHub", value="github.com/amanm"),
+            LearnedFact(key="github", value="github.com/amanm"),
+            LearnedFact(key="phone", value="+91 98765 43210"),
+        ]
+    )
+
+    assert facts == {"github": "github.com/amanm", "phone": "+91 98765 43210"}

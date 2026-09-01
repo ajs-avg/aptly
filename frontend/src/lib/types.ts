@@ -677,12 +677,25 @@ export interface AgentTurn {
   content: string;
 }
 
+export interface LearnedFact {
+  key: string;
+  value: string;
+}
+
 export interface AgentResponse {
   reply: string;
   edits: AgentEdit[];
   refused: AgentRefusal[];
   questions: string[];
-  learned: Record<string, string>;
+  /**
+   * A list of pairs, not an object.
+   *
+   * Mirrors the server, where it has to be: a free-form object compiles to
+   * `additionalProperties` in JSON Schema, and the Gemini Developer API refuses
+   * a schema containing one outright. `facts` below is the merged dictionary,
+   * and that one is safe because it is never sent to a model.
+   */
+  learned: LearnedFact[];
   /** Everything said to either agent this session, including this turn. */
   facts: Record<string, string>;
   /** `large` is shown in full before it happens; `small` lands as cards. */

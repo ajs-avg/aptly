@@ -44,6 +44,7 @@ from aptly.agent.schemas import (
     AgentRequest,
     AgentResponse,
     AgentTurn,
+    LearnedFact,
     Refusal,
     Scale,
 )
@@ -199,17 +200,21 @@ def _scale(edits: list[AgentEdit]) -> Scale:
     return "small"
 
 
-def _clean_facts(learned: dict[str, str]) -> dict[str, str]:
+def _clean_facts(learned: list[LearnedFact]) -> dict[str, str]:
     """Keep what the person said, in a shape the other agent can read.
+
+    Arrives as a list because the model's schema cannot hold a free-form object
+    (see `LearnedFact`); leaves as a dictionary because that is what the browser
+    hands to both agents and what makes a repeated key one fact rather than two.
 
     Bounded on both sides. A key is a label, not a paragraph, and a fact the
     model decided to record at four hundred characters is a summary of the
     conversation rather than a fact from it.
     """
     out: dict[str, str] = {}
-    for key, value in list(learned.items())[:20]:
-        name = key.strip().lower()[:40]
-        text = value.strip()[:300]
+    for fact in learned[:20]:
+        name = fact.key.strip().lower()[:40]
+        text = fact.value.strip()[:300]
         if name and text:
             out[name] = text
     return out
