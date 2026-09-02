@@ -42,25 +42,48 @@ export function CvSource({
 }) {
   const [profile, setProfile] = useState<{
     completeness: number;
-    roles: number;
+    /** What it holds, for the line under the card. */
+    summary: string;
+    usable: boolean;
     name: string;
   } | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     void getProfile()
-      .then((response) =>
+      .then((response) => {
+        const it = response.profile;
+        // Counted across everything a rebuild can actually use, not just jobs.
+        //
+        // This was `roles.length > 0`, which hid the whole chooser from anyone
+        // whose career is not a list of employers — a student with a degree and
+        // two projects, a fresher, anybody between jobs. Their profile is real
+        // and usable, and the screen behaved as though they had never imported
+        // a CV at all.
+        const counts: [number, string][] = [
+          [it.roles.length, it.roles.length === 1 ? "role" : "roles"],
+          [it.education.length, "education"],
+          [it.projects.length, it.projects.length === 1 ? "project" : "projects"],
+          [it.skills.length, "skills"],
+        ];
         setProfile({
           completeness: response.completeness,
-          roles: response.profile.roles.length,
-          name: response.profile.identity.full_name,
-        }),
-      )
+          summary: counts
+            .filter(([n]) => n > 0)
+            .slice(0, 2)
+            .map(([n, label]) => `${n} ${label}`)
+            .join(" · "),
+          usable: counts.some(([n]) => n > 0),
+          name: it.identity.full_name,
+        });
+      })
       // A profile that will not load is not worth a message here. The file
       // path below works regardless, and this screen's job is to start a run.
-      .catch(() => setProfile(null));
+      .catch(() => setProfile(null))
+      .finally(() => setLoading(false));
   }, []);
 
-  const hasProfile = Boolean(profile && profile.roles > 0);
+  const hasProfile = Boolean(profile?.usable);
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
@@ -70,7 +93,7 @@ export function CvSource({
             active={useProfile}
             onClick={() => onUseProfile(true)}
             title="What Aptly knows"
-            detail={`${profile.roles} ${profile.roles === 1 ? "role" : "roles"} · ${profile.completeness}% complete`}
+            detail={`${profile.summary} · ${profile.completeness}% complete`}
           />
           <SourceCard
             active={!useProfile}
@@ -79,6 +102,31 @@ export function CvSource({
             detail="Paste it, or drop a file"
           />
         </div>
+      )}
+
+      {/*
+        * Nothing on file, and worth saying so.
+        *
+        * The account-creation screen offers to read a CV into a profile, but
+        * the import is a *proposal* — it is reviewed and saved by hand, on
+        * purpose, because a model writing into somebody's career history
+        * unread is the one thing that flow exists to prevent. Somebody who
+        * dropped a CV there and did not finish arrives here with an empty
+        * profile and no clue that any of it happened, which reads as the
+        * upload having been lost.
+        */}
+      {!loading && !hasProfile && (
+        <p className="text-2xs leading-relaxed text-slate">
+          Aptly has nothing on file for you yet.{" "}
+          <Link
+            href="/profile"
+            className="text-signal underline decoration-signal/30 underline-offset-2 transition-colors hover:decoration-signal"
+          >
+            Set up your profile
+          </Link>{" "}
+          — read a CV into it once and every tailoring after this can start from
+          it, without you finding the file again.
+        </p>
       )}
 
       <AnimatePresence mode="wait" initial={false}>

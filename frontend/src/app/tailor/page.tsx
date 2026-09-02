@@ -692,8 +692,14 @@ function DropScreen({
       {/* `content`, because that is what this screen is: two boxes on the
           reading measure, not the app's full working surface. The bar follows
           the page rather than the page following the bar. */}
+      {/* The account button belongs here as much as on the compare screen.
+          Without it this page is a dead end for anyone wanting their profile —
+          which is exactly what somebody who has just imported a CV is looking
+          for, and the screen that offers to use that profile was the one page
+          with no way to reach it. */}
       <AppBar brandHref="/" context="Tailor" width="content">
         <BarLink href="/library">Library</BarLink>
+        <AccountButton />
       </AppBar>
 
       <div className="gutter mx-auto max-w-content py-10 sm:py-16">
