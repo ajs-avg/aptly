@@ -656,13 +656,15 @@ export interface CvTemplate {
 // session and reaches no database.
 
 export type AgentScale = "small" | "large";
-export type AgentEditKind = "replace" | "add";
+export type AgentEditKind = "replace" | "add" | "remove" | "move";
 
 export interface AgentEdit {
   node_id: string;
   kind: AgentEditKind;
   before: string;
   after: string;
+  /** For a move: the line this one should sit after. Empty means first. */
+  target_id: string;
   reason: string;
   drawn_from: string;
 }

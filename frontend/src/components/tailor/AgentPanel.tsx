@@ -188,14 +188,17 @@ export function AgentPanel({
               {history.length === 0 && (
                 <div className="pb-3">
                   <p className="pb-2 text-2xs leading-relaxed text-slate">
-                    It can only write what you have already told it. Ask for
-                    something it has no record of and it will say so — and tell
-                    you what to say to change that.
+                    It can rewrite, add, remove and reorder — anything you can
+                    describe. It can only <em>write</em> what you have already
+                    told it, so ask for something it has no record of and it
+                    will say so, and tell you what to say to change that.
+                    Everything is undoable.
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {[
                       "Make the summary shorter",
                       "Lead with the deployment result",
+                      "Drop the weakest bullet",
                       "This sounds like every other CV",
                     ].map((example) => (
                       <button
@@ -382,10 +385,19 @@ function ReviewDialog({
                         "rounded-pill px-2 py-0.5 font-display text-2xs font-medium",
                         edit.kind === "add"
                           ? "bg-signal-soft text-signal"
-                          : "bg-amber-soft text-amber-ink",
+                          : edit.kind === "remove"
+                            ? "bg-danger-soft text-danger"
+                            : "bg-amber-soft text-amber-ink",
                       )}
                     >
-                      {edit.kind === "add" ? "New line" : "Rewritten"}
+                      {
+                        {
+                          add: "New line",
+                          remove: "Removed",
+                          move: "Moved",
+                          replace: "Rewritten",
+                        }[edit.kind]
+                      }
                     </span>
                     <span className="min-w-0 flex-1 truncate text-2xs text-slate">
                       {edit.reason}
@@ -400,9 +412,24 @@ function ReviewDialog({
                       {edit.before}
                     </p>
                   )}
-                  <p className="cv-literal mark-change rounded-sm px-2 py-1.5 text-2xs leading-relaxed text-ink">
-                    {edit.after}
-                  </p>
+
+                  {/* A removal shows the line it takes, in full and not
+                      truncated. It is the only operation whose result cannot be
+                      read afterwards, because afterwards the line is gone —
+                      this is the last chance anybody has to look at it. */}
+                  {edit.kind === "remove" ? (
+                    <p className="cv-literal rounded-sm bg-danger-soft/60 px-2 py-1.5 text-2xs leading-relaxed text-ink line-through decoration-danger/40">
+                      {edit.before}
+                    </p>
+                  ) : edit.kind === "move" ? (
+                    <p className="cv-literal rounded-sm bg-sunken px-2 py-1.5 text-2xs leading-relaxed text-ink">
+                      {edit.before || "This line"}
+                    </p>
+                  ) : (
+                    <p className="cv-literal mark-change rounded-sm px-2 py-1.5 text-2xs leading-relaxed text-ink">
+                      {edit.after}
+                    </p>
+                  )}
                 </div>
               ))}
 

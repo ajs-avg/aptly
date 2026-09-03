@@ -153,7 +153,11 @@ def _check(
     for edit in reply.edits:
         node = document.node(edit.node_id)
 
-        if edit.kind == "replace":
+        # A removal and a move both name a line that has to still be there, and
+        # a removal has to still say what it says. Deleting by id alone would
+        # take out whatever now sits at that id — which, after the person has
+        # edited, is not what the agent read.
+        if edit.kind in {"replace", "remove", "move"}:
             if node is None:
                 refused.append(
                     Refusal(
@@ -167,11 +171,18 @@ def _check(
             if edit.before and normalize_text(node.text) != normalize_text(edit.before):
                 refused.append(
                     Refusal(
-                        what=f"Rewriting “{node.text[:60]}”",
+                        what=f"Changing “{node.text[:60]}”",
                         why="That line changed while I was working on it, so I left it alone.",
                     )
                 )
                 continue
+
+        # Nothing to check on a removal or a move: neither writes a word. What
+        # they do is reversible in one press, which is the guarantee that makes
+        # letting the agent do them at all reasonable.
+        if edit.kind in {"remove", "move"}:
+            kept.append(edit)
+            continue
 
         if problem := unsupported_claims(edit.after, source):
             _, detail = problem

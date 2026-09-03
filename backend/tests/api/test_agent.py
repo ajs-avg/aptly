@@ -409,3 +409,113 @@ def test_learned_facts_still_arrive_as_a_dictionary() -> None:
     )
 
     assert facts == {"github": "github.com/amanm", "phone": "+91 98765 43210"}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# A free hand
+#
+# "Make this shorter" means removing bullets, not only rewriting them, and
+# "lead with the deployment one" means moving a line. An agent that can rewrite
+# in place answers neither. Removing and moving write no words, so there is
+# nothing for the no-fabrication check to check — what makes them safe is that
+# they are one press from being undone.
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_a_removal_is_allowed_and_needs_no_word_check() -> None:
+    document = _document()
+    node = _bullet(document)
+    reply = AgentReply(
+        reply="Dropped it.",
+        edits=[
+            AgentEdit(
+                node_id=node.id,
+                kind="remove",
+                before=node.text,
+                after="",
+                reason="It earns nothing here.",
+            )
+        ],
+    )
+
+    kept, refused = _check(reply, document, _source(document))
+
+    assert len(kept) == 1
+    assert refused == []
+
+
+def test_a_move_is_allowed() -> None:
+    document = _document()
+    bullets = [n for n in document.nodes if n.role == "bullet"]
+    reply = AgentReply(
+        reply="Reordered.",
+        edits=[
+            AgentEdit(
+                node_id=bullets[1].id,
+                kind="move",
+                before=bullets[1].text,
+                after="",
+                target_id="",
+                reason="This is the result the post asks about.",
+            )
+        ],
+    )
+
+    kept, refused = _check(reply, document, _source(document))
+
+    assert len(kept) == 1
+    assert refused == []
+
+
+def test_a_removal_of_a_line_that_changed_is_refused() -> None:
+    """Deleting by id alone would take out whatever now sits at that id, which
+    after the person has edited is not what the agent read."""
+    document = _document()
+    node = _bullet(document)
+    reply = AgentReply(
+        reply="",
+        edits=[
+            AgentEdit(
+                node_id=node.id,
+                kind="remove",
+                before="Something this line no longer says.",
+                after="",
+                reason="x",
+            )
+        ],
+    )
+
+    kept, refused = _check(reply, document, _source(document))
+
+    assert kept == []
+    assert "changed while" in refused[0].why
+
+
+def test_a_removal_of_a_line_that_is_gone_is_refused() -> None:
+    document = _document()
+    reply = AgentReply(
+        reply="",
+        edits=[AgentEdit(node_id="nod_gone", kind="remove", before="x", after="", reason="x")],
+    )
+
+    kept, refused = _check(reply, document, _source(document))
+
+    assert kept == []
+    assert refused
+
+
+def test_the_prompt_offers_all_four_operations() -> None:
+    """Between them they cover any change to a CV somebody can describe, and an
+    agent that is not told about one will not use it."""
+    from aptly.agent.prompts import AGENT_SYSTEM
+
+    for operation in ("**replace**", "**add**", "**remove**", "**move**"):
+        assert operation in AGENT_SYSTEM
+
+
+def test_the_prompt_asks_for_the_whole_request() -> None:
+    """A cautious fragment of what somebody asked for reads as the tool not
+    working, and everything proposed is reviewed and undoable anyway."""
+    from aptly.agent.prompts import AGENT_SYSTEM
+
+    assert "Do the whole of what they asked" in AGENT_SYSTEM

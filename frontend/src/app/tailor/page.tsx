@@ -158,7 +158,15 @@ function TailorScreen() {
         jobText,
         cvText,
         cvFile,
-        run: state,
+        // Without the undo history. It is forty whole documents, and writing it
+        // on every keystroke would make the saved session forty times larger
+        // for something nobody expects to survive a reload — undo is about the
+        // last few minutes, and a reload is not one of them.
+        run: {
+          ...state,
+          tailored: { ...state.tailored, past: [], future: [] },
+          rebuilt: { ...state.rebuilt, past: [], future: [] },
+        },
         pastReveal,
         verified,
       });
@@ -168,6 +176,29 @@ function TailorScreen() {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
   }, [restored, state, jobText, cvText, cvFile, pastReveal, verified]);
+
+  /*
+   * Cmd-Z and Cmd-Shift-Z, on whichever CV is open.
+   *
+   * Only when one is expanded: with both panels side by side there is no
+   * answer to "undo what", and guessing would undo the one somebody is not
+   * looking at. Ignored while a field has focus, because there the browser's
+   * own undo is the right one and taking it over loses a half-typed sentence.
+   */
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "z") return;
+      const side = state.expanded;
+      if (!side) return;
+      const target = event.target as HTMLElement | null;
+      if (target && ["INPUT", "TEXTAREA"].includes(target.tagName)) return;
+      event.preventDefault();
+      if (event.shiftKey) actions.stepForward(side);
+      else actions.stepBack(side);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [actions, state.expanded]);
 
   const canStart =
     jobText.trim().length >= MIN_JOB_CHARS &&
@@ -618,6 +649,10 @@ function TailorScreen() {
                     rechecking={rechecking === side}
                     verified={verified[side] ?? null}
                     onClaim={(lines) => actions.claim(side, lines)}
+                    onStepBack={() => actions.stepBack(side)}
+                    onStepForward={() => actions.stepForward(side)}
+                    canStepBack={state[side].past.length > 0}
+                    canStepForward={state[side].future.length > 0}
                     agent={
                       <AgentPanel
                         side={side}

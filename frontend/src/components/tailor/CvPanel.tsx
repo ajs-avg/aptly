@@ -61,6 +61,10 @@ interface Props {
   onClaim?: (lines: string[]) => void;
   /** This document's agent. One per CV; they cannot read each other. */
   agent?: React.ReactNode;
+  onStepBack: () => void;
+  onStepForward: () => void;
+  canStepBack: boolean;
+  canStepForward: boolean;
 }
 
 export function CvPanel({
@@ -88,6 +92,10 @@ export function CvPanel({
   verified = null,
   onClaim,
   agent,
+  onStepBack,
+  onStepForward,
+  canStepBack,
+  canStepForward,
 }: Props) {
   const [downloadOpen, setDownloadOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -186,6 +194,41 @@ export function CvPanel({
               Apply all {pending}
             </button>
           )}
+
+          {/* Undo and redo, first in the row.
+              The agent has a free hand — it rewrites, adds, removes and
+              reorders — and these are what make that reasonable rather than
+              alarming. A removal in particular cannot be judged by reading it,
+              because the line is gone; being one press from having it back is
+              the whole answer to that. */}
+          <div className="flex items-center">
+            <button
+              type="button"
+              onClick={onStepBack}
+              disabled={!canStepBack}
+              aria-label="Undo the last change"
+              title="Undo"
+              className="grid size-8 place-items-center rounded-pill text-slate transition-colors hover:bg-sunken hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent [@media(pointer:coarse)]:w-11"
+            >
+              <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 14 4 9l5-5" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 9h11a5 5 0 0 1 0 10h-3" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={onStepForward}
+              disabled={!canStepForward}
+              aria-label="Redo"
+              title="Redo"
+              className="grid size-8 place-items-center rounded-pill text-slate transition-colors hover:bg-sunken hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent [@media(pointer:coarse)]:w-11"
+            >
+              <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m15 14 5-5-5-5" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20 9H9a5 5 0 0 0 0 10h3" />
+              </svg>
+            </button>
+          </div>
 
           {applied > 0 ? (
             <button

@@ -316,3 +316,99 @@ export function addLine(
     ),
   };
 }
+
+/** Every node in a section, in the order they are printed. */
+function sectionNodes(section: Section): TextNode[] {
+  return [
+    ...(section.title_node ? [section.title_node] : []),
+    ...section.loose_nodes,
+    ...section.entries.flatMap((entry) => [...entry.heading_nodes, ...entry.bullets]),
+  ];
+}
+
+/**
+ * Take a line out.
+ *
+ * The one operation that loses something, which is why it is the one the UI
+ * shows in full before it happens — a person can read a rewrite and judge it,
+ * and cannot read a line that is gone.
+ *
+ * Only ever removes prose. A heading, an employer or a date is a fact about the
+ * person and about the shape of the document; deleting one on request would
+ * leave a job with no title and bullets belonging to nothing.
+ */
+export function removeLine(document: CVDocument, nodeId: string): CVDocument {
+  const node = findNode(document, nodeId);
+  if (!node || node.role === "section_title") return document;
+
+  return {
+    ...document,
+    sections: document.sections.map((section) => ({
+      ...section,
+      loose_nodes: section.loose_nodes.filter((item) => item.id !== nodeId),
+      entries: section.entries.map((entry) => ({
+        ...entry,
+        bullets: entry.bullets.filter((item) => item.id !== nodeId),
+      })),
+    })),
+  };
+}
+
+/**
+ * Move a line so it sits after another.
+ *
+ * The answer to "lead with the deployment one", which is a real request about a
+ * real thing: a recruiter reads the first bullet under a job and skims the
+ * rest, so the order of three sentences decides which one is read.
+ *
+ * Within its own section only. Moving a bullet from one job to another would
+ * attach somebody's achievement to an employer they earned it at — which is a
+ * fabrication that no text check can catch, because every word of it is true.
+ *
+ * `afterId` empty puts it first.
+ */
+export function moveLine(
+  document: CVDocument,
+  nodeId: string,
+  afterId: string,
+): CVDocument {
+  const section = sectionOf(document, nodeId);
+  if (!section || nodeId === afterId) return document;
+  if (afterId && sectionOf(document, afterId)?.id !== section.id) return document;
+
+  const reorder = (nodes: TextNode[]): TextNode[] => {
+    const from = nodes.findIndex((item) => item.id === nodeId);
+    if (from === -1) return nodes;
+    const rest = nodes.filter((item) => item.id !== nodeId);
+    const at = afterId ? rest.findIndex((item) => item.id === afterId) + 1 : 0;
+    rest.splice(at, 0, nodes[from]);
+    return rest;
+  };
+
+  // Both ends have to be in the same list, not merely the same section: a
+  // bullet cannot be reordered against a loose line it never sits beside.
+  const inLoose = section.loose_nodes.some((item) => item.id === nodeId);
+
+  return {
+    ...document,
+    sections: document.sections.map((item) =>
+      item.id !== section.id
+        ? item
+        : {
+            ...item,
+            loose_nodes: inLoose ? reorder(item.loose_nodes) : item.loose_nodes,
+            entries: item.entries.map((entry) =>
+              entry.bullets.some((bullet) => bullet.id === nodeId)
+                ? { ...entry, bullets: reorder(entry.bullets) }
+                : entry,
+            ),
+          },
+    ),
+  };
+}
+
+/** Whether a node still exists. Used before offering to act on one. */
+export function hasNode(document: CVDocument, nodeId: string): boolean {
+  return allNodes(document).some((node) => node.id === nodeId) ||
+    document.sections.some((section) => sectionNodes(section).some((n) => n.id === nodeId));
+}

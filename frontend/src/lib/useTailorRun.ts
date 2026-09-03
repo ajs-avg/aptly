@@ -2,7 +2,16 @@
 
 import { useCallback, useMemo, useReducer } from "react";
 
-import { addClaim, addLine, applySuggestion, sectionOf, setNodeText, toPlainText } from "@/lib/document";
+import {
+  addClaim,
+  addLine,
+  applySuggestion,
+  moveLine,
+  removeLine,
+  sectionOf,
+  setNodeText,
+  toPlainText,
+} from "@/lib/document";
 import { evaluate, type ScoreCard, type ScoreResult } from "@/lib/score";
 import type {
   AgentEdit,
@@ -64,6 +73,22 @@ export interface SideState {
   dropped: { text: string; reason: string; detail: string }[];
   approach: string;
   approved: boolean;
+  /**
+   * Where the document has been, and where it can go back to.
+   *
+   * Full snapshots rather than a list of inverse operations. A CV is small
+   * enough that this is cheap, and an inverse-operation log has to be right
+   * about every operation it can undo — including the ones added later. This
+   * cannot be wrong about a change it has never seen, because it does not know
+   * what changed, only what the document was.
+   *
+   * Recorded centrally, so every mutation is covered by construction: an apply,
+   * a hand edit, a claim, and anything the agent does. A future contributor
+   * adding a fifth way to change the document gets undo without knowing this
+   * exists.
+   */
+  past: CVDocument[];
+  future: CVDocument[];
 }
 
 export interface RunState {
@@ -94,6 +119,8 @@ const emptySide = (): SideState => ({
   dropped: [],
   approach: "",
   approved: false,
+  past: [],
+  future: [],
 });
 
 const initial: RunState = {
@@ -123,10 +150,66 @@ type Action =
   | { type: "edit"; side: Side; nodeId: string; text: string }
   | { type: "claim"; side: Side; lines: string[] }
   | { type: "agentEdits"; side: Side; edits: AgentEdit[] }
+  | { type: "stepBack"; side: Side }
+  | { type: "stepForward"; side: Side }
   | { type: "expand"; side: Side | null }
   | { type: "approve"; side: Side }
   | { type: "fail"; message: string; hint: string }
   | { type: "reset" };
+
+/**
+ * How far back somebody can go.
+ *
+ * Deep enough that a session of editing stays reversible, bounded because these
+ * are whole documents and the session is written to storage on every change.
+ * Nobody undoes forty steps; the value is in the first five being certain.
+ */
+const HISTORY_LIMIT = 40;
+
+/**
+ * Run the reducer, and remember what the document was before it.
+ *
+ * Wrapped rather than written into each case. Undo that every action has to
+ * remember to record is undo that the next action forgets, and the failure is
+ * silent — a button that works everywhere except the one place somebody
+ * needed it.
+ */
+function withHistory(state: SideState, action: Action): SideState {
+  if (action.type === "stepBack") {
+    const previous = state.past.at(-1);
+    if (!previous || !state.document) return state;
+    return {
+      ...state,
+      document: previous,
+      past: state.past.slice(0, -1),
+      future: [state.document, ...state.future].slice(0, HISTORY_LIMIT),
+    };
+  }
+
+  if (action.type === "stepForward") {
+    const [next, ...rest] = state.future;
+    if (!next || !state.document) return state;
+    return {
+      ...state,
+      document: next,
+      past: [...state.past, state.document].slice(-HISTORY_LIMIT),
+      future: rest,
+    };
+  }
+
+  const before = state.document;
+  const after = sideReducer(state, action);
+  if (after.document === before || !before) return after;
+
+  // A new change makes the redo branch unreachable, which is what every editor
+  // does and what people expect: undo twice, type something, and there is
+  // nothing to redo to.
+  return {
+    ...after,
+    past: [...after.past, before].slice(-HISTORY_LIMIT),
+    future: [],
+  };
+}
 
 function sideReducer(state: SideState, action: Action): SideState {
   switch (action.type) {
@@ -233,8 +316,20 @@ function sideReducer(state: SideState, action: Action): SideState {
       const changes = [...state.changes];
 
       for (const edit of action.edits) {
+        // Three of the four change the document outright, because none of them
+        // has a "before" to sit beside in a change card: an addition, a
+        // removal and a move are things you see by looking at the CV. Undo is
+        // what makes that safe, and it covers them by construction.
         if (edit.kind === "add") {
           document = addLine(document, edit.node_id, edit.after);
+          continue;
+        }
+        if (edit.kind === "remove") {
+          document = removeLine(document, edit.node_id);
+          continue;
+        }
+        if (edit.kind === "move") {
+          document = moveLine(document, edit.node_id, edit.target_id ?? "");
           continue;
         }
         changes.push({
@@ -332,7 +427,9 @@ function reducer(state: RunState, action: Action): RunState {
     case "claim":
     case "agentEdits":
     case "approve":
-      return { ...state, [action.side]: sideReducer(state[action.side], action) };
+    case "stepBack":
+    case "stepForward":
+      return { ...state, [action.side]: withHistory(state[action.side], action) };
 
     case "event":
       return applyEvent(state, action.event);
@@ -508,6 +605,8 @@ export function useTailorRun() {
       claim: (side: Side, lines: string[]) => dispatch({ type: "claim", side, lines }),
       agentEdits: (side: Side, edits: AgentEdit[]) =>
         dispatch({ type: "agentEdits", side, edits }),
+      stepBack: (side: Side) => dispatch({ type: "stepBack", side }),
+      stepForward: (side: Side) => dispatch({ type: "stepForward", side }),
       expand: (side: Side | null) => dispatch({ type: "expand", side }),
       approve: (side: Side) => dispatch({ type: "approve", side }),
       fail: (message: string, hint: string) => dispatch({ type: "fail", message, hint }),

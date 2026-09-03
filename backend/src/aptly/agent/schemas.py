@@ -21,13 +21,18 @@ from pydantic import BaseModel, Field
 #: to read in full before it happens.
 Scale = Literal["small", "large"]
 
-#: Whether an edit replaces a line or introduces one.
+#: What an edit does to the document.
 #:
-#: Worth telling apart on screen. Replacing is reversible by putting the old
-#: text back, and the old text is right there to compare against. An addition
-#: has nothing to compare against, and it is the operation that can quietly
-#: grow a CV past the page it has to fit on.
-EditKind = Literal["replace", "add"]
+#: Four, because "make this shorter" and "drop that bullet" and "lead with the
+#: deployment one" are all things people say to a CV, and an agent that can only
+#: rewrite in place answers the first and refuses the other two.
+#:
+#: They are told apart on screen because they carry different risk. A replace
+#: shows the old text beside the new. An addition has nothing to compare
+#: against, and is the operation that quietly grows a CV past the page it has to
+#: fit on. A removal takes something away, which is the only one that loses
+#: information — so it is shown with the line it would delete, in full.
+EditKind = Literal["replace", "add", "remove", "move"]
 
 
 class AgentEdit(BaseModel):
@@ -35,16 +40,31 @@ class AgentEdit(BaseModel):
 
     node_id: str = Field(
         description=(
-            "The id of the line to change. For an addition, the id of the line "
-            "the new one should follow, or the section id to append to."
+            "The line this edit is about. To add, the id of the line the new one "
+            "should follow, or a section id to append to. To remove or move, the "
+            "id of the line itself."
         )
     )
     kind: EditKind = "replace"
     before: str = Field(
         default="",
-        description="The line's current text, quoted exactly. Empty for an addition.",
+        description=(
+            "The line's current text, quoted exactly. Required for a replace and "
+            "for a remove — it is what proves you are changing the line you read. "
+            "Empty for an addition."
+        ),
     )
-    after: str = Field(description="The new text.")
+    after: str = Field(
+        default="",
+        description="The new text. Empty for a remove and for a move.",
+    )
+    target_id: str = Field(
+        default="",
+        description=(
+            "For a move only: the id of the line this one should sit after. "
+            "Empty means the top of its section."
+        ),
+    )
     reason: str = Field(
         description="One plain sentence: why this helps for THIS job. No praise, no filler."
     )
