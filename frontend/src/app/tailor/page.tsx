@@ -423,12 +423,12 @@ function TailorScreen() {
             </span>
           ) : null
         }
+        // The account, not a "Sign in" link — this screen is behind the gate.
+        // Through `account` rather than as a child, so its menu is not opened
+        // inside the scrolling strip that would clip it.
+        account={<AccountButton />}
       >
         <BarLink href="/library">Library</BarLink>
-        {/* The account, not a "Sign in" link. This screen is behind the gate,
-            so anybody reading it is signed in and being offered a way to sign
-            in again is the confusion this replaced. */}
-        <AccountButton />
         <button
           type="button"
           onClick={() => {
@@ -732,9 +732,8 @@ function DropScreen({
           which is exactly what somebody who has just imported a CV is looking
           for, and the screen that offers to use that profile was the one page
           with no way to reach it. */}
-      <AppBar brandHref="/" context="Tailor" width="content">
+      <AppBar brandHref="/" context="Tailor" width="content" account={<AccountButton />}>
         <BarLink href="/library">Library</BarLink>
-        <AccountButton />
       </AppBar>
 
       <div className="gutter mx-auto max-w-content py-10 sm:py-16">

@@ -449,7 +449,10 @@ function ReviewDialog({
               )}
             </div>
 
-            <footer className="flex items-center justify-end gap-2 border-t border-hairline px-5 py-3.5">
+            {/* flex-wrap: at 320px "Leave it" and "Add these N changes" are
+                wider together than the dialog, and a row that cannot wrap
+                pushes the apply button past the edge. */}
+            <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-hairline px-4 py-3.5 sm:px-5">
               <button
                 type="button"
                 onClick={onDiscard}

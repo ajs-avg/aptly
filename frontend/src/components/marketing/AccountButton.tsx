@@ -97,10 +97,11 @@ export function AccountButton({ className }: { className?: string }) {
         >
           {initial}
         </span>
-        {/* The name is the greeting; below `xs` the avatar carries it alone,
-            because a nav row that has to hold a name is a nav row that pushes
-            its primary action off a 320px screen. */}
-        <span className="hidden max-w-[7rem] truncate xs:inline">
+        {/* The name is the greeting; below `sm` the avatar carries it alone.
+            This was gated at `xs`, which put up to 7rem of name on a 390px
+            phone — the width the marketing pill does not have: with the name
+            showing, the row ran 8px past the edge and the whole page panned. */}
+        <span className="hidden max-w-[7rem] truncate sm:inline">
           {account.name ?? "Account"}
         </span>
       </button>
@@ -113,7 +114,11 @@ export function AccountButton({ className }: { className?: string }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.98 }}
             transition={EASE_QUICK}
-            className="absolute right-0 top-full z-50 mt-2 w-60 overflow-hidden rounded-2xl bg-raised p-1.5 shadow-card ring-1 ring-ink/10"
+            // Fixed and edge-to-edge on a phone: anchored to the button's
+            // right edge, a 240px panel starts 82px off the left of a 320px
+            // screen — the avatar sits mid-bar, not at the bar's end. From
+            // `sm` there is room to hang it off the button as usual.
+            className="fixed inset-x-3 top-[4.75rem] z-50 overflow-hidden rounded-2xl bg-raised p-1.5 shadow-card ring-1 ring-ink/10 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-60"
           >
             <div className="px-2.5 py-2">
               <p className="truncate font-display text-sm font-medium text-ink">

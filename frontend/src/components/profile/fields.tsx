@@ -138,18 +138,23 @@ export function Chips({
       </label>
 
       <div className="flex flex-wrap gap-1.5 rounded-lg bg-sunken p-2 ring-1 ring-hairline focus-within:ring-2 focus-within:ring-signal">
+        {/* max-w-full + truncate on the chip: one holding a LinkedIn URL is
+            wider than a phone, and without these it paints its text over the
+            chips beside it while the remove button is squeezed to nothing. */}
         {values.map((value) => (
           <span
             key={value}
-            className="inline-flex items-center gap-1 rounded-pill bg-raised py-1 pl-3 pr-1 font-display text-xs text-ink shadow-hairline"
+            className="inline-flex max-w-full min-w-0 items-center gap-1 rounded-pill bg-raised py-1 pl-3 pr-1 font-display text-xs text-ink shadow-hairline"
           >
-            {value}
+            <span className="min-w-0 truncate">{value}</span>
+            {/* size-6 with the negative margin: a 24px target that does not
+                make the chip taller. shrink-0, so a long value cannot eat it. */}
             <button
               type="button"
               onClick={() => onChange(values.filter((item) => item !== value))}
               aria-label={`Remove ${value}`}
               data-tap="tight"
-              className="grid size-5 place-items-center rounded-full text-slate transition-colors hover:bg-danger-soft hover:text-danger"
+              className="-my-0.5 grid size-6 shrink-0 place-items-center rounded-full text-slate transition-colors hover:bg-danger-soft hover:text-danger"
             >
               <svg viewBox="0 0 24 24" className="size-3" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
@@ -199,23 +204,31 @@ export function Toggle({
 }) {
   return (
     <label className="flex min-w-0 cursor-pointer items-start gap-3 sm:col-span-2">
+      {/* The track stays 20px tall; the padding (cancelled by the negative
+          margins, so nothing else moves) gives a thumb a 28px box to hit —
+          20px is under the 24px floor a touch target needs. */}
       <button
         type="button"
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         data-tap="tight"
-        className={cn(
-          "relative mt-0.5 h-5 w-9 shrink-0 rounded-pill transition-colors",
-          checked ? "bg-signal" : "bg-hairline",
-        )}
+        className="-mx-1 -mb-1 -mt-0.5 shrink-0 rounded-pill p-1"
       >
         <span
+          aria-hidden
           className={cn(
-            "absolute top-0.5 size-4 rounded-full bg-raised shadow-raised transition-transform",
-            checked ? "translate-x-[1.125rem]" : "translate-x-0.5",
+            "relative block h-5 w-9 rounded-pill transition-colors",
+            checked ? "bg-signal" : "bg-hairline",
           )}
-        />
+        >
+          <span
+            className={cn(
+              "absolute top-0.5 size-4 rounded-full bg-raised shadow-raised transition-transform",
+              checked ? "translate-x-[1.125rem]" : "translate-x-0.5",
+            )}
+          />
+        </span>
       </button>
       <span className="min-w-0">
         <span className="block font-display text-sm text-ink">{label}</span>

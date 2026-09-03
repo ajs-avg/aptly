@@ -234,7 +234,8 @@ export function CvPanel({
             <button
               type="button"
               onClick={() => setSummaryOpen(true)}
-              className="text-2xs text-signal underline decoration-signal/30 underline-offset-2 transition-colors hover:decoration-signal"
+              // py, because a bare 2xs text button is a 13px tap target.
+              className="py-1.5 text-2xs text-signal underline decoration-signal/30 underline-offset-2 transition-colors hover:decoration-signal"
               data-numeric
             >
               {applied} applied — what changed?

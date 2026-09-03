@@ -27,6 +27,7 @@ export function AppBar({
   onBrandClick,
   context,
   status,
+  account,
   width = "wide",
   children,
 }: {
@@ -37,6 +38,16 @@ export function AppBar({
   context?: ReactNode;
   /** A short live readout, e.g. how many changes are applied. */
   status?: ReactNode;
+  /**
+   * The account control, seated *outside* the scrolling strip.
+   *
+   * The strip is `overflow-x: auto`, and a scroll container clips its
+   * absolutely-positioned children — so a dropdown anchored to a button
+   * inside it opens into a 36px letterbox. The account menu is exactly that
+   * dropdown, and the button is small and fixed-width, so it sits beside the
+   * strip rather than in it.
+   */
+  account?: ReactNode;
   /**
    * Which measure from the shared ladder.
    *
@@ -78,7 +89,7 @@ export function AppBar({
             <button
               type="button"
               onClick={onBrandClick}
-              className="flex shrink-0 items-center gap-2 rounded-pill px-1 font-display text-sm font-semibold tracking-tight text-ink transition-colors hover:text-signal"
+              className="flex shrink-0 items-center gap-2 rounded-pill px-1 py-2 font-display text-sm font-semibold tracking-tight text-ink transition-colors hover:text-signal"
             >
               <Mark />
               Aptly
@@ -86,7 +97,7 @@ export function AppBar({
           ) : (
             <Link
               href={brandHref}
-              className="flex shrink-0 items-center gap-2 rounded-pill px-1 font-display text-sm font-semibold tracking-tight text-ink transition-colors hover:text-signal"
+              className="flex shrink-0 items-center gap-2 rounded-pill px-1 py-2 font-display text-sm font-semibold tracking-tight text-ink transition-colors hover:text-signal"
             >
               <Mark />
               Aptly
@@ -117,6 +128,7 @@ export function AppBar({
           {status}
           {children}
         </div>
+        {account && <div className="-ml-1.5 flex shrink-0 items-center">{account}</div>}
       </header>
     </div>
   );

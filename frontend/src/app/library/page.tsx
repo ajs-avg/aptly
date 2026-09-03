@@ -260,9 +260,10 @@ function TopBar({ recordCount }: { recordCount: number }) {
           </span>
         ) : null
       }
+      // Outside the scrolling strip, which would clip its dropdown menu.
+      account={<AccountButton />}
     >
       <BarLink href="/tailor">Tailor a CV</BarLink>
-      <AccountButton />
     </AppBar>
   );
 }

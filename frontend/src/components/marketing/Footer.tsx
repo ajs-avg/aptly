@@ -72,12 +72,15 @@ export function Footer() {
               <p className="font-display text-2xs font-medium uppercase tracking-[0.12em] text-ink/70">
                 {column.heading}
               </p>
-              <ul className="space-y-2 pt-3.5">
+              {/* py-1 on the link, not space-y on the list: the rhythm reads
+                  the same, but the 8px lands inside the tap target, which a
+                  bare text line leaves at 20px — under the 24px floor. */}
+              <ul className="space-y-0.5 pt-2.5">
                 {column.links.map((link) => (
                   <li key={link.label}>
                     <Link
                       href={link.href}
-                      className="text-sm text-slate transition-colors hover:text-ink"
+                      className="inline-block py-1 text-sm text-slate transition-colors hover:text-ink"
                     >
                       {link.label}
                     </Link>

@@ -320,6 +320,52 @@ def test_only_the_recent_conversation_is_carried() -> None:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
+def test_the_endpoint_streams_and_the_answer_is_the_last_event(client, monkeypatch) -> None:
+    """The browser reads this endpoint as server-sent events — a `working`
+    frame at once to hold the connection, the answer as the final frame. A
+    plain JSON body here has no `data:` lines, so the browser finds nothing,
+    and every turn fails as "the agent stopped before it finished". That is
+    the bug this test exists to keep fixed.
+    """
+    import json
+
+    from aptly.agent.schemas import AgentResponse
+
+    async def instant_agent(request, document, *, client, profile=None):
+        return AgentResponse(reply="Tightened it."), None
+
+    monkeypatch.setattr("aptly.api.agent.run_agent", instant_agent)
+    # The client is built before the (mocked) agent is called, and the test
+    # environment has no API key to build it with.
+    monkeypatch.setattr("aptly.api.agent.GeminiClient", lambda: None)
+
+    password = "passphrase-for-agent-test"
+    client.post(
+        "/api/auth/sign-up",
+        json={"name": "Aman", "email": "aman@example.com", "password": password},
+    )
+
+    response = client.post(
+        "/api/agent/edit",
+        json={
+            "document": parse_pasted(CV).model_dump(mode="json"),
+            "instruction": "make it shorter",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+
+    frames = [
+        json.loads(line[len("data:") :].strip())
+        for line in response.text.splitlines()
+        if line.startswith("data:")
+    ]
+    assert frames[0] == {"kind": "working"}
+    assert frames[-1]["reply"] == "Tightened it."
+    assert "kind" not in frames[-1]
+
+
 def test_the_agent_needs_an_account(client) -> None:
     response = client.post(
         "/api/agent/edit",

@@ -118,9 +118,11 @@ export function CvSource({
       {!loading && !hasProfile && (
         <p className="text-2xs leading-relaxed text-slate">
           Aptly has nothing on file for you yet.{" "}
+          {/* Padded (and margin-cancelled, so the sentence sets normally) to a
+              tappable height: a bare 2xs inline link is a 13px target. */}
           <Link
             href="/profile"
-            className="text-signal underline decoration-signal/30 underline-offset-2 transition-colors hover:decoration-signal"
+            className="-my-1.5 inline-block py-1.5 text-signal underline decoration-signal/30 underline-offset-2 transition-colors hover:decoration-signal"
           >
             Set up your profile
           </Link>{" "}
