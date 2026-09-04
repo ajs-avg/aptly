@@ -794,3 +794,43 @@ def test_every_listed_technology_is_known_to_the_validator(term: str) -> None:
 
     for token in proper_nouns(term) | technical_tokens(term):
         assert source.knows(token), f"{term!r} should be recognised via {token!r}"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# The source side must tokenise like the candidate side
+#
+# The candidate extractor sees shapes — the ".Tech" inside "B.Tech", the slash
+# pair in "A/B testing" — that a plain word split does not produce. When the
+# source pool was built from word splits alone, a person who wrote those very
+# things on their own CV was accused of inventing them: 'tech' on every Indian
+# graduate CV, 'a/b' on any line mentioning the tests they actually ran.
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.parametrize(
+    ("wrote", "reused"),
+    [
+        ("B.Tech in Computer Science, AKTU — 2023", "Results-driven B.Tech student"),
+        ("Ran A/B testing on onboarding flows.", "Improved activation through A/B testing."),
+        ("Owns the CI/CD pipeline.", "Maintained the CI/CD pipeline for releases."),
+    ],
+)
+def test_what_they_wrote_may_be_written_back(wrote: str, reused: str) -> None:
+    from aptly.validate import unsupported_claims
+
+    document = parse_pasted(f"Aman Mishra\naman@example.com\n\nSUMMARY\n{wrote}\n")
+    source = SourceMaterial.build(document)
+
+    assert unsupported_claims(reused, source) is None
+
+
+def test_a_technology_only_in_the_job_post_is_still_caught() -> None:
+    """The symmetric vocabulary must not have loosened the actual rule."""
+    from aptly.validate import unsupported_claims
+
+    document = parse_pasted("Aman Mishra\naman@example.com\n\nSUMMARY\nA PM.\n")
+    source = SourceMaterial.build(document)
+
+    found = unsupported_claims("Deployed services on Kubernetes with CI/CD.", source)
+
+    assert found is not None

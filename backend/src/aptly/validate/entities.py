@@ -430,8 +430,16 @@ def vocabulary(text: str) -> set[str]:
     The question that actually matters is simply "did they mention this?", so
     the source keeps every token and the candidate side stays strict about which
     tokens count as a claim.
+
+    The technical shapes are pooled in too, and this is load-bearing: the
+    candidate side extracts them (``A/B`` becomes the token ``a/b``, the
+    ``.Tech`` in ``B.Tech`` becomes ``tech``), so the source side must extract
+    them identically or a person who wrote "A/B testing" on their own CV is
+    accused of inventing 'a/b' — and every Indian graduate CV, which says
+    "B.Tech" near the top, is accused of inventing 'tech'.
     """
-    return {_fold(match.group()) for match in _WORD.finditer(text) if len(match.group()) > 1}
+    words = {_fold(match.group()) for match in _WORD.finditer(text) if len(match.group()) > 1}
+    return words | technical_tokens(text)
 
 
 def claims(text: str) -> tuple[set[str], set[str], set[str]]:
