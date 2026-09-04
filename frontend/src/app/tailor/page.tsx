@@ -682,6 +682,7 @@ function TailorScreen() {
               onHighlight={(side, ids) =>
                 setAgentFlash({ side, ids, stamp: Date.now() })
               }
+              onReveal={(side) => actions.expand(side)}
             />
 
             {state.expanded && state[state.expanded].pitch && (

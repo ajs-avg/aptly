@@ -59,6 +59,7 @@ export function AgentDock({
   onEdits,
   scoreFor,
   onHighlight,
+  onReveal,
 }: {
   documents: Record<Side, CVDocument | null>;
   /** Which panel the page has open, so the dock can follow. */
@@ -71,6 +72,8 @@ export function AgentDock({
   scoreFor: (side: Side, edits: AgentEdit[]) => { before: number; after: number };
   /** Point the CV at what just changed: scroll there, glow the lines. */
   onHighlight: (side: Side, nodeIds: string[]) => void;
+  /** Bring a side on screen — the glow is pointless on a hidden panel. */
+  onReveal: (side: Side) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [side, setSide] = useState<Side>("tailored");
@@ -212,11 +215,17 @@ export function AgentDock({
     }
   };
 
-  /** Edits into the document, and the person's eye onto them. */
+  /** Edits into the document, and the person's eye onto them.
+
+  If they were looking at the other CV — talking to this one through the
+  dock's tabs — the page switches to the one that changed. A change applied
+  to a hidden document is indistinguishable from no change at all, which is
+  the exact complaint this dock exists to answer. */
   const land = (which: Side, edits: AgentEdit[]) => {
     onEdits(which, edits);
     const ids = edits.map((edit) => edit.node_id);
     setLastEdits({ side: which, ids });
+    if (expanded && expanded !== which) onReveal(which);
     onHighlight(which, ids);
   };
 
@@ -369,7 +378,10 @@ export function AgentDock({
               {lastEdits && lastEdits.side === side && !busy && (
                 <button
                   type="button"
-                  onClick={() => onHighlight(side, lastEdits.ids)}
+                  onClick={() => {
+                    if (expanded && expanded !== side) onReveal(side);
+                    onHighlight(side, lastEdits.ids);
+                  }}
                   className="inline-flex items-center gap-1.5 rounded-pill bg-signal-soft px-3 py-1.5 font-display text-2xs font-medium text-signal transition-colors hover:bg-signal/15"
                 >
                   <svg viewBox="0 0 24 24" className="size-3" fill="none" stroke="currentColor" strokeWidth="2.5">
