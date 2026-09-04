@@ -654,7 +654,11 @@ export async function askAgent(input: {
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+      // CRLF normalised before anything else, for the reason documented on the
+      // tailoring reader above: the server separates frames with "\r\n\r\n",
+      // in which a search for "\n\n" finds nothing — every event arrives,
+      // none parses, and the turn reports itself cut off.
+      buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
 
       // SSE frames are separated by a blank line; a frame's payload is its
       // `data:` lines joined.
