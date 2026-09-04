@@ -91,6 +91,18 @@ function TailorScreen() {
   const [inputError, setInputError] = useState<{ message: string; hint: string } | null>(null);
 
   /**
+   * The score the screen shows for a side — one number everywhere.
+   *
+   * The model's full re-read wins once it exists; the live text-match stands
+   * in until then. The dial already chose this way, but the app bar and the
+   * version tabs kept quoting the live figure — so a re-check moved the dial
+   * to 53% while the tab beside it said 34%, and the person reasonably read
+   * that as the product disagreeing with itself.
+   */
+  const shownScore = (side: Side): number | undefined =>
+    verified[side]?.score ?? scores[side]?.score;
+
+  /**
    * What the person has told either agent this session.
    *
    * Held here rather than in each panel, because that is what makes it shared:
@@ -428,7 +440,7 @@ function TailorScreen() {
         status={
           scores.tailored ? (
             <span className="shrink-0 whitespace-nowrap text-2xs text-slate" data-numeric>
-              {scores.tailored.score}% · was {scores.baseline}%
+              {shownScore("tailored")}% · was {scores.baseline}%
             </span>
           ) : null
         }
@@ -552,7 +564,7 @@ function TailorScreen() {
                 >
                   {(["tailored", "rebuilt"] as const).map((side) => {
                     const active = state.expanded === side;
-                    const score = scores[side]?.score;
+                    const score = shownScore(side);
                     return (
                       <button
                         key={side}

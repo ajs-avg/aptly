@@ -284,7 +284,7 @@ export function AgentDock({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 28, scale: 0.97 }}
             transition={SPRING}
-            className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] right-[max(0.75rem,env(safe-area-inset-right))] z-40 flex max-h-[min(34rem,calc(100dvh-5rem))] w-[min(24rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl bg-raised shadow-hero ring-1 ring-ink/10"
+            className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] right-[max(0.75rem,env(safe-area-inset-right))] z-40 flex max-h-[min(36rem,calc(100dvh-5rem))] w-[min(26rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl bg-raised shadow-hero ring-1 ring-ink/10"
           >
             <header className="flex items-center gap-2 border-b border-hairline px-3.5 py-2.5">
               <div className="flex min-w-0 flex-1 items-center gap-1.5">
@@ -363,7 +363,10 @@ export function AgentDock({
                     animate={{ opacity: 1, y: 0 }}
                     transition={EASE}
                     className={cn(
-                      "max-w-[85%] whitespace-pre-wrap rounded-xl px-3 py-2 text-sm leading-relaxed",
+                      // break-words, because the commonest thing pasted into a
+                      // chat with a CV agent is a URL — one long unbreakable
+                      // token that otherwise pushes the bubble past the panel.
+                      "max-w-[85%] whitespace-pre-wrap break-words rounded-xl px-3 py-2 text-sm leading-relaxed",
                       turn.role === "user"
                         ? "ml-auto bg-signal-soft text-ink"
                         : "bg-sunken text-ink",
@@ -407,7 +410,7 @@ export function AgentDock({
                     </p>
                     <ul className="space-y-0.5 pt-1.5">
                       {offer.map(([key, value]) => (
-                        <li key={key} className="text-2xs leading-relaxed text-ink/85">
+                        <li key={key} className="break-words text-2xs leading-relaxed text-ink/85">
                           <span className="font-medium">{key}</span> — {value}
                         </li>
                       ))}
