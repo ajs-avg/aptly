@@ -8,7 +8,7 @@ import { AppBar, BarLink } from "@/components/app/AppBar";
 import { RequireAccount } from "@/components/auth/RequireAccount";
 import { SPRING } from "@/components/motion/primitives";
 import { CvPanel } from "@/components/tailor/CvPanel";
-import { AgentPanel } from "@/components/tailor/AgentPanel";
+import { AgentDock } from "@/components/tailor/AgentDock";
 import { CvSource } from "@/components/tailor/CvSource";
 import { DropBox } from "@/components/tailor/DropBox";
 import { PitchNotes } from "@/components/tailor/PitchNotes";
@@ -99,6 +99,15 @@ function TailorScreen() {
    * never leaves the page — no database, gone when the tab is.
    */
   const [agentFacts, setAgentFacts] = useState<Record<string, string>>({});
+  /**
+   * Lines the agent just touched, for the CV to scroll to and glow. The stamp
+   * distinguishes "the same lines, pointed at again" from nothing happening.
+   */
+  const [agentFlash, setAgentFlash] = useState<{
+    side: Side;
+    ids: string[];
+    stamp: number;
+  } | null>(null);
 
   /*
    * ── Surviving a reload ──────────────────────────────────────────────────
@@ -653,21 +662,27 @@ function TailorScreen() {
                     onStepForward={() => actions.stepForward(side)}
                     canStepBack={state[side].past.length > 0}
                     canStepForward={state[side].future.length > 0}
-                    agent={
-                      <AgentPanel
-                        side={side}
-                        document={state[side].document}
-                        jobText={jobText}
-                        facts={agentFacts}
-                        onFacts={setAgentFacts}
-                        onEdits={(edits) => actions.agentEdits(side, edits)}
-                        scoreFor={(edits) => scoreWith(side, edits)}
-                      />
-                    }
+                    highlight={agentFlash?.side === side ? agentFlash : null}
                   />
                 );
               })}
             </div>
+
+            <AgentDock
+              documents={{
+                tailored: state.tailored.document,
+                rebuilt: state.rebuilt.document,
+              }}
+              expanded={state.expanded}
+              jobText={jobText}
+              facts={agentFacts}
+              onFacts={setAgentFacts}
+              onEdits={(side, edits) => actions.agentEdits(side, edits)}
+              scoreFor={(side, edits) => scoreWith(side, edits)}
+              onHighlight={(side, ids) =>
+                setAgentFlash({ side, ids, stamp: Date.now() })
+              }
+            />
 
             {state.expanded && state[state.expanded].pitch && (
               <div className="pt-3">

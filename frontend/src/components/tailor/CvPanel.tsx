@@ -59,8 +59,8 @@ interface Props {
   verified?: { score: number; essentialMet: number; essentialTotal: number } | null;
   /** Lines the person wrote about work missing from their CV. */
   onClaim?: (lines: string[]) => void;
-  /** This document's agent. One per CV; they cannot read each other. */
-  agent?: React.ReactNode;
+  /** Lines the agent just touched — scrolled to and glowed. */
+  highlight?: { ids: string[]; stamp: number } | null;
   onStepBack: () => void;
   onStepForward: () => void;
   canStepBack: boolean;
@@ -91,7 +91,7 @@ export function CvPanel({
   rechecking = false,
   verified = null,
   onClaim,
-  agent,
+  highlight = null,
   onStepBack,
   onStepForward,
   canStepBack,
@@ -329,6 +329,7 @@ export function CvPanel({
             onUndo={onUndo}
             onDismiss={onDismiss}
             onEdit={onEdit}
+            highlight={highlight}
           />
         ) : (
           <div className="grid place-items-center px-5 py-14 text-center">
@@ -340,9 +341,6 @@ export function CvPanel({
           </div>
         )}
       </div>
-
-      {/* ── Ask for a change ──────────────────────────────────────────── */}
-      {expanded && agent}
 
       {/* ── Before you send it ────────────────────────────────────────── */}
       {expanded && <Proofread document={state.document} />}

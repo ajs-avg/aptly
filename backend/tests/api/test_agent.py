@@ -559,6 +559,16 @@ def test_the_prompt_offers_all_four_operations() -> None:
         assert operation in AGENT_SYSTEM
 
 
+def test_the_prompt_tells_it_to_record_what_it_is_told() -> None:
+    """`learned` is how a fact crosses to the other agent. Described only in
+    the schema, the model filled it when it happened to; the browser's offer —
+    "you told me this, want it here too?" — never fired on the turns where it
+    did not."""
+    from aptly.agent.prompts import AGENT_SYSTEM
+
+    assert "`learned`" in AGENT_SYSTEM
+
+
 def test_the_prompt_asks_for_the_whole_request() -> None:
     """A cautious fragment of what somebody asked for reads as the tool not
     working, and everything proposed is reviewed and undoable anyway."""

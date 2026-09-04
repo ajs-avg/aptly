@@ -31,6 +31,12 @@ interface Props {
   onUndo: (nodeId: string, previousText: string) => void;
   onDismiss: (nodeId: string) => void;
   onEdit: (nodeId: string, text: string) => void;
+  /**
+   * Lines the agent just touched: scrolled to and glowed, so a change made by
+   * something other than the person's own hands is never off-screen and silent.
+   * The stamp makes the same lines pointable-at twice.
+   */
+  highlight?: { ids: string[]; stamp: number } | null;
 }
 
 export function EditableCv({
@@ -41,11 +47,29 @@ export function EditableCv({
   onUndo,
   onDismiss,
   onEdit,
+  highlight = null,
 }: Props) {
   const byNode = new Map(changes.map((change) => [change.suggestion.node_id, change]));
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // The eye goes where the change went. The first touched line still in the
+  // document is scrolled into view; the glow on each is rendered by the lines
+  // themselves.
+  useEffect(() => {
+    if (!highlight || !rootRef.current) return;
+    for (const id of highlight.ids) {
+      const el = rootRef.current.querySelector(`[data-node-id="${CSS.escape(id)}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+    }
+  }, [highlight]);
+
+  const glow = highlight ? new Set(highlight.ids) : null;
 
   return (
-    <div className="px-4 py-4 sm:px-6 sm:py-5">
+    <div ref={rootRef} className="px-4 py-4 sm:px-6 sm:py-5">
       <Header document={document} />
       {document.sections
         .filter((section) => section.kind !== "header")
@@ -54,6 +78,8 @@ export function EditableCv({
             key={section.id}
             section={section}
             byNode={byNode}
+            glow={glow}
+            glowStamp={highlight?.stamp ?? 0}
             editable={editable}
             onApply={onApply}
             onUndo={onUndo}
@@ -84,6 +110,8 @@ function Header({ document }: { document: CVDocument }) {
 function SectionBlock({
   section,
   byNode,
+  glow,
+  glowStamp,
   editable,
   onApply,
   onUndo,
@@ -92,8 +120,10 @@ function SectionBlock({
 }: {
   section: Section;
   byNode: Map<string, Change>;
-} & Omit<Props, "document" | "changes">) {
-  const shared = { byNode, editable, onApply, onUndo, onDismiss, onEdit };
+  glow: Set<string> | null;
+  glowStamp: number;
+} & Omit<Props, "document" | "changes" | "highlight">) {
+  const shared = { byNode, glow, glowStamp, editable, onApply, onUndo, onDismiss, onEdit };
 
   return (
     <section className="pt-4">
@@ -128,6 +158,8 @@ function Line({
   node,
   bullet = false,
   byNode,
+  glow,
+  glowStamp,
   editable,
   onApply,
   onUndo,
@@ -137,7 +169,9 @@ function Line({
   node: TextNode;
   bullet?: boolean;
   byNode: Map<string, Change>;
-} & Omit<Props, "document" | "changes">) {
+  glow: Set<string> | null;
+  glowStamp: number;
+} & Omit<Props, "document" | "changes" | "highlight">) {
   const change = byNode.get(node.id);
   const canType = editable && isEditable(node);
   const areaRef = useRef<HTMLTextAreaElement>(null);
@@ -166,9 +200,31 @@ function Line({
   const pending = change?.status === "pending";
   const applied = change?.status === "applied";
 
+  const glowing = glow?.has(node.id) ?? false;
+
   return (
-    <div className="group/line pt-1.5">
-      <div className="flex gap-2">
+    <div data-node-id={node.id} className="group/line relative pt-1.5">
+      {/* The agent's mark: a wash that arrives bright and breathes out, over
+          the whole line and whatever card it carries. An overlay rather than a
+          class on the text, so re-triggering it never remounts a line somebody
+          may be editing. */}
+      <AnimatePresence>
+        {glowing && (
+          <motion.span
+            key={glowStamp}
+            aria-hidden
+            className="pointer-events-none absolute -inset-x-1.5 -inset-y-0.5 rounded-md"
+            style={{
+              backgroundColor: "var(--color-signal-soft)",
+              boxShadow: "0 0 0 1.5px var(--color-signal)",
+            }}
+            initial={{ opacity: 0.55 }}
+            animate={{ opacity: 0 }}
+            transition={{ duration: 2.6, ease: "easeOut" }}
+          />
+        )}
+      </AnimatePresence>
+      <div className="relative flex gap-2">
         {bullet && <span className="select-none pt-[3px] text-2xs text-slate">•</span>}
 
         <div className="min-w-0 flex-1">
