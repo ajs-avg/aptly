@@ -569,6 +569,20 @@ def test_the_prompt_tells_it_to_record_what_it_is_told() -> None:
     assert "`learned`" in AGENT_SYSTEM
 
 
+def test_the_prompt_grades_the_match_request() -> None:
+    """"Match the job post" is the request the agent exists for, and it was
+    answered with a flat no and the rule recited twice. The graded answer —
+    surface what the material supports, ask precisely for what it does not,
+    refuse only the fabrication itself — is instructed outright and pinned
+    here."""
+    from aptly.agent.prompts import AGENT_SYSTEM
+
+    assert "flat refusal" in AGENT_SYSTEM
+    assert "Mine what they have" in AGENT_SYSTEM
+    assert "Ask for the rest" in AGENT_SYSTEM
+    assert "failed turn" in AGENT_SYSTEM
+
+
 def test_the_prompt_asks_for_the_whole_request() -> None:
     """A cautious fragment of what somebody asked for reads as the tool not
     working, and everything proposed is reviewed and undoable anyway."""
