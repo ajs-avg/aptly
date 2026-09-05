@@ -111,6 +111,35 @@ function LibraryScreen() {
     return tally;
   }, [records]);
 
+  /**
+   * What the pile of applications says, counted rather than modelled.
+   *
+   * "Heard back" is any status past applied — a screen, an interview, an
+   * offer. The score comparison only speaks when both sides exist, because
+   * "your responded average is 71" with one respondent is an anecdote wearing
+   * a percent sign. No model call anywhere in this: it is the person's own
+   * history, added up.
+   */
+  const insights = useMemo(() => {
+    if (records.length < 3) return null;
+    const heard = records.filter((r) =>
+      ["screening", "interviewing", "offer"].includes(r.status),
+    );
+    const average = (rows: typeof records) => {
+      const scored = rows.filter((r) => r.score != null);
+      if (scored.length === 0) return null;
+      return Math.round(
+        scored.reduce((sum, r) => sum + (r.score ?? 0), 0) / scored.length,
+      );
+    };
+    return {
+      total: records.length,
+      heard: heard.length,
+      heardAverage: average(heard),
+      quietAverage: average(records.filter((r) => !heard.includes(r))),
+    };
+  }, [records]);
+
   return (
     <div className="min-h-dvh bg-mist">
       <TopBar recordCount={records.length} />
@@ -149,6 +178,24 @@ function LibraryScreen() {
               )}
             </div>
           </div>
+
+          {insights && !loading && !error && (
+            <div className="hairline-b flex flex-wrap items-center gap-x-5 gap-y-1 bg-sunken/50 px-5 py-2.5">
+              <span className="text-2xs text-slate" data-numeric>
+                <span className="font-display font-semibold text-ink">{insights.heard}</span> of{" "}
+                {insights.total} heard back
+              </span>
+              {insights.heardAverage != null && insights.quietAverage != null && (
+                <span className="text-2xs text-slate" data-numeric>
+                  CVs that got a response averaged{" "}
+                  <span className="font-display font-semibold text-signal">
+                    {insights.heardAverage}%
+                  </span>{" "}
+                  · the rest {insights.quietAverage}%
+                </span>
+              )}
+            </div>
+          )}
 
           {loading ? (
             <p className="px-5 py-8 text-sm text-slate">

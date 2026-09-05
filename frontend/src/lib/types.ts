@@ -408,6 +408,20 @@ export interface RecordSummary {
   updated_at: string;
   cv_count: number;
   keywords: string[];
+  /** The match score when it was saved. Null on older records. */
+  score?: number | null;
+}
+
+export interface InterviewQuestion {
+  question: string;
+  kind: "requirement" | "cv" | "gap";
+  why: string;
+  answer_points: string[];
+}
+
+export interface InterviewPrep {
+  questions: InterviewQuestion[];
+  opener: string;
 }
 
 export interface RecordDetail extends RecordSummary {

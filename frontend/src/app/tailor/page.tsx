@@ -10,6 +10,7 @@ import { SPRING } from "@/components/motion/primitives";
 import { CvPanel } from "@/components/tailor/CvPanel";
 import { AgentDock } from "@/components/tailor/AgentDock";
 import { CoverLetterCard } from "@/components/tailor/CoverLetterCard";
+import { ShareScore } from "@/components/tailor/ShareScore";
 import { CvSource } from "@/components/tailor/CvSource";
 import { DropBox } from "@/components/tailor/DropBox";
 import { PitchNotes } from "@/components/tailor/PitchNotes";
@@ -746,6 +747,18 @@ function TailorScreen() {
             {!state.expanded && (
               <CoverLetterCard document={state.tailored.document} jobText={jobText} />
             )}
+
+            {!state.expanded &&
+              Math.max(shownScore("tailored") ?? 0, shownScore("rebuilt") ?? 0) > 0 && (
+                <div className="flex justify-center pt-4">
+                  <ShareScore
+                    score={Math.max(shownScore("tailored") ?? 0, shownScore("rebuilt") ?? 0)}
+                    baseline={scores.baseline}
+                    role={state.job?.role}
+                    company={state.job?.company}
+                  />
+                </div>
+              )}
 
             {!state.expanded && (
               <p className="pt-5 text-center text-2xs leading-relaxed text-slate">

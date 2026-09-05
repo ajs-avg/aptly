@@ -198,10 +198,10 @@ function renderParagraph(
   let parts: React.ReactNode[] = [paragraph];
 
   for (const placeholder of letter.placeholders) {
-    parts = parts.flatMap((part) => {
+    parts = parts.flatMap<React.ReactNode>((part) => {
       if (typeof part !== "string" || !part.includes(placeholder.token)) return [part];
       const value = values[placeholder.token]?.trim();
-      return part.split(placeholder.token).flatMap((piece, index, all) =>
+      return part.split(placeholder.token).flatMap<React.ReactNode>((piece, index, all) =>
         index < all.length - 1
           ? [
               piece,

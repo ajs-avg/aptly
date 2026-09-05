@@ -112,6 +112,9 @@ class RecordSummary(BaseModel):
     updated_at: datetime
     cv_count: int = 0
     keywords: list[str] = Field(default_factory=list)
+    #: The match score at the moment of saving, surfaced on the list so the
+    #: Library can notice which scores actually got calls.
+    score: int | None = None
 
 
 class RecordDetail(RecordSummary):

@@ -369,6 +369,7 @@ def _to_summary(record: JobRecord, cv_count: int) -> RecordSummary:
         updated_at=record.updated_at,
         cv_count=cv_count,
         keywords=_keywords(record),
+        score=(record.frozen_snapshot or {}).get("score"),
     )
 
 
@@ -388,6 +389,7 @@ def _to_detail(record: JobRecord, versions: list[CvVersion]) -> RecordDetail:
         updated_at=record.updated_at,
         cv_count=len(versions),
         keywords=_keywords(record),
+        score=(record.frozen_snapshot or {}).get("score"),
         notes=record.notes,
         source_url=record.source_url,
         salary_text=record.salary_text,

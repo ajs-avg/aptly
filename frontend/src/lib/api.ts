@@ -18,6 +18,7 @@ import type {
   CVDocument,
   ExtractResponse,
   IngestResponse,
+  InterviewPrep,
   JobPost,
   LibraryPage,
   ProfileResponse,
@@ -479,6 +480,66 @@ export async function writeCoverLetter(input: {
       "The letter stopped before it finished.",
       "Try again in a moment.",
     );
+  }
+  return answer;
+}
+
+/** The interview preparation sheet for one saved application, streamed. */
+export async function interviewPrep(recordId: string): Promise<InterviewPrep> {
+  const response = await call(`${API}/api/records/${recordId}/interview`, {
+    ...(await authed()),
+    method: "POST",
+  });
+  if (!response.ok) await fail(response);
+  if (!response.body) throw new ApiError("The preparation did not start.");
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let answer: InterviewPrep | null = null;
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
+
+      let split = buffer.indexOf("\n\n");
+      while (split !== -1) {
+        const frame = buffer.slice(0, split);
+        buffer = buffer.slice(split + 2);
+        split = buffer.indexOf("\n\n");
+
+        const payload = frame
+          .split("\n")
+          .filter((line) => line.startsWith("data:"))
+          .map((line) => line.slice(5).trim())
+          .join("");
+        if (!payload) continue;
+
+        let event: Record<string, unknown>;
+        try {
+          event = JSON.parse(payload);
+        } catch {
+          continue;
+        }
+
+        if (event.kind === "working") continue;
+        if (event.kind === "error") {
+          throw new ApiError(
+            String(event.message ?? "Aptly could not finish the preparation sheet."),
+            String(event.hint ?? ""),
+          );
+        }
+        answer = event as unknown as InterviewPrep;
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  if (!answer) {
+    throw new ApiError("The preparation stopped before it finished.", "Try again in a moment.");
   }
   return answer;
 }
