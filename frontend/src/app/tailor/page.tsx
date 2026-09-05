@@ -48,6 +48,24 @@ import type { TargetFormat } from "@/lib/types";
 
 const MIN_JOB_CHARS = 40;
 
+/**
+ * The note the Library leaves when somebody chooses "Edit in tailor".
+ *
+ * Read once and removed: it is an instruction for one arrival, not a setting.
+ * sessionStorage, because the Library and this screen are the same tab talking
+ * to itself across a navigation.
+ */
+function readReopen(): { jobText?: string; cvText?: string } | null {
+  try {
+    const raw = sessionStorage.getItem("aptly-reopen");
+    if (!raw) return null;
+    sessionStorage.removeItem("aptly-reopen");
+    return JSON.parse(raw) as { jobText?: string; cvText?: string };
+  } catch {
+    return null;
+  }
+}
+
 function TailorScreen() {
   const { state, scores, actions } = useTailorRun();
 
@@ -99,8 +117,10 @@ function TailorScreen() {
    * to 53% while the tab beside it said 34%, and the person reasonably read
    * that as the product disagreeing with itself.
    */
-  const shownScore = (side: Side): number | undefined =>
-    verified[side]?.score ?? scores[side]?.score;
+  const shownScore = useCallback(
+    (side: Side): number | undefined => verified[side]?.score ?? scores[side]?.score,
+    [verified, scores],
+  );
 
   /**
    * What the person has told either agent this session.
@@ -142,6 +162,18 @@ function TailorScreen() {
     let live = true;
     void loadSession<RunState>().then((snapshot) => {
       if (!live) return;
+      // Arriving from the Library with a saved CV to reopen. The explicit
+      // click outranks any leftover session: the boxes are seeded with the
+      // record's document and advert, ready to run — against the same post or
+      // a new one.
+      const reopen = readReopen();
+      if (reopen?.cvText) {
+        setJobText(reopen.jobText ?? "");
+        setCvText(reopen.cvText);
+        void clearSession();
+        setRestored(true);
+        return;
+      }
       if (snapshot) {
         setJobText(snapshot.jobText);
         setCvText(snapshot.cvText);
@@ -377,6 +409,10 @@ function TailorScreen() {
               after: change.suggestion.after,
               reason: change.suggestion.reason,
             })),
+          // The score as it stands at the moment of saving, verified figure
+          // first — the same number the screen is showing. The Library quotes
+          // it back when a recruiter calls weeks later.
+          score: shownScore(side) ?? null,
         });
         actions.approve(side);
       } catch (error) {
@@ -388,7 +424,7 @@ function TailorScreen() {
         setSaving(null);
       }
     },
-    [actions, jobText, state],
+    [actions, jobText, state, shownScore],
   );
 
   // The saved session has not been read yet. A blank ground rather than a

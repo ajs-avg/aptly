@@ -156,7 +156,10 @@ async def save_record(
 ) -> RecordDetail:
     """Save an application: the frozen advert plus the CV that was sent."""
     snapshot = FrozenSnapshot.capture(
-        payload.job_text, parsed=payload.job, source_url=payload.source_url
+        payload.job_text,
+        parsed=payload.job,
+        source_url=payload.source_url,
+        score=payload.score,
     )
     job = payload.job or JobPost()
 
@@ -397,6 +400,7 @@ def _to_detail(record: JobRecord, versions: list[CvVersion]) -> RecordDetail:
                 content_hash=v.content_hash,
                 created_at=v.created_at,
                 change_count=len(v.change_log or []),
+                doc_model=v.doc_model or {},
             )
             for v in versions
         ],

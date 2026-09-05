@@ -51,10 +51,20 @@ class FrozenSnapshot(BaseModel):
     content_hash: str = Field(description="SHA-256 of the raw text.")
     captured_at: datetime
     source_url: str | None = None
+    #: The match score at the moment of saving — part of "as it was on the
+    #: day" exactly like the advert's wording. Lives here rather than as a
+    #: column because this table has no migration story yet, and a JSON field
+    #: absorbs a new key where a schema will not.
+    score: int | None = Field(default=None, ge=0, le=100)
 
     @classmethod
     def capture(
-        cls, raw: str, *, parsed: JobPost | None = None, source_url: str | None = None
+        cls,
+        raw: str,
+        *,
+        parsed: JobPost | None = None,
+        source_url: str | None = None,
+        score: int | None = None,
     ) -> FrozenSnapshot:
         return cls(
             raw=raw,
@@ -62,6 +72,7 @@ class FrozenSnapshot(BaseModel):
             content_hash=hashlib.sha256(raw.encode("utf-8")).hexdigest(),
             captured_at=datetime.now(UTC),
             source_url=source_url,
+            score=score,
         )
 
     @property
@@ -80,6 +91,10 @@ class CvVersionSummary(BaseModel):
     content_hash: str
     created_at: datetime
     change_count: int = 0
+    #: The parsed document itself, so the Library can show the CV that was
+    #: sent rather than only naming it. Served on the detail view — a record
+    #: has a version or two, not a feed of them.
+    doc_model: dict = Field(default_factory=dict)
 
 
 class RecordSummary(BaseModel):
@@ -123,6 +138,8 @@ class SaveRecordRequest(BaseModel):
     content_hash: str = Field(default="", max_length=64)
     doc_model: dict = Field(default_factory=dict)
     change_log: list[dict] = Field(default_factory=list)
+    #: What the document scored when it was approved, kept with the snapshot.
+    score: int | None = Field(default=None, ge=0, le=100)
 
     status: RecordStatus = "saved"
     notes: str | None = None

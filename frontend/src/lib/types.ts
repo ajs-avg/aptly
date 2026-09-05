@@ -370,6 +370,8 @@ export interface CvVersionSummary {
   content_hash: string;
   created_at: string;
   change_count: number;
+  /** The parsed document, when it was stored — {} for records saved before it was. */
+  doc_model: CVDocument | Record<string, never>;
 }
 
 export interface FrozenSnapshot {
@@ -378,6 +380,8 @@ export interface FrozenSnapshot {
   content_hash: string;
   captured_at: string;
   source_url: string | null;
+  /** The match score at the moment of saving. Null on older records. */
+  score?: number | null;
 }
 
 export interface RecordSummary {

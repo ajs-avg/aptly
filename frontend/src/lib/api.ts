@@ -382,6 +382,8 @@ export interface SaveRecordInput {
   document: CVDocument;
   changeLog: Array<Record<string, unknown>>;
   sourceUrl?: string | null;
+  /** What the document scored when it was approved. */
+  score?: number | null;
 }
 
 export async function saveRecord(
@@ -399,6 +401,7 @@ export async function saveRecord(
       doc_model: input.document,
       change_log: input.changeLog,
       source_url: input.sourceUrl ?? null,
+      score: input.score ?? null,
     }),
   });
   if (!response.ok) await fail(response);
