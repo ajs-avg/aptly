@@ -35,17 +35,32 @@ import { useAccount } from "@/lib/account";
  * **Flash the page before redirecting.** Somebody signed out would otherwise
  * see the CV screen for a frame, which reads as the app breaking.
  */
-export function RequireAccount({ children }: { children: React.ReactNode }) {
+export function RequireAccount({
+  children,
+  soft = false,
+}: {
+  children: React.ReactNode;
+  /**
+   * Let the signed-out through instead of redirecting them.
+   *
+   * The funnel case: a stranger should be able to drop a CV and see the
+   * score — that moment is the argument for the account — and the page
+   * itself decides what to hold back until they have one. `useAccount`
+   * inside the page is how it knows which visitor it has.
+   */
+  soft?: boolean;
+}) {
   const account = useAccount();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (account.status !== "out") return;
+    if (soft || account.status !== "out") return;
     router.replace(`/sign-in?next=${encodeURIComponent(pathname)}`);
-  }, [account.status, pathname, router]);
+  }, [account.status, pathname, router, soft]);
 
-  if (account.status !== "in") return <Waiting />;
+  if (account.status === "unknown") return <Waiting />;
+  if (account.status === "out" && !soft) return <Waiting />;
   return <>{children}</>;
 }
 

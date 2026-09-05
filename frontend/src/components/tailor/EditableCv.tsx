@@ -37,6 +37,13 @@ interface Props {
    * The stamp makes the same lines pointable-at twice.
    */
   highlight?: { ids: string[]; stamp: number } | null;
+  /**
+   * The six-second read. A recruiter's first pass takes the headings, the
+   * summary, and each role's first line; everything else waits for a second
+   * read the first one has to earn. Dimming the rest shows which CV the skim
+   * actually sends — usually not the one its owner has been reading.
+   */
+  skim?: boolean;
 }
 
 export function EditableCv({
@@ -48,6 +55,7 @@ export function EditableCv({
   onDismiss,
   onEdit,
   highlight = null,
+  skim = false,
 }: Props) {
   const byNode = new Map(changes.map((change) => [change.suggestion.node_id, change]));
   const rootRef = useRef<HTMLDivElement>(null);
@@ -70,6 +78,14 @@ export function EditableCv({
 
   return (
     <div ref={rootRef} className="px-4 py-4 sm:px-6 sm:py-5">
+      {skim && (
+        <p className="mb-3 rounded-lg bg-sunken px-3 py-2 text-2xs leading-relaxed text-slate">
+          <span className="font-medium text-ink">The six-second read.</span> What
+          stays bright is what a skimming recruiter takes in: your name, the
+          headings, the summary, each role&rsquo;s first line. The dim lines are
+          read only if the bright ones earn it.
+        </p>
+      )}
       <Header document={document} />
       {document.sections
         .filter((section) => section.kind !== "header")
@@ -80,6 +96,7 @@ export function EditableCv({
             byNode={byNode}
             glow={glow}
             glowStamp={highlight?.stamp ?? 0}
+            skim={skim}
             editable={editable}
             onApply={onApply}
             onUndo={onUndo}
@@ -112,6 +129,7 @@ function SectionBlock({
   byNode,
   glow,
   glowStamp,
+  skim = false,
   editable,
   onApply,
   onUndo,
@@ -133,6 +151,8 @@ function SectionBlock({
         </h3>
       )}
 
+      {/* Loose lines — the summary, a skills list — are in the skim path:
+          they sit at the top of their sections, which is where the eye goes. */}
       {section.loose_nodes.map((node) => (
         <Line key={node.id} node={node} {...shared} />
       ))}
@@ -145,8 +165,15 @@ function SectionBlock({
               {node.text}
             </p>
           ))}
-          {entry.bullets.map((node) => (
-            <Line key={node.id} node={node} bullet {...shared} />
+          {entry.bullets.map((node, index) => (
+            <Line
+              key={node.id}
+              node={node}
+              bullet
+              // The first line of each role is read; the rest is skimmed past.
+              dim={skim && index > 0}
+              {...shared}
+            />
           ))}
         </div>
       ))}
@@ -157,6 +184,7 @@ function SectionBlock({
 function Line({
   node,
   bullet = false,
+  dim = false,
   byNode,
   glow,
   glowStamp,
@@ -168,10 +196,12 @@ function Line({
 }: {
   node: TextNode;
   bullet?: boolean;
+  /** Outside the six-second read — see the `skim` prop. */
+  dim?: boolean;
   byNode: Map<string, Change>;
   glow: Set<string> | null;
   glowStamp: number;
-} & Omit<Props, "document" | "changes" | "highlight">) {
+} & Omit<Props, "document" | "changes" | "highlight" | "skim">) {
   const change = byNode.get(node.id);
   const canType = editable && isEditable(node);
   const areaRef = useRef<HTMLTextAreaElement>(null);
@@ -203,7 +233,13 @@ function Line({
   const glowing = glow?.has(node.id) ?? false;
 
   return (
-    <div data-node-id={node.id} className="group/line relative pt-1.5">
+    <div
+      data-node-id={node.id}
+      className={cn(
+        "group/line relative pt-1.5 transition-opacity duration-300",
+        dim && "opacity-25",
+      )}
+    >
       {/* The agent's mark: a wash that arrives bright and breathes out, over
           the whole line and whatever card it carries. An overlay rather than a
           class on the text, so re-triggering it never remounts a line somebody

@@ -66,6 +66,12 @@ interface Props {
   onSkip?: () => void;
   /** True while the second CV and the call sheets are still being written. */
   working?: boolean;
+  /**
+   * The visitor has no account. The score is theirs to see — it is the
+   * argument for signing up — and the fixing is what waits behind the gate:
+   * their three biggest problems, named, and one button.
+   */
+  locked?: boolean;
 }
 
 export function RevealScreen({
@@ -77,6 +83,7 @@ export function RevealScreen({
   detail = null,
   onSkip,
   working = false,
+  locked = false,
 }: Props) {
   const still = useReducedMotion();
   const reached = stage === "reading" ? 1 : stage === "working" ? 3 : 4;
@@ -202,7 +209,56 @@ export function RevealScreen({
                 <Breakdown score={detail} />
               </motion.div>
 
-              {onSkip && (
+              {locked && detail && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ ...SPRING, delay: 1.1 }}
+                  className="mx-auto mt-9 max-w-md rounded-2xl bg-raised p-5 text-left shadow-float ring-1 ring-ink/5"
+                >
+                  <p className="font-display text-2xs font-medium uppercase tracking-[0.1em] text-amber-ink">
+                    The three costing you most
+                  </p>
+                  <ul className="space-y-2 pt-3">
+                    {detail.results
+                      .filter((gap) => gap.status !== "covered")
+                      .sort((a, b) => Number(b.essential) - Number(a.essential))
+                      .slice(0, 3)
+                      .map((gap) => (
+                        <li key={gap.requirement} className="flex gap-2.5 text-sm leading-relaxed text-ink">
+                          <span
+                            aria-hidden
+                            className={cn(
+                              "mt-1.5 inline-block size-1.5 shrink-0 rounded-full",
+                              gap.status === "missing" ? "bg-danger" : "bg-amber",
+                            )}
+                          />
+                          <span>
+                            {gap.requirement}
+                            {gap.essential && (
+                              <span className="pl-1.5 font-display text-2xs text-danger">
+                                must-have
+                              </span>
+                            )}
+                          </span>
+                        </li>
+                      ))}
+                  </ul>
+                  <a
+                    href="/sign-in?next=%2Ftailor"
+                    className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-pill bg-signal px-6 font-display text-sm font-medium text-paper transition-colors hover:bg-signal-hover"
+                  >
+                    Sign up free — fix them with the agent
+                  </a>
+                  <p className="pt-2.5 text-center text-2xs leading-relaxed text-slate">
+                    Two tailored versions, line-by-line edits, and an agent that
+                    only writes what is true. Your work here is waiting on the
+                    other side.
+                  </p>
+                </motion.div>
+              )}
+
+              {onSkip && !locked && (
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}

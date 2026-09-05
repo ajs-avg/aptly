@@ -100,6 +100,8 @@ export function CvPanel({
   const [downloadOpen, setDownloadOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [gapsOpen, setGapsOpen] = useState(false);
+  /** The six-second read: what a skimming recruiter actually sees. */
+  const [skim, setSkim] = useState(false);
 
   /*
    * The dial is drawn to a pixel size, so it cannot be told to shrink in CSS
@@ -251,6 +253,24 @@ export function CvPanel({
               the close cross off the panel's right edge on a phone — the one
               control the person needs when they cannot see the rest. */}
           <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setSkim((value) => !value)}
+              aria-pressed={skim}
+              title="What a skim reads"
+              className={cn(
+                "inline-flex h-8 items-center gap-1.5 rounded-pill px-3 font-display text-xs transition-colors",
+                skim
+                  ? "bg-ink text-paper"
+                  : "text-ink ring-1 ring-ink/10 hover:bg-sunken",
+              )}
+            >
+              <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" />
+                <circle cx="12" cy="12" r="2.5" />
+              </svg>
+              6-second view
+            </button>
             {onClaim && score && score.results.some((r) => r.status !== "covered") && (
               <button
                 type="button"
@@ -324,12 +344,13 @@ export function CvPanel({
           <EditableCv
             document={state.document}
             changes={state.changes}
-            editable={expanded}
+            editable={expanded && !skim}
             onApply={onApply}
             onUndo={onUndo}
             onDismiss={onDismiss}
             onEdit={onEdit}
             highlight={highlight}
+            skim={expanded && skim}
           />
         ) : (
           <div className="grid place-items-center px-5 py-14 text-center">

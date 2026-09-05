@@ -27,6 +27,7 @@ import {
   streamTailor,
 } from "@/lib/api";
 import { addLine, setNodeText, toPlainText } from "@/lib/document";
+import { useAccount } from "@/lib/account";
 import { clearSession, loadSession, saveSession } from "@/lib/persist";
 import { evaluate } from "@/lib/score";
 import { cn, motionTokens } from "@/lib/utils";
@@ -70,6 +71,9 @@ function readReopen(): { jobText?: string; cvText?: string } | null {
 
 function TailorScreen() {
   const { state, scores, actions } = useTailorRun();
+  // Signed out is a visitor, not an error: they run, they see the score and
+  // the problems, and the fixing is what asks for the account.
+  const anonymous = useAccount().status === "out";
 
   const [jobText, setJobText] = useState("");
   const [cvText, setCvText] = useState("");
@@ -560,8 +564,9 @@ function TailorScreen() {
               detail={scores.tailored}
               // Available as soon as the score exists, not when the run ends.
               // Everything behind this screen fills in live.
-              onSkip={state.analysis ? () => setPastReveal(true) : undefined}
+              onSkip={state.analysis && !anonymous ? () => setPastReveal(true) : undefined}
               working={state.phase !== "ready"}
+              locked={anonymous}
             />
           </motion.div>
         ) : state.phase === "failed" && !state.tailored.document ? (
@@ -904,7 +909,10 @@ function DropScreen({
  */
 export default function Page() {
   return (
-    <RequireAccount>
+    // Soft: a stranger may drop a CV and see the score — that moment is the
+    // argument for the account. The screen holds the both-versions work
+    // behind sign-up itself.
+    <RequireAccount soft>
       <TailorScreen />
     </RequireAccount>
   );
