@@ -113,10 +113,14 @@ function Hero() {
             href="/tailor"
             className="inline-flex h-12 items-center rounded-pill bg-signal px-7 font-display text-base font-medium text-paper shadow-float transition-colors hover:bg-signal-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
           >
-            Tailor my CV
+            Get your free score →
           </Link>
+          {/* The promise spelled out, because it is the unusual part: the
+              diagnosis costs nothing and asks for nothing. The account is
+              asked for where it earns its keep — at the fixing. */}
           <p className="text-sm text-slate">
-            Free · Your file is only ever stored against your own account
+            No sign-up needed · Drop your CV, see the match in a minute ·
+            Stored only against your own account
           </p>
         </EntranceLine>
       </Entrance>
@@ -347,9 +351,9 @@ function Closing() {
             href="/tailor"
             className="inline-flex h-12 items-center rounded-pill bg-signal px-7 font-display text-base font-medium text-paper shadow-float transition-colors hover:bg-signal-hover"
           >
-            Tailor my CV
+            Get your free score →
           </Link>
-          <p className="text-sm text-slate">Takes about a minute.</p>
+          <p className="text-sm text-slate">Takes about a minute. No sign-up to see it.</p>
         </div>
       </div>
     </Section>
