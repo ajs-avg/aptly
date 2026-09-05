@@ -363,6 +363,19 @@ export const STATUS_LABEL: Record<RecordStatus, string> = {
   withdrawn: "Withdrawn",
 };
 
+export interface LetterPlaceholder {
+  /** Exactly as it appears in the letter text: [[Hiring manager's name]] */
+  token: string;
+  label: string;
+  hint: string;
+}
+
+export interface CoverLetter {
+  letter: string;
+  placeholders: LetterPlaceholder[];
+  remaining_today: number;
+}
+
 export interface CvVersionSummary {
   id: string;
   filename: string;

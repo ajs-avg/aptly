@@ -9,6 +9,7 @@ import { RequireAccount } from "@/components/auth/RequireAccount";
 import { SPRING } from "@/components/motion/primitives";
 import { CvPanel } from "@/components/tailor/CvPanel";
 import { AgentDock } from "@/components/tailor/AgentDock";
+import { CoverLetterCard } from "@/components/tailor/CoverLetterCard";
 import { CvSource } from "@/components/tailor/CvSource";
 import { DropBox } from "@/components/tailor/DropBox";
 import { PitchNotes } from "@/components/tailor/PitchNotes";
@@ -737,6 +738,13 @@ function TailorScreen() {
               <div className="pt-3">
                 <PitchNotes card={state[state.expanded].pitch!} />
               </div>
+            )}
+
+            {/* Under the comparison, where the space was: the letter that goes
+                with whichever CV they send. Drawn from the tailored one — the
+                document with their own file behind it. */}
+            {!state.expanded && (
+              <CoverLetterCard document={state.tailored.document} jobText={jobText} />
             )}
 
             {!state.expanded && (

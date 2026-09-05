@@ -13,6 +13,7 @@ import type {
   AgentTurn,
   AuthSession,
   CareerProfile,
+  CoverLetter,
   CvTemplate,
   CVDocument,
   ExtractResponse,
@@ -406,6 +407,80 @@ export async function saveRecord(
   });
   if (!response.ok) await fail(response);
   return response.json();
+}
+
+/**
+ * One cover letter for one job, streamed for the reason the agent is: a
+ * model call is a long silence, and a connection that sits silent is not
+ * reliably one that finishes. Same frames — `working` held open, the answer
+ * last, errors as events.
+ */
+export async function writeCoverLetter(input: {
+  document: CVDocument;
+  jobText: string;
+}): Promise<CoverLetter> {
+  const response = await call(`${API}/api/cover-letter`, {
+    ...(await authed({ headers: { "Content-Type": "application/json" } })),
+    method: "POST",
+    body: JSON.stringify({ document: input.document, job_text: input.jobText }),
+  });
+  if (!response.ok) await fail(response);
+  if (!response.body) throw new ApiError("The letter did not start.");
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let answer: CoverLetter | null = null;
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      // CRLF normalised first — the server separates frames with "\r\n\r\n",
+      // in which a search for "\n\n" finds nothing at all.
+      buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
+
+      let split = buffer.indexOf("\n\n");
+      while (split !== -1) {
+        const frame = buffer.slice(0, split);
+        buffer = buffer.slice(split + 2);
+        split = buffer.indexOf("\n\n");
+
+        const payload = frame
+          .split("\n")
+          .filter((line) => line.startsWith("data:"))
+          .map((line) => line.slice(5).trim())
+          .join("");
+        if (!payload) continue;
+
+        let event: Record<string, unknown>;
+        try {
+          event = JSON.parse(payload);
+        } catch {
+          continue;
+        }
+
+        if (event.kind === "working") continue;
+        if (event.kind === "error") {
+          throw new ApiError(
+            String(event.message ?? "Aptly could not finish the letter."),
+            String(event.hint ?? ""),
+          );
+        }
+        answer = event as unknown as CoverLetter;
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  if (!answer) {
+    throw new ApiError(
+      "The letter stopped before it finished.",
+      "Try again in a moment.",
+    );
+  }
+  return answer;
 }
 
 export async function listRecords(
