@@ -507,7 +507,7 @@ export function RecordPanel({
                               <div
                                 key={index}
                                 className={cn(
-                                  "rounded-xl p-3.5 ring-1 ring-hairline",
+                                  "rounded-xl p-3.5 ring-1 ring-ink/[0.06]",
                                   kind === "gap" ? "bg-amber-soft/50" : "bg-sunken",
                                 )}
                               >

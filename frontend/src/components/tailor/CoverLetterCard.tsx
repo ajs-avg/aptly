@@ -164,7 +164,7 @@ export function CoverLetterCard({
                           }))
                         }
                         placeholder={placeholder.hint || placeholder.label}
-                        className="w-full rounded-lg bg-raised px-2.5 py-1.5 text-sm text-ink ring-1 ring-hairline placeholder:text-slate/45 focus:outline-none focus:ring-2 focus:ring-signal"
+                        className="w-full rounded-lg bg-raised px-2.5 py-1.5 text-sm text-ink ring-1 ring-ink/[0.06] placeholder:text-slate/45 focus:outline-none focus:ring-2 focus:ring-signal"
                       />
                       {placeholder.hint && (
                         <span className="block pt-1 text-2xs leading-relaxed text-slate">

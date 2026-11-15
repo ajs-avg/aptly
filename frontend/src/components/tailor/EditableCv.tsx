@@ -296,7 +296,7 @@ function Line({
                 "rounded-sm text-sm leading-relaxed text-ink",
                 applied && "mark-change pl-2",
                 canType &&
-                  "cursor-text px-1.5 py-0.5 transition-colors hover:bg-sunken hover:ring-1 hover:ring-hairline",
+                  "cursor-text px-1.5 py-0.5 transition-colors hover:bg-sunken hover:ring-1 hover:ring-ink/[0.06]",
               )}
             >
               {node.text}

@@ -12,17 +12,17 @@ interface Props extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 /*
- * Radii are small and shadows are shallow on purpose. This is a tool people
- * open when they are nervous about a job application; it should read as precise
- * rather than playful.
+ * Pills, in the landing page's hand. The primary action carries the teal's
+ * own glow and lifts a pixel on hover; the secondary is paper on paper with a
+ * soft edge; the ghost is text until you reach it. Nothing bounces.
  */
 const VARIANTS: Record<Variant, string> = {
   primary:
-    "bg-signal text-paper hover:bg-signal-hover active:translate-y-px " +
-    "shadow-raised disabled:bg-slate/40 disabled:shadow-none",
+    "bg-signal text-paper shadow-cta hover:bg-signal-hover hover:-translate-y-px " +
+    "active:translate-y-0 disabled:bg-slate/40 disabled:shadow-none disabled:translate-y-0",
   secondary:
-    "bg-raised text-ink ring-1 ring-hairline hover:bg-sunken active:translate-y-px " +
-    "disabled:text-slate/50",
+    "bg-raised text-ink shadow-raised ring-1 ring-ink/[0.06] hover:shadow-lifted hover:-translate-y-px " +
+    "active:translate-y-0 disabled:text-slate/50 disabled:shadow-none disabled:translate-y-0",
   ghost: "text-slate hover:text-ink hover:bg-sunken",
   // The design doc's rule: an action keeps its name through the whole flow, so
   // "Apply" becomes "Applied" rather than vanishing or turning into a tick.
@@ -30,9 +30,9 @@ const VARIANTS: Record<Variant, string> = {
 };
 
 const SIZES: Record<Size, string> = {
-  sm: "h-7 px-2.5 text-2xs gap-1.5",
-  md: "h-9 px-3.5 text-sm gap-2",
-  lg: "h-11 px-5 text-base gap-2",
+  sm: "h-8 px-3 text-2xs gap-1.5",
+  md: "h-10 px-4 text-sm gap-2",
+  lg: "h-12 px-6 text-base gap-2",
 };
 
 export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
@@ -44,8 +44,8 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
       ref={ref}
       type={type}
       className={cn(
-        "inline-flex items-center justify-center rounded-pill font-display font-medium",
-        "transition-[background-color,color,box-shadow,transform] duration-150",
+        "inline-flex items-center justify-center rounded-pill font-display font-medium tracking-[-0.01em]",
+        "transition-[background-color,color,box-shadow,transform] duration-200 ease-out",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal",
         "disabled:cursor-not-allowed",
         VARIANTS[variant],

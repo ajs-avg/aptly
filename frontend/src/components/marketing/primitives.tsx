@@ -161,7 +161,7 @@ export function Section({
 
 export function Pill({ children }: { children: ReactNode }) {
   return (
-    <span className="rounded-pill bg-raised px-3 py-1.5 font-display text-xs text-slate shadow-hairline">
+    <span className="rounded-pill bg-raised px-3.5 py-1.5 font-display text-xs font-medium text-ink-soft shadow-raised ring-1 ring-ink/[0.06]">
       {children}
     </span>
   );
@@ -180,7 +180,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-2xl bg-raised shadow-float ring-1 ring-ink/5",
+        "rounded-3xl bg-raised shadow-float ring-1 ring-ink/[0.06]",
         // Fluid rather than two steps: a card that is comfortable at 640px has
         // wasteful padding at 380 and thin padding at 1920.
         padded && "[padding:clamp(1.25rem,3.2vw,2.25rem)]",

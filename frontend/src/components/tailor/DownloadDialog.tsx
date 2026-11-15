@@ -258,7 +258,7 @@ function Choice({
       aria-pressed={active}
       className={cn(
         "relative w-full rounded-xl p-3 text-left ring-1 transition-colors",
-        active ? "bg-signal-soft/50 ring-signal" : "bg-raised ring-hairline hover:bg-sunken/60",
+        active ? "bg-signal-soft/50 ring-signal" : "bg-raised ring-ink/[0.06] hover:bg-sunken/60",
       )}
     >
       <span className="flex items-center gap-2">
@@ -266,7 +266,7 @@ function Choice({
           aria-hidden
           className={cn(
             "grid size-4 shrink-0 place-items-center rounded-full ring-1 transition-colors",
-            active ? "bg-signal ring-signal" : "ring-hairline",
+            active ? "bg-signal ring-signal" : "ring-ink/[0.06]",
           )}
         >
           {active && <span className="size-1.5 rounded-full bg-paper" />}

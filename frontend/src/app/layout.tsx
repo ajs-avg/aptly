@@ -1,22 +1,23 @@
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Sans, JetBrains_Mono, Poppins } from "next/font/google";
+import { Geist, Inter, JetBrains_Mono } from "next/font/google";
 
 import { ThemeProvider, themeScript } from "@/components/theme/ThemeProvider";
 import "./globals.css";
 
-/* Three voices, three jobs (design doc, p.9):
-   geometric labels for structure, a calm humanist sans for prose, and mono for
-   the literal lines being changed. */
+/* Three voices, three jobs: Geist, tight and geometric, for headlines, labels
+   and figures; Inter for prose and the interface; mono for the literal lines
+   being changed. All three self-hosted by next/font — no third-party request,
+   no swap flash on a headline. */
 
-const poppins = Poppins({
-  variable: "--font-poppins",
+const geist = Geist({
+  variable: "--font-geist",
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: "variable",
   display: "swap",
 });
 
-const plexSans = IBM_Plex_Sans({
-  variable: "--font-plex-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
   display: "swap",
@@ -70,16 +71,28 @@ export default function RootLayout({
     // this element before React hydrates, so the server's markup and the
     // client's necessarily differ by that one attribute. That is the point of
     // it, not a bug to fix.
-    <html lang="en" suppressHydrationWarning>
+    // The font variables go on `<html>`, not on `<body>`.
+    //
+    // `--font-display` and `--font-body` are declared in `@theme`, which lands
+    // on `:root`. A `var()` inside a custom property is substituted where that
+    // property is *declared* — so with the families defined one level down on
+    // `<body>`, `var(--font-geist)` resolved to nothing at `:root`, the whole
+    // token went invalid, and every `font-display` and `font-body` utility in
+    // the app silently fell back to the system stack. The landing page escaped
+    // it only because its own module declares its families on a wrapper inside
+    // `<body>`, where they are in scope.
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${geist.variable} ${inter.variable} ${jetbrainsMono.variable}`}
+    >
       <head>
         {/* Applies the stored theme before first paint. Without it, everyone on
             dark mode gets a white flash on every navigation — there is no React
             lifecycle early enough to prevent that paint. */}
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body
-        className={`${poppins.variable} ${plexSans.variable} ${jetbrainsMono.variable} antialiased`}
-      >
+      <body className="antialiased">
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

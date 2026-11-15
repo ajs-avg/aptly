@@ -49,7 +49,7 @@ export function Field({
         onChange={(event) => onChange(event.target.value)}
         // 16px: iOS zooms the page in on focus for anything smaller, and the way
         // back out is not obvious.
-        className="h-11 w-full rounded-lg bg-sunken px-3.5 text-[1rem] text-ink ring-1 ring-hairline transition-shadow placeholder:text-slate/45 focus:outline-none focus:ring-2 focus:ring-signal sm:text-sm"
+        className="h-11 w-full rounded-lg bg-sunken px-3.5 text-[1rem] text-ink ring-1 ring-ink/[0.06] transition-shadow placeholder:text-slate/45 focus:outline-none focus:ring-2 focus:ring-signal sm:text-sm"
       />
       {hint && <p className="pt-1.5 text-2xs leading-relaxed text-slate">{hint}</p>}
     </div>
@@ -86,7 +86,7 @@ export function TextArea({
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full resize-y rounded-lg bg-sunken px-3.5 py-2.5 text-[1rem] leading-relaxed text-ink ring-1 ring-hairline transition-shadow placeholder:text-slate/45 focus:outline-none focus:ring-2 focus:ring-signal sm:text-sm"
+        className="w-full resize-y rounded-lg bg-sunken px-3.5 py-2.5 text-[1rem] leading-relaxed text-ink ring-1 ring-ink/[0.06] transition-shadow placeholder:text-slate/45 focus:outline-none focus:ring-2 focus:ring-signal sm:text-sm"
       />
       {hint && <p className="pt-1.5 text-2xs leading-relaxed text-slate">{hint}</p>}
     </div>
@@ -137,7 +137,7 @@ export function Chips({
         {label}
       </label>
 
-      <div className="flex flex-wrap gap-1.5 rounded-lg bg-sunken p-2 ring-1 ring-hairline focus-within:ring-2 focus-within:ring-signal">
+      <div className="flex flex-wrap gap-1.5 rounded-lg bg-sunken p-2 ring-1 ring-ink/[0.06] focus-within:ring-2 focus-within:ring-signal">
         {/* max-w-full + truncate on the chip: one holding a LinkedIn URL is
             wider than a phone, and without these it paints its text over the
             chips beside it while the remove button is squeezed to nothing. */}
@@ -262,7 +262,7 @@ export function Select<T extends string>({
         id={id}
         value={value}
         onChange={(event) => onChange(event.target.value as T)}
-        className="h-11 w-full rounded-lg bg-sunken px-3 text-[1rem] text-ink ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-signal sm:text-sm"
+        className="h-11 w-full rounded-lg bg-sunken px-3 text-[1rem] text-ink ring-1 ring-ink/[0.06] focus:outline-none focus:ring-2 focus:ring-signal sm:text-sm"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -297,7 +297,7 @@ export function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl bg-raised ring-1 ring-hairline">
+    <div className="overflow-hidden rounded-xl bg-raised ring-1 ring-ink/[0.06]">
       <div className="flex items-center gap-2 px-3 py-2.5">
         <button
           type="button"

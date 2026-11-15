@@ -6,6 +6,16 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "frontend", "run", "dev", "--", "--port", "3117"],
       "port": 3117
+    },
+    {
+      "name": "frontend-attach",
+      "url": "http://localhost:3117"
+    },
+    {
+      "name": "backend",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["run", "uvicorn", "aptly.main:app", "--port", "8117"],
+      "port": 8117
     }
   ]
 }

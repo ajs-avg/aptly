@@ -109,7 +109,7 @@ function Term({
         "rounded-xs px-1.5 py-0.5 font-display text-2xs",
         covered
           ? "bg-signal-soft text-signal"
-          : "bg-sunken text-slate ring-1 ring-hairline ring-inset",
+          : "bg-sunken text-slate ring-1 ring-ink/[0.06] ring-inset",
       )}
     >
       {label}

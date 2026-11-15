@@ -58,8 +58,8 @@ export function ChangeCard({
       onMouseEnter={onFocus}
       onFocus={onFocus}
       className={cn(
-        "group rounded-xl bg-raised ring-1 transition-shadow duration-200",
-        applied ? "ring-signal/25" : "ring-hairline hover:shadow-lifted",
+        "group rounded-2xl bg-raised shadow-raised ring-1 transition-shadow duration-200",
+        applied ? "ring-signal/25" : "ring-ink/[0.06] hover:shadow-lifted",
         stale && "opacity-60",
       )}
     >

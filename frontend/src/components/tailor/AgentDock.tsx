@@ -485,7 +485,7 @@ export function AgentDock({
                 }}
                 rows={1}
                 placeholder="Shorten the summary, add my GitHub, drop the last bullet…"
-                className="min-h-[2.75rem] flex-1 resize-y rounded-xl bg-sunken px-3.5 py-2.5 text-[1rem] leading-relaxed text-ink ring-1 ring-hairline placeholder:text-slate/45 focus:outline-none focus:ring-2 focus:ring-signal sm:text-sm"
+                className="min-h-[2.75rem] flex-1 resize-y rounded-xl bg-sunken px-3.5 py-2.5 text-[1rem] leading-relaxed text-ink ring-1 ring-ink/[0.06] placeholder:text-slate/45 focus:outline-none focus:ring-2 focus:ring-signal sm:text-sm"
               />
               <button
                 type="submit"
@@ -600,7 +600,7 @@ function ReviewDialog({
 
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-5">
               {response.edits.map((edit, index) => (
-                <div key={index} className="rounded-xl bg-sunken p-3.5 ring-1 ring-hairline">
+                <div key={index} className="rounded-xl bg-sunken p-3.5 ring-1 ring-ink/[0.06]">
                   <div className="flex items-center gap-2 pb-2">
                     <span
                       className={cn(

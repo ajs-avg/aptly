@@ -139,7 +139,7 @@ export function CvSource({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={EASE}
-            className="flex min-h-[min(15rem,42dvh)] flex-col justify-center rounded-lg bg-raised p-5 shadow-lifted ring-1 ring-hairline"
+            className="flex min-h-[min(15rem,42dvh)] flex-col justify-center rounded-lg bg-raised p-5 shadow-lifted ring-1 ring-ink/[0.06]"
           >
             <p className="font-display text-2xs font-medium uppercase tracking-[0.07em] text-ink">
               Your CV
@@ -154,7 +154,7 @@ export function CvSource({
             <div className="pt-4">
               <Link
                 href="/profile"
-                className="inline-flex h-9 items-center rounded-pill px-3.5 font-display text-xs text-ink ring-1 ring-hairline transition-colors hover:bg-sunken"
+                className="inline-flex h-9 items-center rounded-pill px-3.5 font-display text-xs text-ink ring-1 ring-ink/[0.06] transition-colors hover:bg-sunken"
               >
                 Add something first
               </Link>
@@ -220,7 +220,7 @@ function SourceCard({
       aria-pressed={active}
       className={cn(
         "rounded-lg px-3.5 py-3 text-left ring-1 transition-colors",
-        active ? "bg-signal-soft ring-signal" : "bg-raised ring-hairline hover:bg-sunken",
+        active ? "bg-signal-soft ring-signal" : "bg-raised ring-ink/[0.06] hover:bg-sunken",
       )}
     >
       <span

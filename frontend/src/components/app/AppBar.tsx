@@ -9,11 +9,11 @@ import { cn } from "@/lib/utils";
 /**
  * The app's top bar.
  *
- * Deliberately the same *shape* as the marketing nav — a floating pill, same
- * radius, same shadow — so moving from the landing page into the product does
- * not feel like arriving at a different piece of software. It is not the same
- * *density*: the app carries live state and real actions, so it sits tighter
- * and holds more.
+ * The same object as the landing page's header — a frosted pill with the
+ * circular mark on the left and the actions on the right — so moving from the
+ * front door into the product does not feel like arriving at a different
+ * piece of software. It is not the same *density*: the app carries live state
+ * and real actions, so it sits tighter and holds more.
  */
 /** The measures a bar can take, matching the ladder in globals.css. */
 const WIDTHS = {
@@ -59,46 +59,33 @@ export function AppBar({
   width?: keyof typeof WIDTHS;
   children?: ReactNode;
 }) {
+  const brandClass =
+    "flex shrink-0 items-center gap-2.5 rounded-pill py-1 pl-1 pr-2 font-display text-[15px] font-semibold tracking-[-0.02em] text-ink transition-colors hover:text-signal";
+
   return (
     <div className="gutter-bar sticky top-0 z-30 pt-3">
       <header
         className={cn(
           // Fixed height and no wrapping. A pill that wraps is not a pill: the
-          // radius that reads as one continuous edge at 44px tall reads as two
-          // stacked lozenges at 88px, and the page below it jumps by that
+          // radius that reads as one continuous edge at 56px tall reads as two
+          // stacked lozenges at 112px, and the page below it jumps by that
           // difference the moment a status readout appears.
-          "mx-auto flex h-14 items-center gap-x-3 rounded-pill bg-raised/85 px-3 shadow-float ring-1 ring-ink/5 backdrop-blur-xl",
+          "mx-auto flex h-14 items-center gap-x-3 rounded-pill border border-ink/[0.07] bg-raised/75 px-2.5 shadow-lifted backdrop-blur-xl backdrop-saturate-150",
           WIDTHS[width],
         )}
       >
         {/*
-         * `shrink`, not `flex-1`.
-         *
-         * With `flex-1` this side has a basis of zero and grows into whatever
-         * is spare — which is right until nothing is spare. Then it is the
-         * actions that overflow, this side keeps its zero basis, and the
-         * wordmark inside it (correctly `shrink-0`) paints straight out of a box
-         * that has collapsed underneath it. On the Library's phone layout that
-         * put "Aptly" and "Tailor a CV" on top of one another.
-         *
-         * Sized by its content instead, and giving way through the one thing in
-         * it that can: the context label, which truncates.
+         * `shrink`, not `flex-1`: sized by its content, and giving way through
+         * the one thing in it that can — the context label, which truncates.
          */}
         <div className="flex min-w-0 shrink items-center gap-2.5">
           {onBrandClick ? (
-            <button
-              type="button"
-              onClick={onBrandClick}
-              className="flex shrink-0 items-center gap-2 rounded-pill px-1 py-2 font-display text-sm font-semibold tracking-tight text-ink transition-colors hover:text-signal"
-            >
+            <button type="button" onClick={onBrandClick} className={brandClass}>
               <Mark />
               Aptly
             </button>
           ) : (
-            <Link
-              href={brandHref}
-              className="flex shrink-0 items-center gap-2 rounded-pill px-1 py-2 font-display text-sm font-semibold tracking-tight text-ink transition-colors hover:text-signal"
-            >
+            <Link href={brandHref} className={brandClass}>
               <Mark />
               Aptly
             </Link>
@@ -109,6 +96,9 @@ export function AppBar({
               out of width — every action beside it is worth more. */}
           {context && (
             <span className="hidden truncate text-sm text-slate sm:inline">
+              <span aria-hidden className="pr-2.5 text-hairline">
+                /
+              </span>
               {context}
             </span>
           )}
@@ -116,46 +106,33 @@ export function AppBar({
 
         {/*
          * The actions, allowed to scroll rather than to wrap or to overflow.
-         *
-         * This row carries whatever the screen needs — the Library's sign-out
-         * carries an email address — and no arrangement of hiding fits every
-         * one of them on a 320px phone. Scrolling is the honest fallback: the
-         * bar keeps its shape, nothing is silently unreachable, and on any
-         * window wide enough it never engages at all.
+         * Scrolling is the honest fallback: the bar keeps its shape, nothing is
+         * silently unreachable, and on any window wide enough it never engages.
          */}
         <div className="no-scrollbar scroll-x ml-auto flex min-w-0 shrink items-center gap-1.5">
           <ThemeToggle className="hidden sm:inline-flex" />
           {status}
           {children}
         </div>
-        {account && <div className="-ml-1.5 flex shrink-0 items-center">{account}</div>}
+        {account && <div className="flex shrink-0 items-center">{account}</div>}
       </header>
     </div>
   );
 }
 
-/** A folded sheet — the product's one object, at 16px. */
+/** The mark: an ink circle with the initial, the same one the front door wears. */
 function Mark() {
   return (
-    <svg aria-hidden viewBox="0 0 20 20" className="h-4 w-4">
-      <path
-        d="M4 2.5h7.5L16 7v10.5H4z"
-        fill="#fbfbfa"
-        stroke="#16181d"
-        strokeWidth="1.4"
-      />
-      <path d="M11.5 2.5V7H16" fill="none" stroke="#16181d" strokeWidth="1.4" />
-      <path
-        d="M6.5 11h7M6.5 13.5h4.5"
-        stroke="#14655c"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-      />
-    </svg>
+    <span
+      aria-hidden
+      className="grid size-8 shrink-0 place-items-center rounded-full bg-ink font-display text-[15px] font-semibold leading-none text-paper"
+    >
+      <span className="translate-y-px">A</span>
+    </span>
   );
 }
 
-/** A pill link, matching the marketing nav's secondary action. */
+/** A pill link, matching the landing page's secondary and primary actions. */
 export function BarLink({
   href,
   children,
@@ -172,9 +149,9 @@ export function BarLink({
         // `whitespace-nowrap` because this now lives in a scrolling strip: a
         // link allowed to wrap inside one collapses to a two-line sliver rather
         // than pushing the strip wide enough to scroll.
-        "inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-pill px-3 font-display text-xs transition-colors",
+        "inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-pill px-3.5 font-display text-xs font-medium transition-[background-color,color,transform] duration-200",
         emphasis === "solid"
-          ? "bg-ink font-medium text-paper hover:bg-ink-soft"
+          ? "bg-ink text-paper shadow-raised hover:-translate-y-px hover:bg-ink-soft"
           : "text-slate hover:bg-sunken hover:text-ink",
       )}
     >

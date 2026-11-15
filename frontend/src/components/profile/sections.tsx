@@ -232,7 +232,7 @@ function AchievementList({
       </p>
       <div className="grid gap-2.5">
         {value.map((item, index) => (
-          <div key={index} className="rounded-lg bg-sunken p-3 ring-1 ring-hairline">
+          <div key={index} className="rounded-lg bg-sunken p-3 ring-1 ring-ink/[0.06]">
             <div className="flex items-start gap-2">
               <textarea
                 rows={2}
@@ -243,7 +243,7 @@ function AchievementList({
                     value.map((a, i) => (i === index ? { ...a, text: event.target.value } : a)),
                   )
                 }
-                className="min-w-0 flex-1 resize-y rounded-md bg-raised px-3 py-2 text-[1rem] leading-relaxed text-ink ring-1 ring-hairline placeholder:text-slate/45 focus:outline-none focus:ring-2 focus:ring-signal sm:text-sm"
+                className="min-w-0 flex-1 resize-y rounded-md bg-raised px-3 py-2 text-[1rem] leading-relaxed text-ink ring-1 ring-ink/[0.06] placeholder:text-slate/45 focus:outline-none focus:ring-2 focus:ring-signal sm:text-sm"
               />
               <button
                 type="button"
@@ -475,7 +475,7 @@ export function SkillsSection({
       {value.map((skill, index) => (
         <div
           key={index}
-          className="grid gap-3 rounded-xl bg-raised p-3 ring-1 ring-hairline sm:grid-cols-[1.5fr_1fr_1fr_auto] sm:items-end"
+          className="grid gap-3 rounded-xl bg-raised p-3 ring-1 ring-ink/[0.06] sm:grid-cols-[1.5fr_1fr_1fr_auto] sm:items-end"
         >
           <Field label="Skill" value={skill.name} onChange={(v) => patch(index, { name: v })} />
           <Select
@@ -585,7 +585,7 @@ export function LanguagesSection({
       {value.map((item, index) => (
         <div
           key={index}
-          className="grid gap-3 rounded-xl bg-raised p-3 ring-1 ring-hairline sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+          className="grid gap-3 rounded-xl bg-raised p-3 ring-1 ring-ink/[0.06] sm:grid-cols-[1fr_1fr_auto] sm:items-end"
         >
           <Field label="Language" value={item.name} onChange={(v) => patch(index, { name: v })} />
           <Field

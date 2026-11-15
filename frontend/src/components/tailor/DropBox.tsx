@@ -60,9 +60,9 @@ export function DropBox({
   return (
     <div
       className={cn(
-        "flex min-w-0 flex-col rounded-lg bg-raised ring-1 transition-all duration-200",
-        dragging ? "ring-2 ring-signal" : "ring-hairline",
-        emphasis ? "shadow-lifted" : "shadow-raised",
+        "flex min-w-0 flex-col rounded-2xl bg-raised ring-1 transition-all duration-200",
+        dragging ? "ring-2 ring-signal" : "ring-ink/[0.06]",
+        emphasis ? "shadow-card" : "shadow-lifted",
       )}
       onDragOver={(event) => {
         if (!onFile) return;

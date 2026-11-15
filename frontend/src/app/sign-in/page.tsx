@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "motion/react";
 
 import { refreshAccount, useAccount } from "@/lib/account";
 import { ApiError, resetPassword, signIn, signUp } from "@/lib/api";
-import { Nav } from "@/components/marketing/Nav";
+import { SiteHeader } from "@/components/app/SiteHeader";
 import { Showreel } from "@/components/marketing/Showreel";
 import { EASE, SPRING } from "@/components/motion/primitives";
 import {
@@ -177,7 +177,7 @@ function SignIn() {
 
   return (
     <div className="min-h-dvh bg-mist">
-      <Nav />
+      <SiteHeader />
 
       {/*
        * Two columns on a wide screen, one on a narrow one — and the order
@@ -430,7 +430,7 @@ function SignIn() {
                   <button
                     type="button"
                     onClick={() => go("reset")}
-                    className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-pill px-4 font-display text-sm text-ink ring-1 ring-hairline transition-colors hover:bg-sunken"
+                    className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-pill px-4 font-display text-sm text-ink ring-1 ring-ink/[0.06] transition-colors hover:bg-sunken"
                   >
                     I have forgotten my password
                   </button>
@@ -439,7 +439,7 @@ function SignIn() {
                   <button
                     type="button"
                     onClick={() => go("signin")}
-                    className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-pill px-4 font-display text-sm text-ink ring-1 ring-hairline transition-colors hover:bg-sunken"
+                    className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-pill px-4 font-display text-sm text-ink ring-1 ring-ink/[0.06] transition-colors hover:bg-sunken"
                   >
                     Back to signing in
                   </button>
@@ -680,7 +680,7 @@ function LocalAccount({ next, mode, onMode, onNavigating }: {
         <button
           type="button"
           onClick={() => onMode("reset")}
-          className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-pill px-4 font-display text-sm text-ink ring-1 ring-hairline transition-colors hover:bg-sunken"
+          className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-pill px-4 font-display text-sm text-ink ring-1 ring-ink/[0.06] transition-colors hover:bg-sunken"
         >
           I have forgotten my password
         </button>
@@ -689,7 +689,7 @@ function LocalAccount({ next, mode, onMode, onNavigating }: {
         <button
           type="button"
           onClick={() => onMode("signin")}
-          className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-pill px-4 font-display text-sm text-ink ring-1 ring-hairline transition-colors hover:bg-sunken"
+          className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-pill px-4 font-display text-sm text-ink ring-1 ring-ink/[0.06] transition-colors hover:bg-sunken"
         >
           Back to signing in
         </button>
@@ -748,7 +748,7 @@ function Field({
         onChange={(event) => onChange(event.target.value)}
         // 16px, deliberately: iOS zooms the whole page in on focus for anything
         // smaller, and the way back out is not obvious.
-        className="h-12 w-full rounded-lg bg-sunken px-3.5 text-[1rem] text-ink ring-1 ring-hairline transition-shadow placeholder:text-slate/55 focus:outline-none focus:ring-2 focus:ring-signal"
+        className="h-12 w-full rounded-lg bg-sunken px-3.5 text-[1rem] text-ink ring-1 ring-ink/[0.06] transition-shadow placeholder:text-slate/55 focus:outline-none focus:ring-2 focus:ring-signal"
       />
     </div>
   );

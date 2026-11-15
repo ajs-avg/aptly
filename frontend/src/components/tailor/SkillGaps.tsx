@@ -137,7 +137,7 @@ export function SkillGaps({ open, onClose, results, onClaim, busy = false }: Pro
                           key={row.id}
                           className={cn(
                             "rounded-lg ring-1 transition-colors",
-                            ready ? "bg-signal-soft/50 ring-signal/25" : "ring-hairline",
+                            ready ? "bg-signal-soft/50 ring-signal/25" : "ring-ink/[0.06]",
                           )}
                         >
                           <div className="flex w-full items-start gap-3 p-3">
@@ -159,7 +159,7 @@ export function SkillGaps({ open, onClose, results, onClaim, busy = false }: Pro
                               data-tap="tight"
                               className={cn(
                                 "mt-0.5 grid size-5 shrink-0 place-items-center rounded-md ring-1 transition-colors",
-                                ready ? "bg-signal text-paper ring-signal" : "ring-hairline hover:ring-signal",
+                                ready ? "bg-signal text-paper ring-signal" : "ring-ink/[0.06] hover:ring-signal",
                               )}
                             >
                               {ready && (
@@ -213,7 +213,7 @@ export function SkillGaps({ open, onClose, results, onClaim, busy = false }: Pro
                                         }))
                                       }
                                       placeholder="e.g. Ran the nightly deploy on it at Kalyra, across three environments."
-                                      className="mt-1.5 w-full resize-none rounded-lg bg-sunken px-3 py-2 text-[0.9375rem] leading-relaxed text-ink ring-1 ring-hairline placeholder:text-slate/55 focus:outline-none focus:ring-2 focus:ring-signal"
+                                      className="mt-1.5 w-full resize-none rounded-lg bg-sunken px-3 py-2 text-[0.9375rem] leading-relaxed text-ink ring-1 ring-ink/[0.06] placeholder:text-slate/55 focus:outline-none focus:ring-2 focus:ring-signal"
                                     />
                                   </label>
                                   <p className="pt-1.5 text-2xs leading-relaxed text-slate">

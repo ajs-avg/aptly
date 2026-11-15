@@ -120,7 +120,7 @@ export function RevealScreen({
                             ? "bg-signal text-paper ring-signal"
                             : active
                               ? "ring-signal"
-                              : "ring-hairline",
+                              : "ring-ink/[0.06]",
                         )}
                       >
                         {done ? (

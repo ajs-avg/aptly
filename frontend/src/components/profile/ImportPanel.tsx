@@ -134,7 +134,7 @@ export function ImportPanel({
                 }}
                 className={cn(
                   "rounded-xl ring-1 transition-colors",
-                  dragging ? "ring-2 ring-signal" : "ring-hairline",
+                  dragging ? "ring-2 ring-signal" : "ring-ink/[0.06]",
                 )}
               >
                 {file ? (
@@ -211,7 +211,7 @@ export function ImportPanel({
                       "min-w-[12rem] flex-1 rounded-xl px-3.5 py-3 text-left ring-1 transition-colors",
                       mode === value
                         ? "bg-signal-soft ring-signal"
-                        : "ring-hairline hover:bg-sunken",
+                        : "ring-ink/[0.06] hover:bg-sunken",
                     )}
                   >
                     <span
