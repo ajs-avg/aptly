@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AnimatePresence } from "motion/react";
 
 import { LibraryPulse } from "@/components/library/LibraryPulse";
+import { MergeBanner } from "@/components/library/MergeBanner";
 import { RecordPanel } from "@/components/library/RecordPanel";
 import { RecordCard } from "@/components/library/RecordCard";
 import {
@@ -19,7 +20,9 @@ import {
   ApiError,
   deleteRecord,
   getRecord,
+  listDuplicates,
   listRecords,
+  mergeRecords,
   markVersionSent,
   updateRecord,
 } from "@/lib/api";
@@ -27,6 +30,7 @@ import { cn } from "@/lib/utils";
 import {
   STATUS_LABEL,
   STATUS_ORDER,
+  type DuplicateGroup,
   type RecordDetail,
   type RecordStatus,
   type RecordSummary,
@@ -125,6 +129,45 @@ function LibraryScreen() {
     );
   }, []);
 
+  /*
+   * Rows already filed as two for one job.
+   *
+   * Looked for once, after the list has loaded, and never again in the same
+   * visit: it is a tidy-up prompt, and one that reappears every time the
+   * search box changes is nagging rather than helping.
+   */
+  const [duplicates, setDuplicates] = useState<DuplicateGroup[]>([]);
+  const [merging, setMerging] = useState(false);
+  const checkedDuplicates = useRef(false);
+
+  useEffect(() => {
+    if (checkedDuplicates.current || loading || error || records.length < 2) return;
+    checkedDuplicates.current = true;
+    void listDuplicates()
+      .then(setDuplicates)
+      .catch(() => {
+        // A tidy-up prompt that cannot load is not worth an error on screen.
+      });
+  }, [loading, error, records.length]);
+
+  const merge = useCallback(
+    async (group: DuplicateGroup) => {
+      setMerging(true);
+      try {
+        await mergeRecords(group.records.map((record) => record.id));
+        setDuplicates((current) => current.filter((item) => item !== group));
+        setSelected(null);
+        await refresh(query, status);
+      } catch (caught) {
+        const apiError = caught as ApiError;
+        setError({ message: apiError.message, hint: apiError.hint ?? "" });
+      } finally {
+        setMerging(false);
+      }
+    },
+    [refresh, query, status],
+  );
+
   const remove = useCallback(async (id: string) => {
     await deleteRecord(id);
     setSelected(null);
@@ -152,7 +195,18 @@ function LibraryScreen() {
       {/* The shape of the search, above both columns. It is about the whole
           pile, so it spans them rather than sitting inside the list. */}
       {!loading && !error && records.length >= 2 && (
-        <div className="gutter-bar mx-auto max-w-ultra pt-3">
+        <div className="gutter-bar mx-auto grid max-w-ultra gap-3 pt-3">
+          <AnimatePresence>
+            {duplicates.length > 0 && (
+              <MergeBanner
+                key="merge"
+                groups={duplicates}
+                busy={merging}
+                onMerge={(group) => void merge(group)}
+                onDismiss={() => setDuplicates([])}
+              />
+            )}
+          </AnimatePresence>
           <LibraryPulse records={records} />
         </div>
       )}

@@ -16,6 +16,7 @@ import type {
   CoverLetter,
   CvTemplate,
   CvVariant,
+  DuplicateGroup,
   CVDocument,
   ExtractResponse,
   IngestResponse,
@@ -440,6 +441,29 @@ export async function matchRecord(input: {
     ...(await authed({ headers: { "Content-Type": "application/json" } })),
     method: "POST",
     body: JSON.stringify({ job_text: input.jobText, job: input.job ?? null }),
+  });
+  if (!response.ok) await fail(response);
+  return response.json();
+}
+
+/**
+ * Applications already in the Library that look like one job split in two.
+ *
+ * The save path stopped creating these; this finds the ones already filed
+ * that way so the Library can offer to put them back together.
+ */
+export async function listDuplicates(): Promise<DuplicateGroup[]> {
+  const response = await call(`${API}/api/records/duplicates`, await authed());
+  if (!response.ok) await fail(response);
+  return response.json();
+}
+
+/** Fold several applications for one job into one. The oldest survives. */
+export async function mergeRecords(recordIds: string[]): Promise<RecordDetail> {
+  const response = await call(`${API}/api/records/merge`, {
+    ...(await authed({ headers: { "Content-Type": "application/json" } })),
+    method: "POST",
+    body: JSON.stringify({ record_ids: recordIds }),
   });
   if (!response.ok) await fail(response);
   return response.json();

@@ -444,3 +444,132 @@ def test_a_match_only_sees_your_own_library(client: TestClient) -> None:
 
     _account(client, "second@example.com")
     assert client.post("/api/records/match", json={"job_text": JOB_TEXT}).json() is None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Putting old duplicates back together
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# The save path stopped creating two rows for one job, but it only runs on new
+# saves. Everything already filed that way still has to be mergeable.
+
+
+def _save_separately(client: TestClient, **overrides) -> dict:
+    """Save without a record_id, the way the old client always did."""
+    return _save(client, **overrides)
+
+
+def test_two_rows_for_one_advert_are_found(client: TestClient) -> None:
+    first = _save_separately(client, content_hash="a" * 64)
+    second = _save_separately(client, content_hash="c" * 64)
+
+    groups = client.get("/api/records/duplicates").json()
+
+    assert len(groups) == 1
+    assert groups[0]["exact"] is True
+    assert [r["id"] for r in groups[0]["records"]] == [first["id"], second["id"]]
+
+
+def test_one_row_is_not_a_duplicate(client: TestClient) -> None:
+    _save_separately(client)
+    assert client.get("/api/records/duplicates").json() == []
+
+
+def test_different_jobs_are_not_grouped(client: TestClient) -> None:
+    _save_separately(client)
+    _save_separately(client, job_text="Pastry Chef — a bakery that opens at four.")
+
+    assert client.get("/api/records/duplicates").json() == []
+
+
+def test_merging_keeps_the_oldest_record_and_every_cv(client: TestClient) -> None:
+    first = _save_separately(client, content_hash="a" * 64, variant="tailored")
+    second = _save_separately(client, content_hash="c" * 64, variant="rebuilt")
+
+    merged = client.post(
+        "/api/records/merge", json={"record_ids": [first["id"], second["id"]]}
+    ).json()
+
+    assert merged["id"] == first["id"]
+    assert merged["cv_count"] == 2
+    assert {v["variant"] for v in merged["cv_versions"]} == {"tailored", "rebuilt"}
+    assert client.get("/api/records").json()["total_shown"] == 1
+
+
+def test_merging_keeps_the_advert_from_the_day(client: TestClient) -> None:
+    first = _save_separately(client, content_hash="a" * 64)
+    second = _save_separately(
+        client, content_hash="c" * 64, job_text=JOB_TEXT + "\n\nEdited later."
+    )
+
+    merged = client.post(
+        "/api/records/merge", json={"record_ids": [first["id"], second["id"]]}
+    ).json()
+
+    assert merged["snapshot"]["raw"] == JOB_TEXT
+
+
+def test_merging_takes_the_furthest_along_status(client: TestClient) -> None:
+    first = _save_separately(client, content_hash="a" * 64)
+    second = _save_separately(client, content_hash="c" * 64)
+    client.patch(f"/api/records/{second['id']}", json={"status": "interviewing"})
+
+    merged = client.post(
+        "/api/records/merge", json={"record_ids": [first["id"], second["id"]]}
+    ).json()
+
+    assert merged["status"] == "interviewing"
+
+
+def test_merging_keeps_both_sets_of_notes(client: TestClient) -> None:
+    """A note is something the person wrote by hand. Neither is overwritten."""
+    first = _save_separately(client, content_hash="a" * 64)
+    second = _save_separately(client, content_hash="c" * 64)
+    client.patch(f"/api/records/{first['id']}", json={"notes": "Rang me on Tuesday."})
+    client.patch(f"/api/records/{second['id']}", json={"notes": "Asked about Airflow."})
+
+    merged = client.post(
+        "/api/records/merge", json={"record_ids": [first["id"], second["id"]]}
+    ).json()
+
+    assert "Rang me on Tuesday." in merged["notes"]
+    assert "Asked about Airflow." in merged["notes"]
+
+
+def test_merging_leaves_the_sent_question_open(client: TestClient) -> None:
+    """Two CVs and nobody has said which went out. Merging must not guess."""
+    first = _save_separately(client, content_hash="a" * 64, variant="tailored")
+    second = _save_separately(client, content_hash="c" * 64, variant="rebuilt")
+
+    merged = client.post(
+        "/api/records/merge", json={"record_ids": [first["id"], second["id"]]}
+    ).json()
+
+    assert not any(v["sent"] for v in merged["cv_versions"])
+
+
+def test_a_merge_cannot_reach_into_another_library(client: TestClient) -> None:
+    _account(client, "one@example.com")
+    mine = _save_separately(client, content_hash="a" * 64)
+    client.post("/api/auth/sign-out")
+
+    _account(client, "two@example.com")
+    theirs = _save_separately(client, content_hash="c" * 64)
+
+    response = client.post(
+        "/api/records/merge", json={"record_ids": [mine["id"], theirs["id"]]}
+    )
+
+    assert response.status_code == 404
+    assert client.get("/api/records").json()["total_shown"] == 1
+
+
+def test_duplicates_only_sees_your_own_library(client: TestClient) -> None:
+    _account(client, "alpha@example.com")
+    _save_separately(client, content_hash="a" * 64)
+    client.post("/api/auth/sign-out")
+
+    _account(client, "beta@example.com")
+    _save_separately(client, content_hash="c" * 64)
+
+    assert client.get("/api/records/duplicates").json() == []

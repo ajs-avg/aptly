@@ -23,6 +23,8 @@ from aptly.api.limits import check_agent_quota
 from aptly.db import repository
 from aptly.db.schemas import (
     STATUSES,
+    DuplicateGroup,
+    MergeRecordsRequest,
     RecordDetail,
     RecordMatch,
     RecordSummary,
@@ -89,6 +91,32 @@ async def match(
     return await repository.find_matching_record(
         session, owner_id=caller.owner_id, payload=payload
     )
+
+
+@router.get("/duplicates", response_model=list[DuplicateGroup])
+async def duplicates(caller: CallerDep, session: SessionDep) -> list[DuplicateGroup]:
+    """Applications already filed as two rows for one job.
+
+    The save path stopped creating these, but it only runs on new saves. The
+    Library offers to put the existing ones back together.
+    """
+    return await repository.find_duplicate_groups(session, owner_id=caller.owner_id)
+
+
+@router.post("/merge", response_model=RecordDetail)
+async def merge(
+    payload: MergeRecordsRequest, caller: CallerDep, session: SessionDep
+) -> RecordDetail:
+    """Fold several applications for one job into one. The oldest survives."""
+    merged = await repository.merge_records(
+        session, owner_id=caller.owner_id, record_ids=payload.record_ids
+    )
+    if merged is None:
+        raise RecordNotFoundError(
+            "Those applications are not both in your Library.",
+            hint="One of them may have been deleted since this screen was opened.",
+        )
+    return merged
 
 
 @router.post("/{record_id}/versions/{version_id}/sent", response_model=RecordDetail)

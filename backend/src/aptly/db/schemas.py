@@ -198,6 +198,23 @@ class RecordMatch(BaseModel):
     exact: bool
 
 
+class DuplicateGroup(BaseModel):
+    """Applications already in the Library that look like one job split in two.
+
+    ``exact`` carries the same distinction as :class:`RecordMatch`: the same
+    advert text is certain, the same company and role is a question.
+    """
+
+    records: list[RecordSummary]
+    exact: bool
+
+
+class MergeRecordsRequest(BaseModel):
+    """Fold these applications into one. The oldest survives."""
+
+    record_ids: list[UUID] = Field(min_length=2, max_length=20)
+
+
 class UpdateRecordRequest(BaseModel):
     """Everything the Library lets you edit after the fact."""
 

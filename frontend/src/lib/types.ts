@@ -425,6 +425,13 @@ export interface ShapeLine {
   k: "n" | "c" | "h" | "r" | "b";
 }
 
+/** Applications already in the Library that look like one job split in two. */
+export interface DuplicateGroup {
+  records: RecordSummary[];
+  /** True when the advert text is identical. False means it is a question. */
+  exact: boolean;
+}
+
 /** An application already in the Library that a save would duplicate. */
 export interface RecordMatch {
   record: RecordDetail;

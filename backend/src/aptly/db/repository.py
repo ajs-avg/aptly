@@ -22,6 +22,7 @@ from sqlalchemy.orm import selectinload
 from aptly.db.models import AnonSession, CvVersion, JobRecord, Profile, UsageEvent
 from aptly.db.schemas import (
     CvVersionSummary,
+    DuplicateGroup,
     FrozenSnapshot,
     RecordDetail,
     RecordMatch,
@@ -465,6 +466,179 @@ async def update_record(
         record.applied_at = datetime.now(UTC)
 
     return _to_detail(record, sorted(record.cv_versions, key=lambda v: v.created_at))
+
+
+async def find_duplicate_groups(
+    session: AsyncSession, *, owner_id: UUID
+) -> list[DuplicateGroup]:
+    """Applications already in the Library that look like one job split in two.
+
+    Saving both of a run's CVs used to open two rows, and the fix for that only
+    runs on new saves. This finds the ones already filed that way so they can be
+    put back together, grouped the same two ways the save path matches on:
+
+    - **Exact** — the same advert text. Certain.
+    - **Likely** — the same company and role with different wording. A question
+      to put to the person, not a conclusion to act on.
+
+    Grouped oldest first within each group, because the oldest record holds the
+    advert as it was on the day and is the one worth keeping.
+    """
+    rows = (
+        await session.execute(
+            select(JobRecord)
+            .where(JobRecord.profile_id == owner_id)
+            .options(selectinload(JobRecord.cv_versions))
+            .order_by(JobRecord.created_at.asc())
+        )
+    ).scalars()
+
+    by_advert: dict[str, list[JobRecord]] = {}
+    by_title: dict[tuple[str, str], list[JobRecord]] = {}
+
+    for record in rows:
+        digest = (record.frozen_snapshot or {}).get("content_hash")
+        if digest:
+            by_advert.setdefault(str(digest), []).append(record)
+            continue
+        if record.company and record.role:
+            key = (_fold(record.company), _fold(record.role))
+            by_title.setdefault(key, []).append(record)
+
+    groups: list[DuplicateGroup] = []
+    seen: set[UUID] = set()
+
+    for members in by_advert.values():
+        if len(members) < 2:
+            continue
+        seen.update(m.id for m in members)
+        groups.append(_to_group(members, exact=True))
+
+    # A record can only be in one group, and the certain grouping wins.
+    for (company, role), members in by_title.items():
+        remaining = [m for m in members if m.id not in seen]
+        if len(remaining) < 2:
+            continue
+        seen.update(m.id for m in remaining)
+        groups.append(_to_group(remaining, exact=False))
+
+    # The adverts that matched by hash can *also* share a company and role with
+    # records that did not, so a second pass groups what the first left behind.
+    leftovers: dict[tuple[str, str], list[JobRecord]] = {}
+    for members in by_advert.values():
+        for record in members:
+            if record.id in seen or not (record.company and record.role):
+                continue
+            leftovers.setdefault((_fold(record.company), _fold(record.role)), []).append(record)
+    for members in leftovers.values():
+        if len(members) >= 2:
+            seen.update(m.id for m in members)
+            groups.append(_to_group(members, exact=False))
+
+    groups.sort(key=lambda g: (not g.exact, g.records[0].created_at))
+    return groups
+
+
+def _fold(text: str) -> str:
+    return " ".join(text.lower().split())
+
+
+def _to_group(members: list[JobRecord], *, exact: bool) -> DuplicateGroup:
+    ordered = sorted(members, key=lambda r: r.created_at)
+    return DuplicateGroup(
+        exact=exact,
+        records=[
+            _to_summary(record, sorted(record.cv_versions, key=lambda v: v.created_at))
+            for record in ordered
+        ],
+    )
+
+
+#: Furthest along wins when merged records disagree about where things stand.
+_STATUS_RANK = {
+    "saved": 0,
+    "applied": 1,
+    "screening": 2,
+    "interviewing": 3,
+    "offer": 4,
+    "rejected": 1,
+    "withdrawn": 1,
+}
+
+
+async def merge_records(
+    session: AsyncSession, *, owner_id: UUID, record_ids: list[UUID]
+) -> RecordDetail | None:
+    """Fold several applications for one job back into a single record.
+
+    The oldest survives: it carries the advert as it was on the day, which is
+    the thing the Library promises and the thing a later copy cannot restore.
+    Everything the others hold moves onto it — every CV, the furthest-along
+    status, the earliest application date, and any notes, kept rather than
+    overwritten because a note is something the person wrote by hand.
+
+    Nothing is deleted except the now-empty rows themselves.
+    """
+    records = list(
+        (
+            await session.execute(
+                select(JobRecord)
+                .where(JobRecord.profile_id == owner_id, JobRecord.id.in_(record_ids))
+                .options(selectinload(JobRecord.cv_versions))
+                .order_by(JobRecord.created_at.asc())
+            )
+        ).scalars()
+    )
+    if len(records) < 2:
+        return None
+
+    keeper, *rest = records
+
+    for other in rest:
+        # Moved through the relationship, not by setting the foreign key.
+        # `cv_versions` cascades delete-orphan, so a version still sitting in
+        # the absorbed record's collection is deleted along with it however
+        # its column reads — which silently threw away the second CV, the one
+        # thing this merge exists to keep.
+        for version in sorted(list(other.cv_versions), key=lambda v: v.created_at):
+            other.cv_versions.remove(version)
+            keeper.cv_versions.append(version)
+
+        if _STATUS_RANK.get(other.status, 0) > _STATUS_RANK.get(keeper.status, 0):
+            keeper.status = other.status
+        if other.applied_at and (keeper.applied_at is None or other.applied_at < keeper.applied_at):
+            keeper.applied_at = other.applied_at
+        if other.notes and other.notes.strip():
+            keeper.notes = (
+                other.notes.strip()
+                if not (keeper.notes or "").strip()
+                else f"{keeper.notes.strip()}\n\n{other.notes.strip()}"
+            )
+        keeper.source_url = keeper.source_url or other.source_url
+        keeper.salary_text = keeper.salary_text or other.salary_text
+        keeper.location = keeper.location or other.location
+
+    await session.flush()
+    for other in rest:
+        await session.delete(other)
+    await session.flush()
+
+    versions = await _versions_of(session, keeper.id)
+
+    # Two rows meant two CVs and no mark; merging leaves that question open
+    # rather than answering it on the person's behalf. One CV is not a
+    # question at all, so it is simply the one they sent.
+    if len(versions) == 1 and versions[0].sent is None:
+        versions[0].sent = True
+        await session.flush()
+
+    log.info(
+        "records.merged",
+        kept=str(keeper.id),
+        absorbed=len(rest),
+        versions=len(versions),
+    )
+    return _to_detail(keeper, versions)
 
 
 async def delete_record(session: AsyncSession, *, owner_id: UUID, record_id: UUID) -> bool:
