@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/Button";
 import { formatWhen } from "@/components/library/RecordRow";
 import { EditableCv } from "@/components/tailor/EditableCv";
 import { CvThumbnail } from "@/components/visual/CvThumbnail";
+import { PrepDeck } from "@/components/library/PrepDeck";
+import { Pipeline } from "@/components/visual/primitives";
 import { ApiError, interviewPrep } from "@/lib/api";
 import { toPlainText } from "@/lib/document";
 import { cn, motionTokens } from "@/lib/utils";
@@ -22,11 +24,19 @@ import {
   type RecordStatus,
 } from "@/lib/types";
 
-const KIND_LABEL: Record<InterviewPrep["questions"][number]["kind"], string> = {
-  requirement: "From the post",
-  cv: "About your CV",
-  gap: "Where you may be pushed",
-};
+
+/**
+ * The ladder, and the two ways off it.
+ *
+ * `STATUS_ORDER` holds all seven in lifecycle order, but rejected and
+ * withdrawn are not rungs — drawing them as part of the climb would say an
+ * application progresses into being rejected.
+ */
+const ENDINGS = ["rejected", "withdrawn"] as const;
+const PIPELINE = STATUS_ORDER.filter(
+  (status): status is Exclude<RecordStatus, (typeof ENDINGS)[number]> =>
+    !(ENDINGS as readonly string[]).includes(status),
+);
 
 /** Whether a stored version carries the document itself, not just its name. */
 function storedDocument(version: CvVersionSummary): CVDocument | null {
@@ -156,25 +166,35 @@ export function RecordPanel({
           </Button>
         </div>
 
-        <div className="flex flex-wrap gap-1 pt-4">
-          {STATUS_ORDER.map((status) => (
-            <button
-              key={status}
-              type="button"
-              onClick={() => onStatusChange(status)}
-              className={cn(
-                "inline-flex items-center rounded-pill px-2.5 py-1 font-display text-2xs transition-colors",
-                // See the Library's filter chips: a thumb-sized floor is a
-                // vertical one, and a pill needs width to match it.
-                "[@media(pointer:coarse)]:px-4",
-                status === record.status
-                  ? "bg-signal text-paper"
-                  : "text-slate hover:bg-sunken hover:text-ink",
-              )}
-            >
-              {STATUS_LABEL[status]}
-            </button>
-          ))}
+        {/* The statuses are a funnel, not seven equal options. Drawing the
+            ladder says where this one stands before a word is read; the two
+            endings sit off it, because neither is a step forward. */}
+        <div className="pt-4">
+          <Pipeline
+            stages={PIPELINE.map((value) => ({ value, label: STATUS_LABEL[value] }))}
+            current={record.status}
+            onPick={(value) => onStatusChange(value as RecordStatus)}
+          />
+          <div className="flex flex-wrap items-center gap-1 pt-3">
+            {ENDINGS.map((status) => (
+              <button
+                key={status}
+                type="button"
+                onClick={() => onStatusChange(status)}
+                className={cn(
+                  "inline-flex items-center rounded-pill px-2.5 py-1 font-display text-2xs transition-colors",
+                  // See the Library's filter chips: a thumb-sized floor is a
+                  // vertical one, and a pill needs width to match it.
+                  "[@media(pointer:coarse)]:px-4",
+                  status === record.status
+                    ? "bg-danger-soft text-danger"
+                    : "text-slate/70 hover:bg-sunken hover:text-ink",
+                )}
+              >
+                {STATUS_LABEL[status]}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
@@ -506,7 +526,7 @@ export function RecordPanel({
                 </p>
               </header>
 
-              <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
+              <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5">
                 {prepBusy && (
                   <div className="flex items-center gap-2 text-sm text-slate">
                     <motion.span
@@ -524,59 +544,7 @@ export function RecordPanel({
                   </p>
                 )}
 
-                {prep && (
-                  <>
-                    <div className="rounded-xl bg-signal-soft/60 p-3.5">
-                      <p className="font-display text-2xs font-medium uppercase tracking-[0.1em] text-signal">
-                        Your opener
-                      </p>
-                      <p className="pt-1.5 text-sm leading-relaxed text-ink">{prep.opener}</p>
-                    </div>
-
-                    {(["requirement", "cv", "gap"] as const).map((kind) => {
-                      const questions = prep.questions.filter((q) => q.kind === kind);
-                      if (questions.length === 0) return null;
-                      return (
-                        <section key={kind}>
-                          <h3 className="pb-2 font-display text-2xs font-medium uppercase tracking-[0.1em] text-slate">
-                            {KIND_LABEL[kind]}
-                          </h3>
-                          <div className="space-y-3">
-                            {questions.map((question, index) => (
-                              <div
-                                key={index}
-                                className={cn(
-                                  "rounded-xl p-3.5 ring-1 ring-ink/[0.06]",
-                                  kind === "gap" ? "bg-amber-soft/50" : "bg-sunken",
-                                )}
-                              >
-                                <p className="text-sm font-medium leading-relaxed text-ink">
-                                  “{question.question}”
-                                </p>
-                                <p className="pt-1 text-2xs leading-relaxed text-slate">
-                                  {question.why}
-                                </p>
-                                <ul className="space-y-1 pt-2">
-                                  {question.answer_points.map((point, pointIndex) => (
-                                    <li
-                                      key={pointIndex}
-                                      className="flex gap-2 text-sm leading-relaxed text-ink/90"
-                                    >
-                                      <span aria-hidden className="select-none text-signal">
-                                        ·
-                                      </span>
-                                      {point}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            ))}
-                          </div>
-                        </section>
-                      );
-                    })}
-                  </>
-                )}
+                {prep && <PrepDeck prep={prep} />}
               </div>
 
               <footer className="flex items-center justify-end gap-2 border-t border-hairline px-4 py-3.5 sm:px-5">

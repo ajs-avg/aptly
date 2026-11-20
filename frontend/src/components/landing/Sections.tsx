@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ValidatorGate } from "@/components/visual/ValidatorGate";
 import { cn } from "@/lib/utils";
 import styles from "./landing.module.css";
 
@@ -70,16 +71,26 @@ export function Trust() {
           </p>
         </div>
 
-        <div className={styles.grid3}>
-          {TRUST.map((item) => (
-            <div key={item.title} className={styles.card}>
-              <span className={cn(styles.cardGlyph, styles.display)} aria-hidden>
-                {item.glyph}
-              </span>
-              <h3 className={cn(styles.cardTitle, styles.display)}>{item.title}</h3>
-              <p className={styles.cardBody}>{item.body}</p>
-            </div>
-          ))}
+        {/* The claim, demonstrated before it is explained. One suggestion
+            passes with its quote; one is held at the gate for naming a
+            technology the person has never used. */}
+        <div className={styles.proof}>
+          <div className={styles.proofStage}>
+            <ValidatorGate />
+          </div>
+          <div className={styles.proofRules}>
+            {TRUST.map((item) => (
+              <div key={item.title} className={styles.rule}>
+                <span className={cn(styles.ruleGlyph, styles.display)} aria-hidden>
+                  {item.glyph}
+                </span>
+                <div>
+                  <h3 className={cn(styles.cardTitle, styles.display)}>{item.title}</h3>
+                  <p className={styles.cardBody}>{item.body}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>
@@ -175,6 +186,14 @@ const PLANS = [
   },
 ];
 
+/* What the alternatives cost, so "less than the keyword scanners" is a shape
+   rather than a claim. Advertised monthly prices, rounded. */
+const MARKET = [
+  { label: "Keyword scanners", price: 50, ours: false },
+  { label: "Autofill tools", price: 40, ours: false },
+  { label: "Aptly Pro", price: 16, ours: true },
+];
+
 /* Payments are not built yet, so every button goes to the product rather than
    to a checkout that does not exist, and the page says so. */
 export function Pricing() {
@@ -215,6 +234,33 @@ export function Pricing() {
           ))}
         </div>
 
+        {/* What the money buys, against what it is next to. "Less than the
+            keyword scanners" was a sentence the reader had to take on trust;
+            three bars settle it. */}
+        <div className={styles.compare}>
+          <p className={styles.compareHead}>A month of looking, priced</p>
+          <div className={styles.compareRows}>
+            {MARKET.map((item) => (
+              <div key={item.label} className={styles.compareRow}>
+                <span className={styles.compareLabel}>{item.label}</span>
+                <span className={styles.compareTrack}>
+                  <span
+                    className={cn(styles.compareFill, item.ours && styles.compareFillOurs)}
+                    style={{ width: `${(item.price / 52) * 100}%` }}
+                  />
+                </span>
+                <span className={cn(styles.comparePrice, item.ours && styles.comparePriceOurs)}>
+                  ${item.price}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className={styles.compareNote}>
+            Typical advertised prices for a keyword scanner and an autofill tool.
+            Aptly covers the part after &ldquo;hit send&rdquo; that neither does.
+          </p>
+        </div>
+
         <p className={styles.planFoot}>
           Paid plans are not live yet — tailoring is free while they are being built. No
           card, no waitlist.
@@ -224,9 +270,10 @@ export function Pricing() {
   );
 }
 
-const QUESTIONS: Array<{ q: string; a: string }> = [
+const QUESTIONS: Array<{ q: string; a: string; no?: boolean }> = [
   {
     q: "Will it invent things about my experience?",
+    no: true,
     a: "No, and not because it was asked politely. Every suggestion must quote the line it came from, and a check runs afterwards on all of them: any figure, company or technology not already in your CV means the suggestion is discarded before it reaches you. You will sometimes see a count of what was thrown away — that count is the feature working.",
   },
   {
@@ -243,6 +290,7 @@ const QUESTIONS: Array<{ q: string; a: string }> = [
   },
   {
     q: "Does a higher keyword score mean I will get the interview?",
+    no: true,
     a: "No, and tools implying otherwise are selling you something. Aptly reports coverage honestly, including a low number, and never repeats a term to inflate it. A CV that games a filter and then falls apart in the room has not helped you.",
   },
   {
@@ -251,6 +299,7 @@ const QUESTIONS: Array<{ q: string; a: string }> = [
   },
   {
     q: "Can it delete parts of my CV to make it fit?",
+    no: true,
     a: "It cannot. Tailoring here is emphasis, not subtraction. A skills line can be reordered to lead with what the job asks for, but it may not come back shorter than it went in — you still know C++ even when this particular advert never mentions it.",
   },
   {
@@ -275,7 +324,13 @@ export function Faq() {
             <div key={c} className={styles.faqCol}>
               {column.map((item, i) => (
                 <details key={item.q} className={styles.faqItem} open={c === 0 && i === 0}>
-                  <summary>{item.q}</summary>
+                  <summary>
+                    <span className={styles.faqQ}>{item.q}</span>
+                    {/* The questions this product answers "no" to are the
+                        reason to trust the rest, so they are marked rather
+                        than buried. */}
+                    {item.no && <span className={styles.faqNo}>No</span>}
+                  </summary>
                   <p className={styles.faqBody}>{item.a}</p>
                 </details>
               ))}

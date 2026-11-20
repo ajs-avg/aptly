@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "motion/react";
 
 import { EASE, SPRING } from "@/components/motion/primitives";
+import { CompareBars } from "@/components/visual/primitives";
 import { cn } from "@/lib/utils";
 import type { ScoreResult } from "@/lib/types";
 
@@ -77,14 +78,47 @@ export function ChangeSummary({ open, onClose, applied, score, before }: Props) 
                   column, and "Requirements met" over a fraction does not fit
                   in 85px — the row reads as six stacked fragments rather than
                   as three figures. */}
-              <div className="mt-6 grid grid-cols-1 gap-3 rounded-xl bg-sunken p-4 xs:grid-cols-3">
-                <Stat label="Applied" value={applied} />
-                <Stat label="Requirements met" value={`${covered}/${score.results.length}`} />
-                <Stat
-                  label="Match"
-                  value={`${score.score}%`}
-                  delta={moved === 0 ? undefined : moved}
+              {/* Where the score started and where it is now, on one axis.
+                  Two figures and a signed number asked the reader to do the
+                  subtraction the picture already does — and the picture is
+                  honest about a bar that did not move. */}
+              <div className="mt-6 rounded-xl bg-sunken p-4">
+                <CompareBars
+                  rows={[
+                    { label: "Before your changes", value: score.baseline, tone: "amber" },
+                    { label: "Now", value: score.score, active: true },
+                  ]}
                 />
+
+                {/* Every requirement the post names, one block each, filled
+                    where the CV answers it. The count underneath is the same
+                    fact for anyone who cannot see the blocks. */}
+                <div className="pt-4">
+                  <div className="flex gap-1">
+                    {score.results.map((rule) => (
+                      <span
+                        key={rule.id}
+                        title={rule.requirement}
+                        className={cn(
+                          "h-2 flex-1 rounded-pill",
+                          rule.status === "covered"
+                            ? "bg-signal"
+                            : rule.status === "partial"
+                              ? "bg-amber"
+                              : "bg-ink/[0.12]",
+                        )}
+                      />
+                    ))}
+                  </div>
+                  <div className="flex items-baseline justify-between pt-2">
+                    <span className="text-2xs text-slate" data-numeric>
+                      {covered} of {score.results.length} requirements answered
+                    </span>
+                    <span className="font-display text-2xs text-slate" data-numeric>
+                      {applied} {applied === 1 ? "change" : "changes"} applied
+                    </span>
+                  </div>
+                </div>
               </div>
 
               {/* The honest explanation of a figure that did not move. */}
@@ -103,8 +137,15 @@ export function ChangeSummary({ open, onClose, applied, score, before }: Props) 
                   </p>
                   <ul className="space-y-1.5 pt-2">
                     {essential.slice(0, 4).map((item) => (
-                      <li key={item.id} className="text-sm leading-relaxed text-ink">
-                        {item.requirement}
+                      <li
+                        key={item.id}
+                        className="flex items-start gap-2.5 rounded-xl bg-amber-soft/60 px-3 py-2 text-sm leading-relaxed text-ink ring-1 ring-amber/20"
+                      >
+                        <span
+                          aria-hidden
+                          className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber"
+                        />
+                        <span>{item.requirement}</span>
                       </li>
                     ))}
                   </ul>
@@ -177,37 +218,6 @@ function Verdict({
   );
 }
 
-function Stat({
-  label,
-  value,
-  delta,
-}: {
-  label: string;
-  value: string | number;
-  delta?: number;
-}) {
-  return (
-    <div>
-      <p className="font-display text-xl font-semibold text-ink" data-numeric>
-        {value}
-        {delta !== undefined && (
-          <span
-            className={cn(
-              "pl-1 text-xs font-medium",
-              delta > 0 ? "text-signal" : "text-danger",
-            )}
-          >
-            {delta > 0 ? "+" : ""}
-            {delta}
-          </span>
-        )}
-      </p>
-      <p className="pt-0.5 font-display text-2xs uppercase tracking-[0.08em] text-slate">
-        {label}
-      </p>
-    </div>
-  );
-}
 
 function TickIcon() {
   return (

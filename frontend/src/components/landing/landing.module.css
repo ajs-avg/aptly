@@ -1357,3 +1357,159 @@
   position: relative;
   height: 60vh;
 }
+
+/* ── Trust: the check, shown ──────────────────────────────────────────────── */
+
+/* The demonstration leads and the rules read beside it, because a promise
+   about what gets stopped lands as a picture of something being stopped. */
+.proof {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: clamp(24px, 4vw, 56px);
+  align-items: center;
+  margin-top: clamp(36px, 5vw, 56px);
+}
+
+.proofStage {
+  padding: clamp(16px, 2.2vw, 24px);
+  border-radius: 24px;
+  background: var(--raised);
+  box-shadow: var(--shadow-card);
+}
+
+.proofRules {
+  display: grid;
+  gap: clamp(16px, 2.4vw, 26px);
+}
+
+.rule {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.ruleGlyph {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: var(--signal-soft);
+  color: var(--signal);
+  font-size: 17px;
+  line-height: 1;
+}
+
+@media (max-width: 860px) {
+  .proof {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Pricing: what it costs, next to what it is next to ───────────────────── */
+
+.compare {
+  max-width: 540px;
+  margin: clamp(32px, 4vw, 48px) auto 0;
+  padding: clamp(18px, 2.4vw, 26px);
+  border-radius: 24px;
+  background: var(--raised);
+  box-shadow: var(--shadow-soft);
+}
+
+.compareHead {
+  margin: 0 0 16px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.compareRows {
+  display: grid;
+  gap: 12px;
+}
+
+.compareRow {
+  display: grid;
+  grid-template-columns: 8.5rem minmax(0, 1fr) 2.75rem;
+  align-items: center;
+  gap: 12px;
+}
+
+.compareLabel {
+  font-size: 13px;
+  color: var(--slate);
+}
+
+.compareTrack {
+  display: block;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(22, 24, 29, 0.06);
+  overflow: hidden;
+}
+
+.compareFill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: rgba(22, 24, 29, 0.22);
+}
+
+/* Ours is the short bar, which is the whole point, so it is the lit one. */
+.compareFillOurs {
+  background: var(--signal);
+}
+
+.comparePrice {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: right;
+  color: var(--slate);
+  font-variant-numeric: tabular-nums;
+}
+
+.comparePriceOurs {
+  color: var(--signal);
+}
+
+.compareNote {
+  margin: 14px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* ── FAQ: the answers that are "no" ───────────────────────────────────────── */
+
+.faqQ {
+  flex: 1;
+  min-width: 0;
+}
+
+.faqNo {
+  flex-shrink: 0;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--signal-soft);
+  color: var(--signal);
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 520px) {
+  .compareRow {
+    grid-template-columns: 7rem minmax(0, 1fr) 2.5rem;
+    gap: 8px;
+  }
+
+  .compareLabel {
+    font-size: 12px;
+  }
+}

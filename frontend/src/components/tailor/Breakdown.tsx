@@ -4,6 +4,7 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 
 import { EASE } from "@/components/motion/primitives";
+import { Pips } from "@/components/visual/primitives";
 import { cn } from "@/lib/utils";
 import type { RuleResult, ScoreResult } from "@/lib/types";
 
@@ -41,6 +42,7 @@ export function Breakdown({ score, defaultOpen = false }: Props) {
         aria-expanded={open}
         className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-sunken"
       >
+        <Pips filled={met} total={essential.length} className="shrink-0" />
         <span className="flex-1 font-display text-xs font-medium text-ink">
           {/* The number that matters more than the percentage. A high score
               propped up by nice-to-haves while a stated requirement is missing
