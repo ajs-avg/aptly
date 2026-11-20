@@ -15,6 +15,7 @@ import type {
   CareerProfile,
   CoverLetter,
   CvTemplate,
+  CvVariant,
   CVDocument,
   ExtractResponse,
   IngestResponse,
@@ -24,6 +25,7 @@ import type {
   ProfileResponse,
   ProofreadResponse,
   RecordDetail,
+  RecordMatch,
   TailorEvent,
   TailorMode,
   TargetFormat,
@@ -386,6 +388,15 @@ export interface SaveRecordInput {
   sourceUrl?: string | null;
   /** What the document scored when it was approved. */
   score?: number | null;
+  /**
+   * Join an application already in the Library instead of opening a second
+   * row for the same job. Sent after the person has said which CV they sent.
+   */
+  recordId?: string | null;
+  /** Which of the run's two documents this is. */
+  variant?: CvVariant | null;
+  /** True for the one that went to the employer. Clears the flag on the rest. */
+  sent?: boolean | null;
 }
 
 export async function saveRecord(
@@ -404,8 +415,45 @@ export async function saveRecord(
       change_log: input.changeLog,
       source_url: input.sourceUrl ?? null,
       score: input.score ?? null,
+      record_id: input.recordId ?? null,
+      variant: input.variant ?? null,
+      sent: input.sent ?? null,
     }),
   });
+  if (!response.ok) await fail(response);
+  return response.json();
+}
+
+/**
+ * Whether saving this would open a second row for a job already in the
+ * Library.
+ *
+ * Asked before the save, because the question it leads to — which of the two
+ * CVs actually went to the employer — can only be answered while both are
+ * still on screen.
+ */
+export async function matchRecord(input: {
+  jobText: string;
+  job?: JobPost | null;
+}): Promise<RecordMatch | null> {
+  const response = await call(`${API}/api/records/match`, {
+    ...(await authed({ headers: { "Content-Type": "application/json" } })),
+    method: "POST",
+    body: JSON.stringify({ job_text: input.jobText, job: input.job ?? null }),
+  });
+  if (!response.ok) await fail(response);
+  return response.json();
+}
+
+/** Say which CV on a record is the one that was sent. */
+export async function markVersionSent(
+  recordId: string,
+  versionId: string,
+): Promise<RecordDetail> {
+  const response = await call(
+    `${API}/api/records/${recordId}/versions/${versionId}/sent`,
+    { ...(await authed()), method: "POST" },
+  );
   if (!response.ok) await fail(response);
   return response.json();
 }

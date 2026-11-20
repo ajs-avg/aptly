@@ -3,7 +3,8 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import { Breakdown } from "./Breakdown";
-import { ScoreDial } from "./ScoreDial";
+import { ScanScene } from "@/components/visual/ScanScene";
+import { ScoreRing } from "@/components/visual/ScoreRing";
 import { EASE, SPRING } from "@/components/motion/primitives";
 import { cn } from "@/lib/utils";
 import type { Analysis, Fit, ScoreResult } from "@/lib/types";
@@ -88,9 +89,28 @@ export function RevealScreen({
   const still = useReducedMotion();
   const reached = stage === "reading" ? 1 : stage === "working" ? 3 : 4;
 
+  /* The fit colours the room. A strong match sits in teal light, a mismatch in
+     a cooler grey — read before a word of the verdict is. */
+  const aura =
+    fit === "mismatch"
+      ? "from-danger/[0.07]"
+      : fit === "weak"
+        ? "from-amber/[0.09]"
+        : "from-signal/[0.10]";
+
   return (
-    <div className="gutter mx-auto grid min-h-[70dvh] max-w-content place-items-center py-16">
-      <div className="w-full max-w-2xl text-center">
+    <div className="gutter relative mx-auto grid min-h-[70dvh] max-w-content place-items-center py-16">
+      {/* A pool of light under the whole screen, not a panel behind it. */}
+      <div
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute inset-x-0 top-0 h-[36rem] bg-gradient-to-b to-transparent transition-colors duration-700",
+          score === null ? "from-signal/[0.07]" : aura,
+        )}
+        style={{ maskImage: "radial-gradient(ellipse 70% 100% at 50% 0%, #000 40%, transparent 75%)" }}
+      />
+
+      <div className="relative w-full max-w-2xl text-center">
         <AnimatePresence mode="wait">
           {score === null ? (
             <motion.div
@@ -107,7 +127,15 @@ export function RevealScreen({
                 Reading your CV against this job
               </h1>
 
-              <ul className="mx-auto grid max-w-sm gap-2.5 pt-9 text-left">
+              {/* The four steps, shown as the thing they describe. The list
+                  below stays — it is the accessible version of this, and the
+                  only version on a machine with no WebGL. */}
+              <ScanScene
+                stage={reached >= 4 ? 3 : (reached as 0 | 1 | 2 | 3)}
+                className="mx-auto mt-6 h-[13rem] w-full max-w-md sm:h-[17rem]"
+              />
+
+              <ul className="mx-auto grid max-w-sm gap-2.5 pt-6 text-left">
                 {STEPS.map((step, index) => {
                   const done = index < reached;
                   const active = index === reached;
@@ -160,7 +188,15 @@ export function RevealScreen({
               </p>
 
               <div className="grid place-items-center pt-7">
-                <ScoreDial value={score} size={168} label="requirements met" />
+                <ScoreRing
+                  value={score}
+                  rules={detail?.results ?? null}
+                  size={196}
+                  label="requirements met"
+                />
+                <p className="pt-3 font-display text-2xs uppercase tracking-[0.12em] text-slate">
+                  requirements met
+                </p>
               </div>
 
               {fit && (

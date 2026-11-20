@@ -301,3 +301,146 @@ def test_each_test_gets_its_own_database(client: TestClient) -> None:
     another test's assertions.
     """
     assert client.get("/api/records").json()["total_shown"] == 0
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Two CVs, one job
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# A run produces two finished CVs. Approving both used to open two Library
+# rows with the same job title, which left the person unable to answer the one
+# question the Library exists for: which of these did I actually send?
+
+
+def test_the_same_advert_is_offered_as_a_match(client: TestClient) -> None:
+    saved = _save(client, variant="tailored")
+
+    match = client.post(
+        "/api/records/match",
+        json={"job_text": JOB_TEXT, "content_hash": "b" * 64},
+    ).json()
+
+    assert match is not None
+    assert match["exact"] is True
+    assert match["record"]["id"] == saved["id"]
+
+
+def test_a_different_advert_is_not_a_match(client: TestClient) -> None:
+    _save(client)
+
+    match = client.post(
+        "/api/records/match",
+        json={"job_text": "Pastry Chef — a bakery that opens at four in the morning."},
+    ).json()
+
+    assert match is None
+
+
+def test_the_same_company_and_role_is_a_soft_match(client: TestClient) -> None:
+    """Re-pasted adverts rarely match byte for byte. The person decides."""
+    _save(client, job={"company": "Meridian Analytics", "role": "Data Engineer"})
+
+    match = client.post(
+        "/api/records/match",
+        json={
+            "job_text": JOB_TEXT + "\n\nWe have since added a line about equity.",
+            "job": {"company": "meridian  analytics", "role": "Data Engineer"},
+        },
+    ).json()
+
+    assert match is not None
+    assert match["exact"] is False
+
+
+def test_both_cvs_land_on_one_record(client: TestClient) -> None:
+    first = _save(client, variant="tailored", content_hash="a" * 64)
+
+    second = _save(
+        client,
+        record_id=first["id"],
+        variant="rebuilt",
+        content_hash="c" * 64,
+        sent=True,
+    )
+
+    assert second["id"] == first["id"]
+    assert second["cv_count"] == 2
+    assert client.get("/api/records").json()["total_shown"] == 1
+
+    variants = {v["variant"]: v["sent"] for v in second["cv_versions"]}
+    assert variants == {"tailored": False, "rebuilt": True}
+
+
+def test_only_one_version_is_ever_the_sent_one(client: TestClient) -> None:
+    first = _save(client, variant="tailored", content_hash="a" * 64, sent=True)
+    record = _save(
+        client, record_id=first["id"], variant="rebuilt", content_hash="c" * 64, sent=True
+    )
+
+    sent = [v for v in record["cv_versions"] if v["sent"]]
+    assert len(sent) == 1
+    assert sent[0]["variant"] == "rebuilt"
+
+
+def test_the_sent_one_can_be_changed_afterwards(client: TestClient) -> None:
+    first = _save(client, variant="tailored", content_hash="a" * 64, sent=True)
+    record = _save(client, record_id=first["id"], variant="rebuilt", content_hash="c" * 64)
+
+    tailored = next(v for v in record["cv_versions"] if v["variant"] == "tailored")
+    rebuilt = next(v for v in record["cv_versions"] if v["variant"] == "rebuilt")
+
+    updated = client.post(
+        f"/api/records/{record['id']}/versions/{rebuilt['id']}/sent"
+    ).json()
+
+    marks = {v["id"]: v["sent"] for v in updated["cv_versions"]}
+    assert marks[rebuilt["id"]] is True
+    assert marks[tailored["id"]] is False
+
+
+def test_saving_the_same_document_twice_adds_nothing(client: TestClient) -> None:
+    """A double press is not a second version of anything."""
+    first = _save(client, variant="tailored", content_hash="a" * 64)
+    again = _save(client, record_id=first["id"], variant="tailored", content_hash="a" * 64)
+
+    assert again["cv_count"] == 1
+
+
+def test_the_advert_is_not_recaptured_when_a_version_is_added(client: TestClient) -> None:
+    """The frozen copy is the one from the day they first saved it."""
+    first = _save(client)
+    client.post(
+        "/api/records",
+        json={
+            "job_text": JOB_TEXT + "\n\nEdited after the fact.",
+            "record_id": first["id"],
+            "variant": "rebuilt",
+            "content_hash": "c" * 64,
+        },
+    )
+
+    detail = client.get(f"/api/records/{first['id']}").json()
+    assert detail["snapshot"]["raw"] == JOB_TEXT
+
+
+def test_a_version_cannot_be_attached_to_somebody_elses_record(client: TestClient) -> None:
+    _account(client, "owner@example.com")
+    mine = _save(client, variant="tailored")
+    client.post("/api/auth/sign-out")
+
+    _account(client, "stranger@example.com")
+    response = client.post(
+        "/api/records",
+        json={"job_text": JOB_TEXT, "record_id": mine["id"], "variant": "rebuilt"},
+    )
+
+    assert response.status_code == 404
+
+
+def test_a_match_only_sees_your_own_library(client: TestClient) -> None:
+    _account(client, "first@example.com")
+    _save(client)
+    client.post("/api/auth/sign-out")
+
+    _account(client, "second@example.com")
+    assert client.post("/api/records/match", json={"job_text": JOB_TEXT}).json() is None

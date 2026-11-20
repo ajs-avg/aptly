@@ -19,6 +19,14 @@ interface Props {
   error?: string | null;
   emphasis?: boolean;
   footer?: React.ReactNode;
+  /**
+   * Drawn inside the box, behind the text.
+   *
+   * An empty well says nothing about what belongs in it. This is where the
+   * screen's own object goes — faint enough to type over, and the caller's
+   * business to make it react to what is typed.
+   */
+  backdrop?: React.ReactNode;
 }
 
 /**
@@ -42,6 +50,7 @@ export function DropBox({
   error = null,
   emphasis = false,
   footer,
+  backdrop,
 }: Props) {
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -115,6 +124,11 @@ export function DropBox({
         </div>
       ) : (
         <div className="relative flex flex-1 flex-col">
+          {backdrop && (
+            <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+              {backdrop}
+            </div>
+          )}
           <textarea
             id={id}
             value={value}
@@ -123,7 +137,7 @@ export function DropBox({
             spellCheck={false}
             disabled={busy}
             className={cn(
-              "flex-1 resize-none bg-transparent px-4 py-3 text-sm leading-relaxed text-ink",
+              "relative flex-1 resize-none bg-transparent px-4 py-3 text-sm leading-relaxed text-ink",
               "placeholder:text-slate/55 focus:outline-none disabled:opacity-50",
               // Capped against the window as well as floored at a usable size.
               // A 15rem box is right on a laptop and is most of a phone held

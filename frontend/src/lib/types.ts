@@ -376,6 +376,28 @@ export interface CoverLetter {
   remaining_today: number;
 }
 
+/**
+ * Which of a run's documents a saved CV is.
+ *
+ * One run finishes two: the person's own file with this job's edits applied,
+ * and one composed from scratch. Null on versions saved before the Library
+ * could tell them apart.
+ */
+export type CvVariant = "tailored" | "rebuilt" | "uploaded";
+
+export const VARIANT_LABEL: Record<CvVariant, string> = {
+  tailored: "Your CV, tailored",
+  rebuilt: "Written from scratch",
+  uploaded: "Uploaded as-is",
+};
+
+/** The same distinction in the width a chip has. */
+export const VARIANT_SHORT: Record<CvVariant, string> = {
+  tailored: "Tailored",
+  rebuilt: "Rebuilt",
+  uploaded: "Uploaded",
+};
+
 export interface CvVersionSummary {
   id: string;
   filename: string;
@@ -383,8 +405,31 @@ export interface CvVersionSummary {
   content_hash: string;
   created_at: string;
   change_count: number;
+  variant: CvVariant | null;
+  /** Whether this is the one that went to the employer. Null means nobody said. */
+  sent: boolean | null;
   /** The parsed document, when it was stored — {} for records saved before it was. */
   doc_model: CVDocument | Record<string, never>;
+}
+
+/**
+ * One line of a CV as a thumbnail draws it: a width and a kind.
+ *
+ * Measured on the server so the Library can draw dozens of CVs without
+ * shipping dozens of documents.
+ */
+export interface ShapeLine {
+  /** Percentage of the column, 0–100. */
+  w: number;
+  /** `n` name, `c` contact, `h` heading, `r` role, `b` body. */
+  k: "n" | "c" | "h" | "r" | "b";
+}
+
+/** An application already in the Library that a save would duplicate. */
+export interface RecordMatch {
+  record: RecordDetail;
+  /** True when the advert is byte-for-byte the one already saved. */
+  exact: boolean;
 }
 
 export interface FrozenSnapshot {
@@ -410,6 +455,12 @@ export interface RecordSummary {
   keywords: string[];
   /** The match score when it was saved. Null on older records. */
   score?: number | null;
+  /** Which document went to the employer, where anybody has said. */
+  sent_variant?: CvVariant | null;
+  /** Which variants this record holds, so the card can say what it has. */
+  variants?: CvVariant[];
+  /** The sent CV's silhouette, measured server-side for the card. */
+  cv_shape?: ShapeLine[];
 }
 
 export interface InterviewQuestion {

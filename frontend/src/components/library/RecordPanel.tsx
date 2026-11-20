@@ -6,13 +6,16 @@ import { AnimatePresence, motion } from "motion/react";
 import { Button } from "@/components/ui/Button";
 import { formatWhen } from "@/components/library/RecordRow";
 import { EditableCv } from "@/components/tailor/EditableCv";
+import { CvThumbnail } from "@/components/visual/CvThumbnail";
 import { ApiError, interviewPrep } from "@/lib/api";
 import { toPlainText } from "@/lib/document";
 import { cn, motionTokens } from "@/lib/utils";
 import {
   STATUS_LABEL,
   STATUS_ORDER,
+  VARIANT_LABEL,
   type CVDocument,
+  type CvVariant,
   type CvVersionSummary,
   type InterviewPrep,
   type RecordDetail,
@@ -37,6 +40,8 @@ interface Props {
   onNotesChange: (notes: string) => void;
   onDelete: () => void;
   onClose: () => void;
+  /** Say which of this record's CVs went to the employer. */
+  onMarkSent?: (versionId: string) => void;
 }
 
 /*
@@ -52,6 +57,7 @@ export function RecordPanel({
   onNotesChange,
   onDelete,
   onClose,
+  onMarkSent,
 }: Props) {
   const [notes, setNotes] = useState(record.notes ?? "");
   const [showAdvert, setShowAdvert] = useState(false);
@@ -182,51 +188,84 @@ export function RecordPanel({
             <ul className="space-y-2">
               {record.cv_versions.map((version) => {
                 const document = storedDocument(version);
+                const variant = version.variant as CvVariant | null;
                 return (
-                  <li key={version.id}>
+                  <li
+                    key={version.id}
+                    className={cn(
+                      "flex items-start gap-3 rounded-xl p-2 ring-1 transition-colors",
+                      version.sent
+                        ? "bg-signal-soft/50 ring-signal/30"
+                        : "bg-sunken ring-transparent",
+                    )}
+                  >
+                    {/* The document itself, because two CVs from one run
+                        share a filename and a hash prefix tells nobody
+                        anything. */}
                     <button
                       type="button"
                       onClick={document ? () => setViewing(version) : undefined}
                       disabled={!document}
-                      className={cn(
-                        "flex w-full items-center justify-between gap-3 rounded-lg bg-sunken px-3 py-2 text-left",
-                        document &&
-                          "transition-colors hover:bg-signal-soft/40 hover:ring-1 hover:ring-signal/30",
-                      )}
+                      aria-label={document ? "Read this CV" : "No preview stored"}
+                      className="w-12 shrink-0 transition-transform duration-200 enabled:hover:-translate-y-0.5"
                     >
-                      <div className="min-w-0">
-                        <p className="truncate font-display text-sm text-ink">
-                          {version.filename}
-                        </p>
-                        <p className="cv-literal pt-0.5 text-2xs text-slate">
-                          {version.content_hash.slice(0, 16) || "no hash"}…
-                        </p>
-                      </div>
-                      <span className="flex shrink-0 items-center gap-2">
-                        {record.snapshot?.score != null && (
-                          <span
-                            className="rounded-pill bg-signal-soft px-2 py-0.5 font-display text-2xs font-medium text-signal"
-                            data-numeric
-                          >
-                            {record.snapshot.score}% match
-                          </span>
-                        )}
-                        <span className="text-2xs text-slate" data-numeric>
-                          {version.change_count}{" "}
-                          {version.change_count === 1 ? "change" : "changes"}
-                        </span>
-                        {document && (
-                          <span className="font-display text-2xs text-signal">
-                            Read →
-                          </span>
-                        )}
-                      </span>
+                      <CvThumbnail document={document ?? null} className="w-full" />
                     </button>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-display text-sm font-medium text-ink">
+                        {variant ? VARIANT_LABEL[variant] : version.filename}
+                      </p>
+                      <p className="truncate pt-0.5 text-2xs text-slate" data-numeric>
+                        {version.change_count}{" "}
+                        {version.change_count === 1 ? "change" : "changes"}
+                        {" · "}
+                        <span className="cv-literal">
+                          {version.content_hash.slice(0, 12) || "no hash"}…
+                        </span>
+                      </p>
+
+                      <div className="flex flex-wrap items-center gap-2 pt-1.5">
+                        {version.sent ? (
+                          <span className="rounded-pill bg-signal px-2 py-0.5 font-display text-2xs font-medium text-paper">
+                            This is the one you sent
+                          </span>
+                        ) : (
+                          onMarkSent && (
+                            <button
+                              type="button"
+                              onClick={() => onMarkSent(version.id)}
+                              className="rounded-pill px-2 py-0.5 font-display text-2xs text-slate ring-1 ring-ink/[0.08] transition-colors hover:bg-raised hover:text-ink"
+                            >
+                              I sent this one
+                            </button>
+                          )
+                        )}
+                        {document && (
+                          <button
+                            type="button"
+                            onClick={() => setViewing(version)}
+                            className="font-display text-2xs text-signal underline decoration-signal/30 underline-offset-2"
+                          >
+                            Read it
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </li>
                 );
               })}
             </ul>
           )}
+
+          {/* The one thing the Library cannot answer on its own. */}
+          {record.cv_versions.length > 1 &&
+            !record.cv_versions.some((v) => v.sent) && (
+              <p className="pt-2.5 text-2xs leading-relaxed text-amber-ink">
+                Two CVs are saved here and neither is marked. Say which one went
+                to the employer, so the answer is still here when they call.
+              </p>
+            )}
           {record.cv_versions.some((v) => !storedDocument(v)) && (
             <p className="pt-2 text-2xs text-slate">
               Saved before Aptly kept the document itself — only the name and

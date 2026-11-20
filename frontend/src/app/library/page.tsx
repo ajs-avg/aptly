@@ -4,8 +4,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence } from "motion/react";
 
+import { LibraryPulse } from "@/components/library/LibraryPulse";
 import { RecordPanel } from "@/components/library/RecordPanel";
-import { RecordRow } from "@/components/library/RecordRow";
+import { RecordCard } from "@/components/library/RecordCard";
+import {
+  EmptyLibraryArt,
+  NoMatchArt,
+  NothingSelectedArt,
+} from "@/components/visual/illustrations";
 import { AccountButton } from "@/components/marketing/AccountButton";
 import { AppBar, BarLink } from "@/components/app/AppBar";
 import { RequireAccount } from "@/components/auth/RequireAccount";
@@ -14,6 +20,7 @@ import {
   deleteRecord,
   getRecord,
   listRecords,
+  markVersionSent,
   updateRecord,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -98,6 +105,26 @@ function LibraryScreen() {
     [],
   );
 
+  /**
+   * Say which of a record's CVs went to the employer.
+   *
+   * The card in the list carries the answer too — a "Sent: Tailored" chip and
+   * the thumbnail of that document — so the row is rewritten from the reply
+   * rather than left showing the old one until a reload.
+   */
+  const markSent = useCallback(async (id: string, versionId: string) => {
+    const updated = await markVersionSent(id, versionId);
+    setSelected(updated);
+    const sent = updated.cv_versions.find((version) => version.sent);
+    setRecords((current) =>
+      current.map((row) =>
+        row.id === id
+          ? { ...row, sent_variant: sent?.variant ?? null, cv_count: updated.cv_count }
+          : row,
+      ),
+    );
+  }, []);
+
   const remove = useCallback(async (id: string) => {
     await deleteRecord(id);
     setSelected(null);
@@ -111,34 +138,8 @@ function LibraryScreen() {
     return tally;
   }, [records]);
 
-  /**
-   * What the pile of applications says, counted rather than modelled.
-   *
-   * "Heard back" is any status past applied — a screen, an interview, an
-   * offer. The score comparison only speaks when both sides exist, because
-   * "your responded average is 71" with one respondent is an anecdote wearing
-   * a percent sign. No model call anywhere in this: it is the person's own
-   * history, added up.
-   */
-  const insights = useMemo(() => {
-    if (records.length < 3) return null;
-    const heard = records.filter((r) =>
-      ["screening", "interviewing", "offer"].includes(r.status),
-    );
-    const average = (rows: typeof records) => {
-      const scored = rows.filter((r) => r.score != null);
-      if (scored.length === 0) return null;
-      return Math.round(
-        scored.reduce((sum, r) => sum + (r.score ?? 0), 0) / scored.length,
-      );
-    };
-    return {
-      total: records.length,
-      heard: heard.length,
-      heardAverage: average(heard),
-      quietAverage: average(records.filter((r) => !heard.includes(r))),
-    };
-  }, [records]);
+  /* What the pile of applications says now lives in `LibraryPulse`, which
+     counts it from these same records — no model call, no new endpoint. */
 
   return (
     <div className="min-h-dvh bg-mist">
@@ -148,6 +149,14 @@ function LibraryScreen() {
           to pick for itself. A page that invents its own measure is a page that
           almost lines up with the bar above it — near enough to look like a
           mistake, far enough to be one. */}
+      {/* The shape of the search, above both columns. It is about the whole
+          pile, so it spans them rather than sitting inside the list. */}
+      {!loading && !error && records.length >= 2 && (
+        <div className="gutter-bar mx-auto max-w-ultra pt-3">
+          <LibraryPulse records={records} />
+        </div>
+      )}
+
       <div className="gutter-bar mx-auto grid max-w-ultra grid-cols-1 gap-3 pb-3 pt-3 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,32rem)_minmax(0,1fr)]">
         <section className="min-w-0 overflow-hidden rounded-2xl bg-raised shadow-float ring-1 ring-ink/5">
           <div className="hairline-b px-5 py-4">
@@ -179,24 +188,6 @@ function LibraryScreen() {
             </div>
           </div>
 
-          {insights && !loading && !error && (
-            <div className="hairline-b flex flex-wrap items-center gap-x-5 gap-y-1 bg-sunken/50 px-5 py-2.5">
-              <span className="text-2xs text-slate" data-numeric>
-                <span className="font-display font-semibold text-ink">{insights.heard}</span> of{" "}
-                {insights.total} heard back
-              </span>
-              {insights.heardAverage != null && insights.quietAverage != null && (
-                <span className="text-2xs text-slate" data-numeric>
-                  CVs that got a response averaged{" "}
-                  <span className="font-display font-semibold text-signal">
-                    {insights.heardAverage}%
-                  </span>{" "}
-                  · the rest {insights.quietAverage}%
-                </span>
-              )}
-            </div>
-          )}
-
           {loading ? (
             <p className="px-5 py-8 text-sm text-slate">
               Opening your Library…
@@ -213,9 +204,11 @@ function LibraryScreen() {
           ) : records.length === 0 ? (
             <Empty searching={Boolean(query || status)} />
           ) : (
-            <div>
+            // Cards rather than rows, because the thing that tells two
+            // applications apart is the CV on each, and a CV is a picture.
+            <div className="grid gap-2 p-2.5">
               {records.map((record, index) => (
-                <RecordRow
+                <RecordCard
                   key={record.id}
                   record={record}
                   index={index}
@@ -263,6 +256,7 @@ function LibraryScreen() {
                 onNotesChange={(notes) => void patch(selected.id, { notes })}
                 onDelete={() => void remove(selected.id)}
                 onClose={() => setSelected(null)}
+                onMarkSent={(versionId) => void markSent(selected.id, versionId)}
               />
             ) : (
               <NothingSelected key="empty" />
@@ -358,25 +352,31 @@ function FilterChip({
 function Empty({ searching }: { searching: boolean }) {
   if (searching) {
     return (
-      <p className="px-5 py-10 text-sm text-slate">
-        Nothing matches that. Try a company, a role, or a phrase you remember
-        from the advert.
-      </p>
+      <div className="grid place-items-center px-5 py-12 text-center">
+        <NoMatchArt className="max-w-[9rem] opacity-70" />
+        <p className="max-w-xs pt-4 text-sm leading-relaxed text-slate">
+          Nothing matches that. Try a company, a role, or a phrase you remember
+          from the advert.
+        </p>
+      </div>
     );
   }
   return (
-    <div className="px-5 py-10">
-      <p className="font-display text-base text-ink">No applications yet.</p>
-      <p className="max-w-sm pt-1.5 text-sm leading-relaxed text-slate">
+    <div className="grid place-items-center px-5 py-10 text-center">
+      <EmptyLibraryArt className="max-w-[16rem]" />
+      <p className="pt-5 font-display text-lg font-semibold text-ink">
+        Nothing filed yet.
+      </p>
+      <p className="max-w-sm pt-2 text-sm leading-relaxed text-slate">
         Tailor a CV and save it, and the job post is kept with it — so when a
         recruiter calls five weeks later, you still have what you applied
         against.
       </p>
       <Link
         href="/tailor"
-        className="mt-4 inline-flex h-9 items-center rounded-pill bg-signal px-4 font-display text-sm font-medium text-paper transition-colors hover:bg-signal-hover"
+        className="mt-5 inline-flex h-11 items-center rounded-pill bg-signal px-5 font-display text-sm font-medium text-paper shadow-cta transition-all hover:-translate-y-px hover:bg-signal-hover"
       >
-        Tailor a CV
+        Tailor your first CV
       </Link>
     </div>
   );
@@ -387,8 +387,9 @@ function NothingSelected() {
   // wherever this prompt would be wrong, and two elements deciding the same
   // thing is how one of them ends up deciding it differently.
   return (
-    <div className="flex h-full items-center justify-center p-10">
-      <p className="max-w-xs text-center text-sm leading-relaxed text-slate">
+    <div className="flex h-full flex-col items-center justify-center p-10">
+      <NothingSelectedArt className="max-w-[11rem] opacity-80" />
+      <p className="max-w-xs pt-5 text-center text-sm leading-relaxed text-slate">
         Pick an application to see the CV you sent and the job post as it was on
         the day.
       </p>

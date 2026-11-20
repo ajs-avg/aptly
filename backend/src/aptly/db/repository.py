@@ -12,6 +12,7 @@ these filters stay, because they are the line that works on both engines.
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import String, delete, func, or_, select
@@ -23,8 +24,10 @@ from aptly.db.schemas import (
     CvVersionSummary,
     FrozenSnapshot,
     RecordDetail,
+    RecordMatch,
     RecordSummary,
     SaveRecordRequest,
+    ShapeLine,
     UpdateRecordRequest,
 )
 from aptly.llm.schemas import JobPost
@@ -151,10 +154,91 @@ async def purge_expired_anon_sessions(session: AsyncSession) -> int:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
+async def find_matching_record(
+    session: AsyncSession, *, owner_id: UUID, payload: SaveRecordRequest
+) -> RecordMatch | None:
+    """The application this save would duplicate, if there is one.
+
+    One tailoring run produces two finished CVs, and approving both used to
+    open two Library rows with the same job title and no way to tell which
+    document went to the employer. That is the one question the Library exists
+    to answer, so the save path asks it instead of guessing.
+
+    Two strengths of match, because they need different wording in front of
+    the person:
+
+    - **Exact** — the advert's SHA-256 is the same. It is the same job; the
+      only open question is which CV was sent.
+    - **Likely** — same company and same role, different wording. Could be a
+      re-paste, could genuinely be a second opening. The person decides.
+
+    Only records that still have a CV on them are offered: a record whose
+    versions were all deleted has nothing to compare against.
+    """
+    snapshot = FrozenSnapshot.capture(payload.job_text, parsed=payload.job)
+    job = payload.job or JobPost()
+
+    rows = (
+        await session.execute(
+            select(JobRecord)
+            .where(JobRecord.profile_id == owner_id)
+            .order_by(JobRecord.created_at.desc())
+            .limit(200)
+        )
+    ).scalars()
+
+    likely: JobRecord | None = None
+    for record in rows:
+        stored = record.frozen_snapshot or {}
+        if stored.get("content_hash") and stored["content_hash"] == snapshot.content_hash:
+            versions = await _versions_of(session, record.id)
+            return RecordMatch(record=_to_detail(record, versions), exact=True)
+
+        if likely is None and job.company and job.role:
+            same_company = _looks_same(record.company, job.company)
+            same_role = _looks_same(record.role, job.role)
+            if same_company and same_role:
+                likely = record
+
+    if likely is None:
+        return None
+    versions = await _versions_of(session, likely.id)
+    return RecordMatch(record=_to_detail(likely, versions), exact=False)
+
+
+def _looks_same(left: str | None, right: str | None) -> bool:
+    """Case- and space-insensitive equality, which is all a title deserves."""
+    if not left or not right:
+        return False
+    return " ".join(left.lower().split()) == " ".join(right.lower().split())
+
+
+async def _versions_of(session: AsyncSession, record_id: UUID) -> list[CvVersion]:
+    return list(
+        (
+            await session.execute(
+                select(CvVersion)
+                .where(CvVersion.job_record_id == record_id)
+                .order_by(CvVersion.created_at.asc())
+            )
+        ).scalars()
+    )
+
+
 async def save_record(
     session: AsyncSession, *, owner_id: UUID, payload: SaveRecordRequest
 ) -> RecordDetail:
-    """Save an application: the frozen advert plus the CV that was sent."""
+    """Save an application: the frozen advert plus the CV that was sent.
+
+    With ``record_id`` set the CV joins an application already in the Library
+    rather than opening a second one for the same job. The advert is not
+    recaptured in that case — the frozen copy is the one from the day they
+    first saved it, and overwriting it would quietly lose the thing the record
+    is for.
+    """
+    if payload.record_id is not None:
+        return await _attach_version(session, owner_id=owner_id, payload=payload)
+
     snapshot = FrozenSnapshot.capture(
         payload.job_text,
         parsed=payload.job,
@@ -186,6 +270,8 @@ async def save_record(
         content_hash=payload.content_hash,
         doc_model=payload.doc_model,
         change_log=payload.change_log,
+        variant=payload.variant,
+        sent=payload.sent,
     )
     session.add(version)
     await session.flush()
@@ -195,8 +281,110 @@ async def save_record(
         record_id=str(record.id),
         company=record.company,
         changes=len(payload.change_log),
+        variant=payload.variant,
     )
     return _to_detail(record, [version])
+
+
+async def _attach_version(
+    session: AsyncSession, *, owner_id: UUID, payload: SaveRecordRequest
+) -> RecordDetail:
+    """Add a CV to an application that is already in the Library."""
+    record = (
+        await session.execute(
+            select(JobRecord).where(
+                JobRecord.id == payload.record_id, JobRecord.profile_id == owner_id
+            )
+        )
+    ).scalar_one_or_none()
+    if record is None:
+        raise LookupError("record not found")
+
+    existing = await _versions_of(session, record.id)
+
+    # The same document saved twice is not a second version of anything. It
+    # happens on a double press and on a re-save after an unrelated edit
+    # elsewhere, and a Library that shows the same CV twice is lying about how
+    # many it holds.
+    twin = next(
+        (
+            v
+            for v in existing
+            if payload.content_hash
+            and v.content_hash == payload.content_hash
+            and v.variant == payload.variant
+        ),
+        None,
+    )
+    if twin is not None:
+        version = twin
+        version.doc_model = payload.doc_model or version.doc_model
+        version.change_log = payload.change_log or version.change_log
+    else:
+        version = CvVersion(
+            profile_id=owner_id,
+            job_record_id=record.id,
+            filename=payload.filename,
+            source_format=payload.source_format,
+            content_hash=payload.content_hash,
+            doc_model=payload.doc_model,
+            change_log=payload.change_log,
+            variant=payload.variant,
+            parent_id=existing[-1].id if existing else None,
+        )
+        session.add(version)
+
+    if payload.sent:
+        for other in existing:
+            if other.id != version.id:
+                other.sent = False
+        version.sent = True
+    elif payload.sent is False:
+        version.sent = False
+
+    # Saving a second CV against a job usually means the application went out,
+    # so the status moves up — but never backwards from something the person
+    # has set by hand.
+    if payload.status != "saved" and record.status == "saved":
+        record.status = payload.status
+        record.applied_at = record.applied_at or datetime.now(UTC)
+    if payload.notes:
+        record.notes = payload.notes
+
+    await session.flush()
+    versions = await _versions_of(session, record.id)
+
+    log.info(
+        "record.version_added",
+        record_id=str(record.id),
+        versions=len(versions),
+        variant=payload.variant,
+        sent=bool(payload.sent),
+        deduped=twin is not None,
+    )
+    return _to_detail(record, versions)
+
+
+async def mark_version_sent(
+    session: AsyncSession, *, owner_id: UUID, record_id: UUID, version_id: UUID
+) -> RecordDetail | None:
+    """Say which of a record's CVs went to the employer."""
+    record = (
+        await session.execute(
+            select(JobRecord).where(JobRecord.id == record_id, JobRecord.profile_id == owner_id)
+        )
+    ).scalar_one_or_none()
+    if record is None:
+        return None
+
+    versions = await _versions_of(session, record_id)
+    if not any(v.id == version_id for v in versions):
+        return None
+
+    for version in versions:
+        version.sent = version.id == version_id
+    await session.flush()
+    return _to_detail(record, versions)
 
 
 async def list_records(
@@ -208,17 +396,16 @@ async def list_records(
     limit: int = 50,
     offset: int = 0,
 ) -> list[RecordSummary]:
-    """The Library, newest first."""
-    counts = (
-        select(CvVersion.job_record_id, func.count().label("cv_count"))
-        .group_by(CvVersion.job_record_id)
-        .subquery()
-    )
+    """The Library, newest first.
 
+    The versions are loaded with the records rather than counted in SQL,
+    because the list now shows which CV went out and draws its shape. Both
+    need the row itself, and a record holds one or two versions, not a feed.
+    """
     statement = (
-        select(JobRecord, func.coalesce(counts.c.cv_count, 0))
-        .outerjoin(counts, counts.c.job_record_id == JobRecord.id)
+        select(JobRecord)
         .where(JobRecord.profile_id == owner_id)
+        .options(selectinload(JobRecord.cv_versions))
         .order_by(JobRecord.created_at.desc())
         .limit(min(limit, 200))
         .offset(offset)
@@ -240,8 +427,11 @@ async def list_records(
             )
         )
 
-    rows = await session.execute(statement)
-    return [_to_summary(record, cv_count) for record, cv_count in rows.all()]
+    rows = (await session.execute(statement)).scalars()
+    return [
+        _to_summary(record, sorted(record.cv_versions, key=lambda v: v.created_at))
+        for record in rows
+    ]
 
 
 async def get_record(
@@ -357,7 +547,72 @@ def _keywords(record: JobRecord) -> list[str]:
     return list(parsed.get("keywords") or [])[:8]
 
 
-def _to_summary(record: JobRecord, cv_count: int) -> RecordSummary:
+#: How many lines of a CV the thumbnail draws. A page's worth of silhouette.
+_SHAPE_LINES = 26
+#: Characters that fill the column at thumbnail scale. Only the ratio matters.
+_SHAPE_CHARS = 92
+
+
+def _width(text: str | None) -> int:
+    if not text or not text.strip():
+        return 0
+    return max(12, min(100, round(len(text.strip()) / _SHAPE_CHARS * 100)))
+
+
+def _shape_of(doc: dict[str, Any] | None) -> list[ShapeLine]:
+    """A stored CVDocument as the handful of numbers a thumbnail needs.
+
+    Lossy on purpose. The person recognises their own CV by where the sections
+    break and how long the lines run, which survives; the words do not need to.
+    """
+    if not doc or not isinstance(doc, dict):
+        return []
+
+    out: list[ShapeLine] = []
+    contact = doc.get("contact") or {}
+    if contact.get("name"):
+        out.append(ShapeLine(w=46, k="n"))
+    meta = " · ".join(
+        str(contact.get(key)) for key in ("email", "phone", "location") if contact.get(key)
+    )
+    if meta:
+        out.append(ShapeLine(w=min(72, _width(meta) + 20), k="c"))
+
+    for section in doc.get("sections") or []:
+        if len(out) >= _SHAPE_LINES:
+            break
+        if title := section.get("title"):
+            out.append(ShapeLine(w=max(18, round(_width(title) * 0.55)), k="h"))
+        for node in section.get("loose_nodes") or []:
+            if len(out) >= _SHAPE_LINES:
+                break
+            out.append(ShapeLine(w=_width(node.get("text")), k="b"))
+        for entry in section.get("entries") or []:
+            if len(out) >= _SHAPE_LINES:
+                break
+            heading = " · ".join(
+                str(entry[key]) for key in ("role", "org") if entry.get(key)
+            )
+            if heading:
+                out.append(ShapeLine(w=min(80, _width(heading) + 22), k="r"))
+            for bullet in entry.get("bullets") or []:
+                if len(out) >= _SHAPE_LINES:
+                    break
+                out.append(ShapeLine(w=_width(bullet.get("text")), k="b"))
+
+    return [line for line in out[:_SHAPE_LINES] if line.w > 0]
+
+
+def _shown_version(versions: list[CvVersion]) -> CvVersion | None:
+    """The one the Library should draw: the sent one, else the newest."""
+    if not versions:
+        return None
+    return next((v for v in versions if v.sent), versions[-1])
+
+
+def _to_summary(record: JobRecord, versions: list[CvVersion]) -> RecordSummary:
+    shown = _shown_version(versions)
+    sent = next((v for v in versions if v.sent), None)
     return RecordSummary(
         id=record.id,
         company=record.company,
@@ -367,9 +622,12 @@ def _to_summary(record: JobRecord, cv_count: int) -> RecordSummary:
         applied_at=record.applied_at,
         created_at=record.created_at,
         updated_at=record.updated_at,
-        cv_count=cv_count,
+        cv_count=len(versions),
         keywords=_keywords(record),
         score=(record.frozen_snapshot or {}).get("score"),
+        sent_variant=sent.variant if sent else None,
+        variants=[v.variant for v in versions if v.variant],
+        cv_shape=_shape_of(shown.doc_model if shown else None),
     )
 
 
@@ -402,6 +660,8 @@ def _to_detail(record: JobRecord, versions: list[CvVersion]) -> RecordDetail:
                 content_hash=v.content_hash,
                 created_at=v.created_at,
                 change_count=len(v.change_log or []),
+                variant=v.variant,
+                sent=v.sent,
                 doc_model=v.doc_model or {},
             )
             for v in versions

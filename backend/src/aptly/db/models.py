@@ -224,6 +224,16 @@ class CvVersion(Base, TimestampMixin):
     #: One entry per applied suggestion: node id, before, after, reason.
     change_log: Mapped[list[dict[str, Any]]] = mapped_column(default=list)
 
+    #: Which of the run's two documents this is: ``tailored`` (their own file,
+    #: edited), ``rebuilt`` (composed from scratch) or ``uploaded``. Saving both
+    #: for one job was previously indistinguishable in the Library — two rows
+    #: with the same title and no way to tell them apart.
+    variant: Mapped[str | None] = mapped_column(String(16), default=None)
+    #: The one that actually went to the employer. At most one per record; the
+    #: repository clears the others when it is set. Null on every version of a
+    #: record saved before this existed, which reads correctly as "not known".
+    sent: Mapped[bool | None] = mapped_column(default=None)
+
     profile: Mapped[Profile] = relationship(back_populates="cv_versions")
     job_record: Mapped[JobRecord] = relationship(back_populates="cv_versions")
 

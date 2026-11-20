@@ -91,10 +91,30 @@ class CvVersionSummary(BaseModel):
     content_hash: str
     created_at: datetime
     change_count: int = 0
+    #: ``tailored``, ``rebuilt`` or ``uploaded``. Null on versions saved before
+    #: the field existed.
+    variant: str | None = None
+    #: Whether this is the one that went to the employer. Null means nobody has
+    #: said, which is a different thing from "no".
+    sent: bool | None = None
     #: The parsed document itself, so the Library can show the CV that was
     #: sent rather than only naming it. Served on the detail view — a record
     #: has a version or two, not a feed of them.
     doc_model: dict = Field(default_factory=dict)
+
+
+class ShapeLine(BaseModel):
+    """One line of a CV, as a thumbnail needs to draw it.
+
+    Width as a percentage of the column and a one-letter kind, which is
+    everything a silhouette needs and a fraction of what the document weighs.
+    The Library lists dozens of records; shipping every ``doc_model`` to draw
+    forty postage stamps would be megabytes for a picture.
+    """
+
+    w: int = Field(ge=0, le=100)
+    #: ``n`` name, ``c`` contact, ``h`` heading, ``r`` role, ``b`` body.
+    k: Literal["n", "c", "h", "r", "b"]
 
 
 class RecordSummary(BaseModel):
@@ -115,6 +135,13 @@ class RecordSummary(BaseModel):
     #: The match score at the moment of saving, surfaced on the list so the
     #: Library can notice which scores actually got calls.
     score: int | None = None
+    #: Which document went to the employer, where it is known.
+    sent_variant: str | None = None
+    #: Which variants this record holds at all, so the list can say "2 CVs"
+    #: and name them without fetching either.
+    variants: list[str] = Field(default_factory=list)
+    #: The shape of the CV that was sent, for the thumbnail on the card.
+    cv_shape: list[ShapeLine] = Field(default_factory=list)
 
 
 class RecordDetail(RecordSummary):
@@ -146,6 +173,29 @@ class SaveRecordRequest(BaseModel):
 
     status: RecordStatus = "saved"
     notes: str | None = None
+
+    #: Attach this CV to an application already in the Library instead of
+    #: opening a second one for the same job. The client sends it after asking
+    #: the person which of the two documents they actually sent.
+    record_id: UUID | None = None
+    #: Which of the run's documents this is.
+    variant: Literal["tailored", "rebuilt", "uploaded"] | None = None
+    #: True when this is the one that went to the employer. Setting it clears
+    #: the flag on every other version of the same record.
+    sent: bool | None = None
+
+
+class RecordMatch(BaseModel):
+    """An application already in the Library that this save would duplicate.
+
+    ``exact`` separates the two cases the client has to word differently: the
+    same advert text, where there is nothing to ask beyond which CV was sent,
+    and the same company and role with different wording, where the person has
+    to confirm it is even the same job.
+    """
+
+    record: RecordDetail
+    exact: bool
 
 
 class UpdateRecordRequest(BaseModel):

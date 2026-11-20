@@ -15,6 +15,8 @@ import { CvSource } from "@/components/tailor/CvSource";
 import { DropBox } from "@/components/tailor/DropBox";
 import { PitchNotes } from "@/components/tailor/PitchNotes";
 import { RevealScreen } from "@/components/tailor/Reveal";
+import { SameJobDialog } from "@/components/tailor/SameJobDialog";
+import { DropStage } from "@/components/visual/DropStage";
 import { Button } from "@/components/ui/Button";
 import {
   ApiError,
@@ -23,6 +25,7 @@ import {
   ingestPaste,
   profileAsCv,
   rescore,
+  matchRecord,
   saveRecord,
   streamTailor,
 } from "@/lib/api";
@@ -32,7 +35,7 @@ import { clearSession, loadSession, saveSession } from "@/lib/persist";
 import { evaluate } from "@/lib/score";
 import { cn, motionTokens } from "@/lib/utils";
 import { useTailorRun, type RunState, type Side } from "@/lib/useTailorRun";
-import type { TargetFormat } from "@/lib/types";
+import type { CvVariant, RecordMatch, TargetFormat } from "@/lib/types";
 
 /**
  * One job post, two finished CVs, and a score that moves while you work.
@@ -101,6 +104,8 @@ function TailorScreen() {
    */
   const [pastReveal, setPastReveal] = useState(false);
   const [saving, setSaving] = useState<Side | null>(null);
+  /** The application this save would duplicate, and the side being saved. */
+  const [duplicate, setDuplicate] = useState<{ side: Side; match: RecordMatch } | null>(null);
   const [rechecking, setRechecking] = useState<Side | null>(null);
   /**
    * The full re-read of an edited document, per side.
@@ -394,33 +399,45 @@ function TailorScreen() {
     [actions, jobText, state],
   );
 
-  const approve = useCallback(
-    async (side: Side) => {
+  /** What a save sends, minus the answer to "which one did you send". */
+  const savePayload = useCallback(
+    (side: Side) => {
       const document = state[side].document;
-      if (!document) return;
+      if (!document) return null;
+      return {
+        jobText,
+        job: state.job,
+        filename: document.source_filename,
+        sourceFormat: document.source_format,
+        contentHash: document.content_hash,
+        document,
+        changeLog: state[side].changes
+          .filter((change) => change.status === "applied")
+          .map((change) => ({
+            node_id: change.suggestion.node_id,
+            before: change.suggestion.before,
+            after: change.suggestion.after,
+            reason: change.suggestion.reason,
+          })),
+        // The score as it stands at the moment of saving, verified figure
+        // first — the same number the screen is showing. The Library quotes
+        // it back when a recruiter calls weeks later.
+        score: shownScore(side) ?? null,
+        variant: (side === "tailored" ? "tailored" : "rebuilt") as CvVariant,
+      };
+    },
+    [jobText, state, shownScore],
+  );
+
+  const commit = useCallback(
+    async (side: Side, extra: { recordId?: string; sent?: boolean } = {}) => {
+      const payload = savePayload(side);
+      if (!payload) return;
       setSaving(side);
       try {
-        await saveRecord({
-          jobText,
-          job: state.job,
-          filename: document.source_filename,
-          sourceFormat: document.source_format,
-          contentHash: document.content_hash,
-          document,
-          changeLog: state[side].changes
-            .filter((change) => change.status === "applied")
-            .map((change) => ({
-              node_id: change.suggestion.node_id,
-              before: change.suggestion.before,
-              after: change.suggestion.after,
-              reason: change.suggestion.reason,
-            })),
-          // The score as it stands at the moment of saving, verified figure
-          // first — the same number the screen is showing. The Library quotes
-          // it back when a recruiter calls weeks later.
-          score: shownScore(side) ?? null,
-        });
+        await saveRecord({ ...payload, ...extra });
         actions.approve(side);
+        setDuplicate(null);
       } catch (error) {
         actions.fail(
           error instanceof ApiError ? error.message : "Aptly could not save that.",
@@ -430,7 +447,37 @@ function TailorScreen() {
         setSaving(null);
       }
     },
-    [actions, jobText, state, shownScore],
+    [actions, savePayload],
+  );
+
+  /*
+   * Approving the second CV for a job already saved asks one question before
+   * it writes anything: which of the two actually went to the employer.
+   *
+   * Asked here rather than in the Library because this is the only moment
+   * both documents are in front of the person. A match that cannot be checked
+   * — the lookup fails, the person is anonymous — saves the old way rather
+   * than blocking the thing they pressed.
+   */
+  const approve = useCallback(
+    async (side: Side) => {
+      const payload = savePayload(side);
+      if (!payload) return;
+      setSaving(side);
+      try {
+        const found = await matchRecord({ jobText, job: state.job });
+        if (found) {
+          setDuplicate({ side, match: found });
+          return;
+        }
+      } catch {
+        // Fall through: a failed check is not a reason to refuse a save.
+      } finally {
+        setSaving(null);
+      }
+      await commit(side);
+    },
+    [commit, jobText, savePayload, state.job],
   );
 
   // The saved session has not been read yet. A blank ground rather than a
@@ -775,6 +822,26 @@ function TailorScreen() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Asked at the one moment both documents are on screen. */}
+      <AnimatePresence>
+        {duplicate && state[duplicate.side].document && (
+          <SameJobDialog
+            key="same-job"
+            match={duplicate.match}
+            incoming={{
+              document: state[duplicate.side].document!,
+              variant: duplicate.side === "tailored" ? "tailored" : "rebuilt",
+              score: shownScore(duplicate.side) ?? null,
+            }}
+            busy={saving !== null}
+            onCancel={() => setDuplicate(null)}
+            onConfirm={(sent) =>
+              void commit(duplicate.side, { recordId: duplicate.match.record.id, sent })
+            }
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -812,8 +879,10 @@ function DropScreen({
   error: { message: string; hint: string } | null;
   onStart: () => void;
 }) {
+  const hasCv = Boolean(cvText.trim() || cvFile || useProfile);
+
   return (
-    <div className="min-h-dvh bg-mist">
+    <div className="relative min-h-dvh overflow-hidden bg-mist">
       {/* `content`, because that is what this screen is: two boxes on the
           reading measure, not the app's full working surface. The bar follows
           the page rather than the page following the bar. */}
@@ -826,7 +895,15 @@ function DropScreen({
         <BarLink href="/library">Library</BarLink>
       </AppBar>
 
-      <div className="gutter mx-auto max-w-content py-10 sm:py-16">
+      {/* The object the screen is about, behind the boxes that act on it. It
+          fills as the CV box does and leans toward the pointer, so the first
+          screen has something alive on it rather than two empty wells. */}
+      <DropStage
+        filled={hasCv}
+        className="pointer-events-none absolute left-1/2 top-[13rem] hidden h-[30rem] w-[26rem] -translate-x-1/2 opacity-[0.55] lg:block"
+      />
+
+      <div className="relative gutter mx-auto max-w-content py-10 sm:py-16">
         <motion.header
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}

@@ -24,6 +24,7 @@ from aptly.db import repository
 from aptly.db.schemas import (
     STATUSES,
     RecordDetail,
+    RecordMatch,
     RecordSummary,
     SaveRecordRequest,
     UpdateRecordRequest,
@@ -66,7 +67,41 @@ async def save(payload: SaveRecordRequest, caller: CallerDep, session: SessionDe
             auth_subject=caller.subject or "",
             email=caller.email,
         )
-    return await repository.save_record(session, owner_id=caller.owner_id, payload=payload)
+    try:
+        return await repository.save_record(session, owner_id=caller.owner_id, payload=payload)
+    except LookupError as error:
+        raise RecordNotFoundError(
+            "That application is not in your Library.",
+            hint="It may have been deleted since this screen was opened.",
+        ) from error
+
+
+@router.post("/match", response_model=RecordMatch | None)
+async def match(
+    payload: SaveRecordRequest, caller: CallerDep, session: SessionDep
+) -> RecordMatch | None:
+    """Whether this save would open a second row for a job already saved.
+
+    Asked before saving rather than after, because the question it leads to —
+    which of the two CVs actually went to the employer — is one the person can
+    only answer while they are still looking at both.
+    """
+    return await repository.find_matching_record(
+        session, owner_id=caller.owner_id, payload=payload
+    )
+
+
+@router.post("/{record_id}/versions/{version_id}/sent", response_model=RecordDetail)
+async def mark_sent(
+    record_id: UUID, version_id: UUID, caller: CallerDep, session: SessionDep
+) -> RecordDetail:
+    """Say which CV on this record is the one that was sent."""
+    record = await repository.mark_version_sent(
+        session, owner_id=caller.owner_id, record_id=record_id, version_id=version_id
+    )
+    if record is None:
+        raise RecordNotFoundError("That CV is not on this application.")
+    return record
 
 
 @router.get("", response_model=LibraryPage)
