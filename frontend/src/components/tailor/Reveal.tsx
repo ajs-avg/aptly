@@ -277,7 +277,7 @@ export function RevealScreen({
                   </ul>
                   <a
                     href="/sign-in?next=%2Ftailor"
-                    className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-pill bg-signal px-6 font-display text-sm font-medium text-paper transition-colors hover:bg-signal-hover"
+                    className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-pill bg-ink px-6 font-display text-sm font-medium text-paper transition-opacity hover:opacity-90"
                   >
                     Sign up free — fix them with the agent
                   </a>
@@ -299,7 +299,7 @@ export function RevealScreen({
                   <button
                     type="button"
                     onClick={onSkip}
-                    className="inline-flex h-11 items-center rounded-pill bg-signal px-6 font-display text-sm font-medium text-paper transition-colors hover:bg-signal-hover"
+                    className="inline-flex h-11 items-center rounded-pill bg-ink px-6 font-display text-sm font-medium text-paper transition-opacity hover:opacity-90"
                   >
                     {working ? "Start working on it" : "See both versions"}
                   </button>
