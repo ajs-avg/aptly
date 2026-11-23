@@ -1,17 +1,18 @@
 import { Header } from "@/components/landing/Header";
 import {
-  Capabilities,
   Closing,
   Faq,
   Footer,
+  Hero,
+  How,
+  Keep,
   Moment,
+  Numbers,
   Pricing,
   Trust,
 } from "@/components/landing/Sections";
-import { Stats } from "@/components/landing/Stats";
-import { Story } from "@/components/landing/Story";
+import { StagePose } from "@/components/stage/StagePose";
 import styles from "@/components/landing/landing.module.css";
-import { cn } from "@/lib/utils";
 
 export const metadata = {
   description:
@@ -21,28 +22,26 @@ export const metadata = {
 /*
  * The landing page.
  *
- * One object — a CV in three dimensions — carries the first four screens,
- * doing the product's work as the page scrolls: read, change, keep. The copy
- * is the product's own; only the room it stands in has changed.
+ * A column of sections in one rhythm — headline, one sentence, the product —
+ * where nearly every picture is the interface itself, in miniature, running.
+ * The 3D room stays behind it all as the dark it stands in.
  */
 export default function Home() {
   return (
-    <div className={cn(styles.landing)}>
+    <div className={styles.landing}>
+      <StagePose name="landing.hero" />
       <Header />
-
       <main>
-        <Story />
-        <section className={styles.statsStrip} aria-label="Aptly in numbers">
-          <Stats />
-        </section>
-        <Capabilities />
+        <Hero />
+        <Numbers />
+        <How />
         <Trust />
+        <Keep />
         <Moment />
         <Pricing />
         <Faq />
         <Closing />
       </main>
-
       <Footer />
     </div>
   );

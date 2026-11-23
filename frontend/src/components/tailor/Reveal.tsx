@@ -3,7 +3,6 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import { Breakdown } from "./Breakdown";
-import { ScanScene } from "@/components/visual/ScanScene";
 import { ScoreRing } from "@/components/visual/ScoreRing";
 import { EASE, SPRING } from "@/components/motion/primitives";
 import { cn } from "@/lib/utils";
@@ -127,15 +126,11 @@ export function RevealScreen({
                 Reading your CV against this job
               </h1>
 
-              {/* The four steps, shown as the thing they describe. The list
-                  below stays — it is the accessible version of this, and the
-                  only version on a machine with no WebGL. */}
-              <ScanScene
-                stage={reached >= 4 ? 3 : (reached as 0 | 1 | 2 | 3)}
-                className="mx-auto mt-6 h-[13rem] w-full max-w-md sm:h-[17rem]"
-              />
-
-              <ul className="mx-auto grid max-w-sm gap-2.5 pt-6 text-left">
+              {/* The CV being read is the room's job now — the beam runs on
+                  the sheet behind this screen rather than in a canvas of its
+                  own. This list stays as the accessible account of the same
+                  four steps, and the only one on a machine with no WebGL. */}
+              <ul className="mx-auto grid max-w-sm gap-2.5 pt-10 text-left">
                 {STEPS.map((step, index) => {
                   const done = index < reached;
                   const active = index === reached;

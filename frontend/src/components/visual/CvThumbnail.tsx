@@ -69,7 +69,7 @@ function toLines(doc: CVDocument, limit: number): Line[] {
 }
 
 const TONE: Record<Line["kind"], string> = {
-  name: "bg-ink",
+  name: "bg-ink/75",
   contact: "bg-slate/50",
   heading: "bg-slate",
   role: "bg-ink/70",

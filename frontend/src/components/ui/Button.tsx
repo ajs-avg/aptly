@@ -17,13 +17,16 @@ interface Props extends React.ButtonHTMLAttributes<HTMLButtonElement> {
  * soft edge; the ghost is text until you reach it. Nothing bounces.
  */
 const VARIANTS: Record<Variant, string> = {
+  // The primary is ink on paper — on the dark product that is a white pill,
+  // which is the one thing on a near-black screen you cannot miss. Teal is
+  // kept for state (verified, applied), not for buttons.
   primary:
-    "bg-signal text-paper shadow-cta hover:bg-signal-hover hover:-translate-y-px " +
-    "active:translate-y-0 disabled:bg-slate/40 disabled:shadow-none disabled:translate-y-0",
+    "bg-ink text-paper hover:opacity-90 hover:-translate-y-px " +
+    "active:translate-y-0 disabled:opacity-40 disabled:translate-y-0",
   secondary:
-    "bg-raised text-ink shadow-raised ring-1 ring-ink/[0.06] hover:shadow-lifted hover:-translate-y-px " +
-    "active:translate-y-0 disabled:text-slate/50 disabled:shadow-none disabled:translate-y-0",
-  ghost: "text-slate hover:text-ink hover:bg-sunken",
+    "bg-white/[0.06] text-ink ring-1 ring-hairline hover:bg-white/[0.1] " +
+    "disabled:text-slate/50",
+  ghost: "text-slate hover:text-ink hover:bg-white/[0.06]",
   // The design doc's rule: an action keeps its name through the whole flow, so
   // "Apply" becomes "Applied" rather than vanishing or turning into a tick.
   applied: "bg-signal-soft text-signal ring-1 ring-signal/20 cursor-default",

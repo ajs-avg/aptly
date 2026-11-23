@@ -91,52 +91,39 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-
-    /* Not a neutral grey. The dark ground carries the same faint blue-slate
-       bias that Ink has, so the two themes read as one family rather than as a
-       product and its inverted screenshot. */
-    --paper: #0f1115;
-    --raised: #171a1f;
-    --sunken: #0a0c0f;
-    --mist: #131519;
-
-    --ink: #edeeea; /* warm off-white; pure white glares on a dark ground */
-    --ink-soft: #c7cbd2;
-    --slate: #99a1ad; /* 7.3:1 on paper                                    */
-    --hairline: #272c34;
-
-    /* The teal has to gain light to survive on a dark ground. Same hue, same
-       job — a dimmer version would read as disabled. */
-    --signal: #45bfac; /* 8.5:1                                             */
+  
+    /* Linear's measured surface ladder: near-black, not black, and each step
+       only a few points lighter so depth comes from hairlines, not from tone. */
+    --paper: #08090a;
+    --raised: #0f1011;
+    --sunken: #141516;
+    --mist: #0b0c0d;
+  
+    --ink: #f7f8f8;
+    --ink-soft: #d0d6e0;
+    --slate: #8a8f98;
+    --hairline: rgba(255, 255, 255, 0.08);
+  
+    --signal: #45bfac;
     --signal-hover: #63d4c1;
-    --signal-soft: #10322d;
-
+    --signal-soft: rgba(69, 191, 172, 0.14);
+  
     --amber: #d99a34;
-    --amber-ink: #e8b45c; /* 10:1 — on dark, the lighter amber is the readable one */
-    --amber-soft: #2c2214;
-
+    --amber-ink: #e8b45c;
+    --amber-soft: rgba(217, 154, 52, 0.14);
+  
     --danger: #e4756f;
-    --danger-soft: #33191a;
-
-    /* The inset panel inverts its role. In light it is the one dark object on
-       the page; in dark it has to sit *above* paper or it disappears into it. */
-    --panel: #1e222a;
-    --panel-soft: #272c35;
-    --panel-ink: #edeeea;
-
-    /* A drop shadow does almost nothing on a dark ground — depth there comes
-       from the surface getting lighter, not from a darker shadow. Kept for the
-       largest elevations only, and cast in true black. */
+    --danger-soft: rgba(228, 117, 111, 0.14);
+  
+    --panel: #0f1011;
+    --panel-soft: #16171a;
+    --panel-ink: #f7f8f8;
+  
     --shadow-rgb: 0 0 0;
-    --shadow-strength: 2.2;
-
-    /* Paper in a dark room, not paper under a lamp. The sheets carry three
-       lights on top of this base colour, so a value that looks middling here
-       still renders as a glaring white rectangle — the first dark pass set
-       #d8dae0 and the swarm read as cut-out card floating over the headline.
-       The lights come down with it, or the shading flattens out. */
-    --scene-ground: #0f1115;
-    --scene-paper: #454b57;
+    --shadow-strength: 2.6;
+  
+    --scene-ground: #08090a;
+    --scene-paper: #1a1b1f;
     --scene-ambient: 0.5;
     --scene-key: 1.15;
     --scene-fill: 0.55;
@@ -148,36 +135,38 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --paper: #0f1115;
-  --raised: #171a1f;
-  --sunken: #0a0c0f;
-  --mist: #131519;
+  /* Linear's measured surface ladder: near-black, not black, and each step
+     only a few points lighter so depth comes from hairlines, not from tone. */
+  --paper: #08090a;
+  --raised: #0f1011;
+  --sunken: #141516;
+  --mist: #0b0c0d;
 
-  --ink: #edeeea;
-  --ink-soft: #c7cbd2;
-  --slate: #99a1ad;
-  --hairline: #272c34;
+  --ink: #f7f8f8;
+  --ink-soft: #d0d6e0;
+  --slate: #8a8f98;
+  --hairline: rgba(255, 255, 255, 0.08);
 
   --signal: #45bfac;
   --signal-hover: #63d4c1;
-  --signal-soft: #10322d;
+  --signal-soft: rgba(69, 191, 172, 0.14);
 
   --amber: #d99a34;
   --amber-ink: #e8b45c;
-  --amber-soft: #2c2214;
+  --amber-soft: rgba(217, 154, 52, 0.14);
 
   --danger: #e4756f;
-  --danger-soft: #33191a;
+  --danger-soft: rgba(228, 117, 111, 0.14);
 
-  --panel: #1e222a;
-  --panel-soft: #272c35;
-  --panel-ink: #edeeea;
+  --panel: #0f1011;
+  --panel-soft: #16171a;
+  --panel-ink: #f7f8f8;
 
   --shadow-rgb: 0 0 0;
-  --shadow-strength: 2.2;
+  --shadow-strength: 2.6;
 
-  --scene-ground: #0f1115;
-  --scene-paper: #454b57;
+  --scene-ground: #08090a;
+  --scene-paper: #1a1b1f;
   --scene-ambient: 0.5;
   --scene-key: 1.15;
   --scene-fill: 0.55;
@@ -355,8 +344,8 @@
   h3,
   h4 {
     font-family: var(--font-display);
-    font-weight: 600;
-    letter-spacing: -0.025em;
+    font-weight: 500;
+    letter-spacing: -0.022em;
     color: var(--color-ink);
     /* Headlines break where the meaning breaks, not where the box ends. */
     text-wrap: balance;

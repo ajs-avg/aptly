@@ -25,6 +25,7 @@ import {
 } from "@/components/profile/sections";
 import { PROFILE_SECTIONS, sectionCount, type SectionKey } from "@/components/profile/sections";
 import { ApiError, getProfile, saveProfile } from "@/lib/api";
+import { useStage } from "@/components/stage/store";
 import { cn } from "@/lib/utils";
 import type { CareerProfile } from "@/lib/types";
 
@@ -44,6 +45,9 @@ import type { CareerProfile } from "@/lib/types";
  * that it is empty.
  */
 function ProfileScreen() {
+  // One sheet, off to the side, filling as the profile does.
+  useStage("profile");
+
   const params = useSearchParams();
   /**
    * Just created an account.
@@ -118,7 +122,7 @@ function ProfileScreen() {
 
   if (!profile) {
     return (
-      <div className="min-h-dvh bg-mist">
+      <div className="relative min-h-dvh">
         <AppBar brandHref="/" context="Profile" width="content" />
         {error && (
           <div className="gutter-bar mx-auto max-w-content pt-4">
@@ -130,7 +134,7 @@ function ProfileScreen() {
   }
 
   return (
-    <div className="min-h-dvh bg-mist">
+    <div className="relative min-h-dvh">
       <AppBar brandHref="/" context="Profile" width="content">
         <BarLink href="/tailor">Tailor a CV</BarLink>
         <BarLink href="/library">Library</BarLink>
@@ -322,7 +326,7 @@ export default function Page() {
     <RequireAccount>
       {/* `useSearchParams` needs a boundary, and the fallback is the page's own
           ground rather than a spinner — this resolves in a frame. */}
-      <Suspense fallback={<div className="min-h-dvh bg-mist" />}>
+      <Suspense fallback={<div className="min-h-dvh" />}>
         <ProfileScreen />
       </Suspense>
     </RequireAccount>

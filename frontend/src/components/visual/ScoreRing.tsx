@@ -45,10 +45,19 @@ const TONE: Record<string, { fill: string; track: string }> = {
   missing: { fill: "transparent", track: "var(--color-hairline)" },
 };
 
-/** Polar to cartesian, with 12 o'clock as zero. */
+/**
+ * Polar to cartesian, with 12 o'clock as zero.
+ *
+ * Rounded to three decimals on purpose. Node and the browser disagree about
+ * the last bit of `Math.cos`, so the path the server rendered and the path
+ * the client computed differed at the fifteenth digit — a hydration mismatch
+ * on every page that drew a ring. A thousandth of a pixel is below anything
+ * a screen can show, and it makes both sides emit the same string.
+ */
 function point(cx: number, cy: number, r: number, deg: number) {
   const rad = ((deg - 90) * Math.PI) / 180;
-  return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)] as const;
+  const round = (v: number) => Math.round(v * 1000) / 1000;
+  return [round(cx + r * Math.cos(rad)), round(cy + r * Math.sin(rad))] as const;
 }
 
 function arcPath(cx: number, cy: number, r: number, from: number, to: number) {

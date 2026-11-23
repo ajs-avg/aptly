@@ -72,5 +72,5 @@ export function RequireAccount({
  * distracting than an empty page and says nothing useful.
  */
 function Waiting() {
-  return <div className="min-h-dvh bg-mist" aria-busy="true" />;
+  return <div className="min-h-dvh" aria-busy="true" />;
 }

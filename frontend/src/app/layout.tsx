@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Inter, JetBrains_Mono } from "next/font/google";
 
+import { Stage } from "@/components/stage/Stage";
 import { ThemeProvider, themeScript } from "@/components/theme/ThemeProvider";
 import "./globals.css";
 
@@ -93,7 +94,13 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="antialiased">
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          {/* One room, behind every screen, mounted once and never unmounted.
+              Screens name a pose and it travels there — so moving between them
+              is the camera moving rather than a new scene loading. */}
+          <Stage />
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

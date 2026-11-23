@@ -63,14 +63,14 @@ export function AppBar({
     "flex shrink-0 items-center gap-2.5 rounded-pill py-1 pl-1 pr-2 font-display text-[15px] font-semibold tracking-[-0.02em] text-ink transition-colors hover:text-signal";
 
   return (
-    <div className="gutter-bar sticky top-0 z-30 pt-3">
+    <div className="gutter-bar sticky top-0 z-30 pt-2">
       <header
         className={cn(
           // Fixed height and no wrapping. A pill that wraps is not a pill: the
           // radius that reads as one continuous edge at 56px tall reads as two
           // stacked lozenges at 112px, and the page below it jumps by that
           // difference the moment a status readout appears.
-          "mx-auto flex h-14 items-center gap-x-3 rounded-pill border border-ink/[0.07] bg-raised/75 px-2.5 shadow-lifted backdrop-blur-xl backdrop-saturate-150",
+          "mx-auto flex h-12 items-center gap-x-3 rounded-xl border border-hairline bg-paper/80 px-3 backdrop-blur-xl backdrop-saturate-150",
           WIDTHS[width],
         )}
       >

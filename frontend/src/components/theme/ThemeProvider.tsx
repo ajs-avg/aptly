@@ -50,7 +50,7 @@ const ThemeContext = createContext<ThemeState | null>(null);
  * storage blocked still gets the system theme, which is the correct default
  * anyway.
  */
-export const themeScript = `(function(){try{var c=localStorage.getItem("${STORAGE_KEY}");if(c==="light"||c==="dark"){document.documentElement.setAttribute("data-theme",c)}}catch(e){}})();`;
+export const themeScript = `(function(){try{var c=localStorage.getItem("${STORAGE_KEY}");document.documentElement.setAttribute("data-theme",c==="light"?"light":"dark")}catch(e){document.documentElement.setAttribute("data-theme","dark")}})();`;
 
 /* ── The store: the DOM attribute, plus the OS setting ─────────────────────── */
 

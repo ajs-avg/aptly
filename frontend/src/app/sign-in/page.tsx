@@ -78,7 +78,7 @@ const NEEDS_PASSWORD: ReadonlySet<Mode> = new Set<Mode>(["signin", "signup"]);
 
 export default function SignInPage() {
   return (
-    <Suspense fallback={<div className="min-h-dvh bg-mist" />}>
+    <Suspense fallback={<div className="min-h-dvh" />}>
       <SignIn />
     </Suspense>
   );
@@ -176,7 +176,7 @@ function SignIn() {
   };
 
   return (
-    <div className="min-h-dvh bg-mist">
+    <div className="relative min-h-dvh">
       <SiteHeader />
 
       {/*

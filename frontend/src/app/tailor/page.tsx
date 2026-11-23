@@ -16,7 +16,7 @@ import { DropBox } from "@/components/tailor/DropBox";
 import { PitchNotes } from "@/components/tailor/PitchNotes";
 import { RevealScreen } from "@/components/tailor/Reveal";
 import { SameJobDialog } from "@/components/tailor/SameJobDialog";
-import { DropStage } from "@/components/visual/DropStage";
+import { flash, useStage } from "@/components/stage/store";
 import { Button } from "@/components/ui/Button";
 import {
   ApiError,
@@ -480,10 +480,45 @@ function TailorScreen() {
     [commit, jobText, savePayload, state.job],
   );
 
+
+  /*
+   * Where the room stands, screen by screen.
+   *
+   * Four moments and the camera travels between them rather than cutting: the
+   * paper waiting under the drop boxes, the beam running as the CV is read,
+   * the score landing close in with the light swelling, and the comparison
+   * pulled back so the work is what is in focus.
+   *
+   * Declared here rather than inside each branch below, because the branches
+   * return early and a hook cannot be called conditionally.
+   */
+  const atDrop = state.phase === "idle";
+  const pose = atDrop
+    ? "tailor.drop"
+    : state.phase !== "failed" && !pastReveal
+      ? state.analysis
+        ? "tailor.score"
+        : "tailor.scan"
+      : "tailor.compare";
+  useStage(pose, {
+    scanning: pose === "tailor.scan",
+    fill: atDrop ? (cvText.trim() || cvFile || useProfile ? 1 : 0.12) : 1,
+  });
+
+  /* The score is the product's one loud moment, so the room marks it. */
+  const landed = useRef(false);
+  useEffect(() => {
+    if (state.analysis && !landed.current) {
+      landed.current = true;
+      flash();
+    }
+    if (!state.analysis) landed.current = false;
+  }, [state.analysis]);
+
   // The saved session has not been read yet. A blank ground rather than a
   // spinner: this resolves in a frame or two, and a spinner that appears and
   // vanishes that fast reads as a flicker, not as progress.
-  if (!restored) return <div className="min-h-dvh bg-mist" />;
+  if (!restored) return <div className="min-h-dvh" />;
 
   if (state.phase === "idle") {
     return (
@@ -516,8 +551,9 @@ function TailorScreen() {
   // never coming.
   const showReveal = state.phase !== "failed" && !pastReveal;
 
+
   return (
-    <div className="min-h-dvh bg-mist">
+    <div className="relative min-h-dvh">
       <AppBar
         brandHref="/"
         // The same measure as the working surface below it, so the wordmark and
@@ -879,10 +915,8 @@ function DropScreen({
   error: { message: string; hint: string } | null;
   onStart: () => void;
 }) {
-  const hasCv = Boolean(cvText.trim() || cvFile || useProfile);
-
   return (
-    <div className="relative min-h-dvh overflow-hidden bg-mist">
+    <div className="relative min-h-dvh">
       {/* `content`, because that is what this screen is: two boxes on the
           reading measure, not the app's full working surface. The bar follows
           the page rather than the page following the bar. */}
@@ -894,14 +928,6 @@ function DropScreen({
       <AppBar brandHref="/" context="Tailor" width="content" account={<AccountButton />}>
         <BarLink href="/library">Library</BarLink>
       </AppBar>
-
-      {/* The object the screen is about, behind the boxes that act on it. It
-          fills as the CV box does and leans toward the pointer, so the first
-          screen has something alive on it rather than two empty wells. */}
-      <DropStage
-        filled={hasCv}
-        className="pointer-events-none absolute left-1/2 top-[13rem] hidden h-[30rem] w-[26rem] -translate-x-1/2 opacity-[0.55] lg:block"
-      />
 
       <div className="relative gutter mx-auto max-w-content py-10 sm:py-16">
         <motion.header

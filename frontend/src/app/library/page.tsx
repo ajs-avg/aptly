@@ -26,6 +26,7 @@ import {
   markVersionSent,
   updateRecord,
 } from "@/lib/api";
+import { useStage } from "@/components/stage/store";
 import { cn } from "@/lib/utils";
 import {
   STATUS_LABEL,
@@ -45,6 +46,9 @@ import {
  * `useSearchParams`, which would otherwise need a Suspense boundary here.
  */
 function LibraryScreen() {
+  // Camera back, the filed CVs in depth behind the list.
+  useStage("library");
+
   const [records, setRecords] = useState<RecordSummary[]>([]);
   const [selected, setSelected] = useState<RecordDetail | null>(null);
 
@@ -185,7 +189,7 @@ function LibraryScreen() {
      counts it from these same records — no model call, no new endpoint. */
 
   return (
-    <div className="min-h-dvh bg-mist">
+    <div className="relative min-h-dvh">
       <TopBar recordCount={records.length} />
 
       {/* `max-w-ultra`, from the shared ladder, rather than the 100rem it used
