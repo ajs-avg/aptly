@@ -1,10 +1,11 @@
 "use client";
 
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 
 import { useClientValue, useMediaQuery } from "@/lib/browser";
+import { CV, H, POST, W, makePage, type Page } from "./page";
 import { decayFlash, resolvedPose, stageRequest } from "./store";
 import type { Pose } from "./poses";
 
@@ -25,13 +26,11 @@ import type { Pose } from "./poses";
  *
  * There is no post-processing. Depth comes from fog and from a dozen blurred
  * sheets drifting behind the lit one, which costs two draw calls instead of a
- * render target. The lines on each sheet are instanced. Nothing here is state:
- * the loop reads the request store directly, so a scroll does not re-render.
+ * render target. The words on each sheet are one texture, drawn once; what
+ * the beam lights is an instanced row of highlights over them. Nothing here is
+ * state: the loop reads the request store directly, so a scroll does not
+ * re-render.
  */
-
-const W = 1.24;
-const H = 1.74;
-const LINES = 12;
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
@@ -47,21 +46,6 @@ function mulberry32(seed: number) {
   };
 }
 
-/** Where the lines sit on a sheet, and which of them read as headings. */
-const SPEC = (() => {
-  const rand = mulberry32(9);
-  const top = H / 2 - 0.19;
-  const gap = (H - 0.4) / (LINES - 1);
-  return Array.from({ length: LINES }, (_, i) => ({
-    y: top - i * gap,
-    w: i === 0 ? 0.5 : 0.26 + rand() * 0.62,
-    head: i === 0 || i === 5 || i === 9,
-  }));
-})();
-
-const BLANK = new THREE.Color("#1c1d21");
-const INK = new THREE.Color("#3a3d45");
-const HEAD = new THREE.Color("#6b7079");
 const LIT = new THREE.Color("#2f9e8f");
 const BEAM = new THREE.Color("#45bfac");
 
@@ -94,10 +78,19 @@ function makeBlob() {
   return texture;
 }
 
-/* ── One sheet, with its lines, its edge and its contact shadow ───────────── */
+/* ── One sheet: its words, its edge and its contact shadow ───────────────── */
 
-/** The parts of a sheet. The group around it is the caller's, so it can move. */
-function Paper({ lineRef }: { lineRef: React.Ref<THREE.InstancedMesh> }) {
+function Paper({
+  page,
+  marksRef,
+  coverRef,
+}: {
+  page: Page;
+  /** Highlights over the rows of text, for the beam. */
+  marksRef?: React.Ref<THREE.InstancedMesh>;
+  /** A sheet-coloured plane that hides the part not yet "filled in". */
+  coverRef?: React.Ref<THREE.Mesh>;
+}) {
   const blob = useMemo(() => makeBlob(), []);
   useEffect(() => () => blob.dispose(), [blob]);
 
@@ -113,12 +106,30 @@ function Paper({ lineRef }: { lineRef: React.Ref<THREE.InstancedMesh> }) {
       </mesh>
       <mesh>
         <boxGeometry args={[W, H, 0.016]} />
-        <meshStandardMaterial color="#141518" roughness={0.6} metalness={0.15} />
+        <meshStandardMaterial map={page.texture} roughness={0.6} metalness={0.15} />
       </mesh>
-      <instancedMesh ref={lineRef} args={[undefined, undefined, LINES]} frustumCulled={false}>
-        <planeGeometry args={[1, 0.032]} />
-        <meshBasicMaterial toneMapped={false} />
-      </instancedMesh>
+      {coverRef && (
+        <mesh ref={coverRef} position={[0, 0, 0.0105]}>
+          <planeGeometry args={[W, H]} />
+          {/* Lit the same way as the face, so there is no seam where it ends. */}
+          <meshStandardMaterial color="#141518" roughness={0.6} metalness={0.15} />
+        </mesh>
+      )}
+      {marksRef && (
+        <instancedMesh ref={marksRef} args={[undefined, undefined, page.rows.length]} frustumCulled={false}>
+          <planeGeometry args={[1, 0.042]} />
+          {/* Additive: a black instance adds nothing, so unlit rows are simply
+              not there, and a lit one glows through the words rather than
+              painting over them. */}
+          <meshBasicMaterial
+            transparent
+            opacity={0.6}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </instancedMesh>
+      )}
     </>
   );
 }
@@ -182,9 +193,9 @@ function Depth({ max }: { max: number }) {
           away, which is the only thing it is for. */}
       <planeGeometry args={[W, H]} />
       <meshBasicMaterial
-        color="#1a1b1f"
+        color="#18191d"
         transparent
-        opacity={0.6}
+        opacity={0.45}
         depthWrite={false}
         toneMapped={false}
       />
@@ -197,8 +208,8 @@ function Depth({ max }: { max: number }) {
 function Room({ motion, compact }: { motion: number; compact: boolean }) {
   const sheetGroup = useRef<THREE.Group>(null);
   const secondGroup = useRef<THREE.Group>(null);
-  const lines = useRef<THREE.InstancedMesh>(null);
-  const secondLines = useRef<THREE.InstancedMesh>(null);
+  const marks = useRef<THREE.InstancedMesh>(null);
+  const cover = useRef<THREE.Mesh>(null);
   const key = useRef<THREE.DirectionalLight>(null);
   const glow = useRef<THREE.PointLight>(null);
   const beam = useRef<THREE.Mesh>(null);
@@ -211,7 +222,13 @@ function Room({ motion, compact }: { motion: number; compact: boolean }) {
   /** The pose actually on screen, which chases the one being asked for. */
   const shown = useRef<Pose | null>(null);
   /** How far the beam has read down the sheet, held once a line is lit. */
-  const read = useRef(new Float32Array(LINES));
+  const read = useRef(new Float32Array(0));
+
+  const anisotropy = useThree((state) => state.gl.capabilities.getMaxAnisotropy());
+  const cv = useMemo(() => makePage(CV, anisotropy), [anisotropy]);
+  const post = useMemo(() => makePage(POST, anisotropy), [anisotropy]);
+  useEffect(() => () => cv.dispose(), [cv]);
+  useEffect(() => () => post.dispose(), [post]);
 
   useEffect(() => {
     const onMove = (event: PointerEvent) => {
@@ -222,27 +239,27 @@ function Room({ motion, compact }: { motion: number; compact: boolean }) {
     return () => window.removeEventListener("pointermove", onMove);
   }, []);
 
-  // The job post's lines never change, so they are written once.
+  // Where the highlights sit never changes — one per row of text, written once.
   useEffect(() => {
-    const m = secondLines.current;
+    const m = marks.current;
     if (!m) return;
-    SPEC.forEach((line, i) => {
-      o.position.set(-W / 2 + 0.13 + (line.w * 0.8) / 2, line.y, 0.012);
+    cv.rows.forEach((row, i) => {
+      o.position.set(row.x, row.y, 0.012);
       o.rotation.set(0, 0, 0);
-      o.scale.set(line.w * 0.8, line.head ? 1.4 : 1, 1);
+      o.scale.set(Math.max(row.w, 0.0001), 1, 1);
       o.updateMatrix();
       m.setMatrixAt(i, o.matrix);
-      m.setColorAt(i, line.head ? HEAD : INK);
+      m.setColorAt(i, c.setRGB(0, 0, 0));
     });
     m.instanceMatrix.needsUpdate = true;
     if (m.instanceColor) m.instanceColor.needsUpdate = true;
-  }, [o]);
+  }, [cv, o, c]);
 
   useFrame((state, delta) => {
     const sheet = sheetGroup.current;
     const second = secondGroup.current;
-    const lineMesh = lines.current;
-    if (!sheet || !second || !lineMesh) return;
+    const markMesh = marks.current;
+    if (!sheet || !second || !markMesh) return;
 
     const want = resolvedPose();
     const req = stageRequest();
@@ -319,7 +336,9 @@ function Room({ motion, compact }: { motion: number; compact: boolean }) {
     );
     second.scale.setScalar(Math.max(now.second.size * now.presence, 0.0001));
 
-    // The beam, and the lines it has read.
+    // The beam, and the rows it has read.
+    const rows = cv.rows;
+    if (read.current.length !== rows.length) read.current = new Float32Array(rows.length);
     const CYCLE = 3.2;
     const phase = req.scanning && motion ? (t % CYCLE) / CYCLE : -1;
     const sweep = clamp01(phase / 0.76);
@@ -327,30 +346,24 @@ function Room({ motion, compact }: { motion: number; compact: boolean }) {
     const beamOn = phase >= 0 && phase < 0.8 ? 1 : 0;
     if (!req.scanning) read.current.fill(0);
 
-    for (let i = 0; i < LINES; i++) {
-      const line = SPEC[i];
-      // The drop screen fills the sheet as the box fills, top down.
-      const arrive = clamp01(req.fill * LINES - i);
-      const w = Math.max(line.w * (0.2 + 0.8 * arrive), 0.0001);
-
-      if (req.scanning && beamOn && beamY <= line.y + 0.02) read.current[i] = 1;
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (req.scanning && beamOn && beamY <= row.y + 0.02) read.current[i] = 1;
       const litness = read.current[i];
-      const near = Math.max(0, 1 - Math.abs(line.y - beamY) / 0.1) * beamOn;
-
-      o.position.set(-W / 2 + 0.13 + w / 2, line.y, 0.012);
-      o.rotation.set(0, 0, 0);
-      o.scale.set(w, line.head ? 1.45 : 1, 1);
-      o.updateMatrix();
-      lineMesh.setMatrixAt(i, o.matrix);
-
-      c.copy(BLANK)
-        .lerp(line.head ? HEAD : INK, arrive)
-        .lerp(LIT, litness * 0.8)
-        .lerp(BEAM, near * 0.9);
-      lineMesh.setColorAt(i, c);
+      const near = Math.max(0, 1 - Math.abs(row.y - beamY) / 0.1) * beamOn;
+      c.setRGB(0, 0, 0).lerp(LIT, litness * 0.85).lerp(BEAM, near);
+      markMesh.setColorAt(i, c);
     }
-    lineMesh.instanceMatrix.needsUpdate = true;
-    if (lineMesh.instanceColor) lineMesh.instanceColor.needsUpdate = true;
+    if (markMesh.instanceColor) markMesh.instanceColor.needsUpdate = true;
+
+    // The drop screen fills the sheet as the box fills: a sheet-coloured
+    // plane over the part not yet written, shrinking upward from the bottom.
+    if (cover.current) {
+      const hidden = 1 - req.fill;
+      cover.current.scale.y = Math.max(hidden, 0.0001);
+      cover.current.position.y = -H / 2 + (hidden * H) / 2;
+      cover.current.visible = hidden > 0.001;
+    }
 
     if (beam.current && beamMat.current) {
       beam.current.position.set(0, beamY, 0.02);
@@ -389,7 +402,7 @@ function Room({ motion, compact }: { motion: number; compact: boolean }) {
       <pointLight ref={glow} position={[0, 0, 2.4]} intensity={6} color="#45bfac" distance={9} />
 
       <group ref={sheetGroup}>
-        <Paper lineRef={lines} />
+        <Paper page={cv} marksRef={marks} coverRef={cover} />
         <mesh ref={beam}>
           <planeGeometry args={[W * 1.05, 0.07]} />
           <meshBasicMaterial
@@ -404,7 +417,7 @@ function Room({ motion, compact }: { motion: number; compact: boolean }) {
       </group>
 
       <group ref={secondGroup}>
-        <Paper lineRef={secondLines} />
+        <Paper page={post} />
       </group>
 
       <Depth max={compact ? 5 : 10} />

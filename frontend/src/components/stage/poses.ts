@@ -72,7 +72,7 @@ export const POSES = {
     fov: 42,
     // To the right of a left-aligned headline, large and turned away, so it
     // is the depth the picture sits in rather than a slab behind the words.
-    sheet: { at: [1.55, -0.55, -0.4], turn: [0.22, -0.55, 0.05], size: 1.45 },
+    sheet: { at: [1.5, 0.15, -0.5], turn: [0.22, -0.55, 0.05], size: 1.35 },
     depth: { count: 7, spread: 9 },
     light: 2.3,
     fog: [7, 22],

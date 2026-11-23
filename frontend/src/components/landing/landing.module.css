@@ -277,11 +277,15 @@
 
 /* The numbers under the picture. */
 .numbers {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   width: min(var(--measure), 100%);
   margin: clamp(32px, 5vw, 56px) auto 0;
   padding-inline: var(--gutter);
+  /* Its own ground: the room's paper was showing through under the figures. */
+  background: var(--paper);
 }
 
 .number {

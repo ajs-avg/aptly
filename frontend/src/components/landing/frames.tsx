@@ -107,49 +107,81 @@ const JOB_SHAPE: ShapeLine[] = [
   { w: 66, k: "b" },
 ];
 
-const TONE: Record<string, string> = {
-  n: "bg-ink/80 h-[7px]",
-  c: "bg-slate/50 h-[3px]",
-  h: "bg-slate/80 h-[4px]",
-  r: "bg-ink/60 h-[4px]",
-  b: "bg-white/[0.13] h-[3px]",
-};
+/* ── A CV with words on it ────────────────────────────────────────────────── */
 
-function Lines({
-  lit = [],
-  changed,
+interface DocLine {
+  text: React.ReactNode;
+  /** A teal mark in the margin: the post is satisfied by this line. */
+  mark?: boolean;
+  /** Set in the editor's literal face: this is a line being rewritten. */
+  tone?: "amber" | "signal";
+  /** Rendered directly under the line — where a change card lands. */
+  after?: React.ReactNode;
+}
+
+interface DocSection {
+  title: string;
+  heading?: string;
+  lines: DocLine[];
+}
+
+/**
+ * Linear's frames carry real text — a real Slack thread, a real diff — and
+ * that is what makes them read as the product rather than a wireframe of it.
+ * So this is a real CV, the demo pair's, at the size a card allows: the name,
+ * the sections, the actual bullets. Small, but every word is a word.
+ */
+function Doc({
+  name,
+  meta,
+  sections,
   className,
 }: {
-  /** Indexes that carry a teal mark in the margin. */
-  lit?: number[];
-  /** The one line being rewritten, and whether it has landed. */
-  changed?: { at: number; done: boolean };
+  name: string;
+  meta: string;
+  sections: DocSection[];
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col gap-[7px]", className)}>
-      {CV_LINES.map((line, i) => {
-        const isChanged = changed?.at === i;
-        return (
-          <div key={i} className="relative flex items-center gap-2">
-            <span
-              className={cn(
-                "size-1.5 shrink-0 rounded-full transition-colors duration-500",
-                lit.includes(i) ? "bg-signal" : "bg-transparent",
-              )}
-            />
-            <span
-              className={cn(
-                "rounded-[1px] transition-all duration-500",
-                TONE[line.k],
-                (line.k === "h" || line.k === "r") && i > 0 && "mt-1.5",
-                isChanged && (changed?.done ? "bg-signal/80" : "bg-amber/80"),
-              )}
-              style={{ width: `${isChanged && changed?.done ? Math.min(line.w + 6, 100) : line.w}%` }}
-            />
-          </div>
-        );
-      })}
+    <div className={cn("text-left", className)}>
+      <p className="font-display text-[13px] font-semibold tracking-[-0.01em] text-ink">{name}</p>
+      <p className="pt-0.5 text-[10px] text-slate">{meta}</p>
+      {sections.map((section) => (
+        <div key={section.title} className="pt-3">
+          <p className="border-b border-hairline pb-1 font-display text-[9px] font-medium uppercase tracking-[0.12em] text-slate">
+            {section.title}
+          </p>
+          {section.heading && (
+            <p className="pt-1.5 text-[10.5px] font-medium text-ink/90">{section.heading}</p>
+          )}
+          <ul className="grid gap-1 pt-1.5">
+            {section.lines.map((line, i) => (
+              <li key={i} className="grid grid-cols-[10px_1fr] gap-1.5">
+                <span className="flex h-[15px] items-center justify-center">
+                  <span
+                    className={cn(
+                      "size-1.5 rounded-full transition-colors duration-500",
+                      line.mark ? "bg-signal" : "bg-white/[0.14]",
+                    )}
+                  />
+                </span>
+                <div className="relative min-w-0">
+                  <p
+                    className={cn(
+                      "text-[10.5px] leading-[15px] text-ink/85 transition-colors duration-500",
+                      line.tone === "amber" && "cv-literal rounded-sm bg-amber/15 px-1 text-amber-ink",
+                      line.tone === "signal" && "cv-literal rounded-sm bg-signal/15 px-1 text-ink",
+                    )}
+                  >
+                    {line.text}
+                  </p>
+                  {line.after}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </div>
   );
 }
@@ -171,9 +203,10 @@ export function CompareFrame({ className }: { className?: string }) {
       if (cancelled) return;
       setStep(0);
       timers.push(window.setTimeout(() => setStep(1), 1100));
-      timers.push(window.setTimeout(() => setStep(2), 2600));
-      timers.push(window.setTimeout(() => setStep(3), 3400));
-      timers.push(window.setTimeout(run, 8200));
+      // The card stays long enough to be read: two lines and a reason.
+      timers.push(window.setTimeout(() => setStep(2), 3400));
+      timers.push(window.setTimeout(() => setStep(3), 4200));
+      timers.push(window.setTimeout(run, 9400));
     };
     run();
     return () => {
@@ -184,54 +217,109 @@ export function CompareFrame({ className }: { className?: string }) {
 
   const score = step >= 3 ? 61 : 34;
 
+  /* The bullet the suggestion rewrites, before and after. */
+  const before =
+    "Built the internal pricing dashboard end to end, writing the SQL queries that pull from PostgreSQL and the React interface that displays them.";
+  const after =
+    "Wrote the SQL queries behind the internal pricing dashboard, pulling from PostgreSQL, and the React interface that displays them.";
+
+  const card = (
+    <motion.div
+      initial={false}
+      animate={{ opacity: step === 1 ? 1 : 0, y: step === 1 ? 0 : 6 }}
+      transition={{ duration: 0.4, ease: EASE }}
+      /* Opens upward: the line it is about is the last thing before the
+         frame's footer, and a card below it would run into that. */
+      className="pointer-events-none absolute inset-x-0 bottom-full z-10"
+    >
+      <div className="mb-1.5 rounded-md bg-raised p-2.5 shadow-float ring-1 ring-hairline">
+        <p className="cv-literal text-[10.5px] leading-snug text-ink/90">
+          Wrote the <span className="rounded-sm bg-amber/25 px-0.5 text-amber-ink">SQL</span> queries
+          behind the internal pricing dashboard, pulling from PostgreSQL, and the React interface
+          that displays them.
+        </p>
+        <p className="pt-1 text-[10px] text-slate">The post selects on SQL; this brings it forward.</p>
+        <div className="flex items-center gap-2 pt-1.5">
+          <span className="rounded-pill bg-signal px-2 py-0.5 font-display text-[10px] font-medium text-paper">
+            Apply
+          </span>
+          <span className="font-display text-[10px] text-slate">Skip</span>
+        </div>
+      </div>
+    </motion.div>
+  );
+
   return (
     <div ref={ref} className={className}>
       <Frame title="Data Engineer · Meridian Analytics">
         <div className="grid gap-px bg-hairline md:grid-cols-2">
-          <Panel
-            label="Your CV, tailored"
-            dot="signal"
-            score={score}
-            baseline={34}
-            instant={step < 3}
-          >
-            <div className="relative">
-              <Lines lit={step >= 2 ? [3, 7, 10] : []} changed={{ at: 7, done: step >= 2 }} />
-
-              {/* The change card: arrives, is applied, leaves the line teal. */}
-              <motion.div
-                initial={false}
-                animate={{
-                  opacity: step === 1 ? 1 : 0,
-                  y: step === 1 ? 0 : 8,
-                  scale: step === 1 ? 1 : 0.98,
-                }}
-                transition={{ duration: 0.45, ease: EASE }}
-                className="pointer-events-none absolute inset-x-0 top-[46%] rounded-lg bg-sunken p-3 ring-1 ring-hairline shadow-[0_20px_50px_-10px_rgba(0,0,0,0.8)]"
-              >
-                <p className="font-display text-[0.6rem] uppercase tracking-[0.12em] text-slate">
-                  Experience
-                </p>
-                <p className="cv-literal pt-1.5 text-[0.68rem] leading-snug text-ink/90">
-                  Built the pricing dashboard end to end, writing the{" "}
-                  <span className="rounded-sm bg-amber/25 px-0.5 text-amber-ink">SQL</span> that
-                  pulls from PostgreSQL.
-                </p>
-                <p className="pt-1.5 text-[0.62rem] text-slate">
-                  The post selects on SQL; this brings it forward.
-                </p>
-                <div className="flex items-center gap-2 pt-2">
-                  <span className="rounded-pill bg-signal px-2 py-0.5 font-display text-[0.62rem] font-medium text-paper">
-                    Apply
-                  </span>
-                  <span className="font-display text-[0.62rem] text-slate">Skip</span>
-                </div>
-              </motion.div>
-            </div>
+          <Panel label="Your CV, tailored" dot="signal" score={score} baseline={34} instant={step < 3}>
+            <Doc
+              name="Rahul Menon"
+              meta="Frontend Developer · rahul.menon@example.com · Bengaluru"
+              sections={[
+                {
+                  title: "Professional summary",
+                  lines: [
+                    {
+                      text: "Frontend developer with three years building customer-facing web applications. Comfortable owning a feature from design handoff through to production.",
+                    },
+                  ],
+                },
+                {
+                  title: "Technical skills",
+                  lines: [
+                    { text: "Languages: JavaScript, TypeScript, Python, HTML5, CSS3", mark: step >= 2 },
+                    { text: "Backend & Data: Node.js, Express.js, REST APIs, PostgreSQL, SQL", mark: step >= 2 },
+                  ],
+                },
+                {
+                  title: "Work experience",
+                  heading: "Frontend Developer · Kalyra Commerce · 2023 – Present",
+                  lines: [
+                    { text: "Rebuilt the product listing page in Next.js, cutting time to first paint from 4.1 seconds to 1.3." },
+                    {
+                      text: step >= 2 ? after : before,
+                      tone: step === 1 ? "amber" : step >= 2 ? "signal" : undefined,
+                      mark: step >= 2,
+                      after: card,
+                    },
+                    { text: "Wrote a Python script that reconciles the nightly product feed against the catalogue.", mark: step >= 2 },
+                  ],
+                },
+              ]}
+            />
           </Panel>
 
           <Panel label="Written from scratch" dot="amber" score={34} baseline={34} instant>
-            <Lines lit={[2, 5]} />
+            <Doc
+              name="Rahul Menon"
+              meta="rahul.menon@example.com · Bengaluru"
+              sections={[
+                {
+                  title: "Summary",
+                  lines: [
+                    {
+                      text: "Frontend developer with three years of experience, including SQL queries for internal dashboards and Python scripts for data reconciliation.",
+                      mark: true,
+                    },
+                  ],
+                },
+                {
+                  title: "Experience",
+                  heading: "Frontend Developer · Kalyra Commerce",
+                  lines: [
+                    { text: "Wrote the SQL queries behind the internal pricing dashboard, pulling from PostgreSQL for 22 daily users.", mark: true },
+                    { text: "Wrote a Python script reconciling the nightly product feed against the catalogue, replacing a two-hour manual check.", mark: true },
+                    { text: "Rebuilt the product listing page in Next.js, cutting first paint from 4.1s to 1.3s." },
+                  ],
+                },
+                {
+                  title: "Skills",
+                  lines: [{ text: "Python, SQL, PostgreSQL, JavaScript, TypeScript, React, Next.js", mark: true }],
+                },
+              ]}
+            />
           </Panel>
         </div>
 
@@ -332,8 +420,33 @@ export function ScanFrame({ className }: { className?: string }) {
           </ul>
 
           {/* The sheet, with the beam passing down it. */}
-          <div className="relative w-24 overflow-hidden rounded-md bg-sunken p-2.5 ring-1 ring-hairline">
-            <Lines lit={reached >= 3 ? [3, 7, 10] : []} className="gap-[5px] [&>div>span:last-child]:h-[2px]" />
+          <div className="relative h-36 w-28 shrink-0 overflow-hidden rounded-md bg-sunken ring-1 ring-hairline">
+            {/* The real document, reduced the way a file preview is — the
+                words are there, at the size a thumbnail allows. */}
+            <div className="w-[280px] origin-top-left scale-[0.4] p-4">
+              <Doc
+                name="Rahul Menon"
+                meta="Frontend Developer · Bengaluru"
+                sections={[
+                  {
+                    title: "Technical skills",
+                    lines: [
+                      { text: "JavaScript, TypeScript, Python, HTML5, CSS3", mark: reached >= 3 },
+                      { text: "Node.js, Express.js, REST APIs, PostgreSQL, SQL", mark: reached >= 3 },
+                    ],
+                  },
+                  {
+                    title: "Work experience",
+                    heading: "Frontend Developer · Kalyra Commerce",
+                    lines: [
+                      { text: "Rebuilt the product listing page in Next.js, cutting time to first paint from 4.1s to 1.3s." },
+                      { text: "Built the internal pricing dashboard end to end, writing the SQL that pulls from PostgreSQL.", mark: reached >= 3 },
+                      { text: "Wrote a Python script that reconciles the nightly product feed against the catalogue.", mark: reached >= 3 },
+                    ],
+                  },
+                ]}
+              />
+            </div>
             {play && !still && reached < 4 && (
               <motion.span
                 aria-hidden
@@ -541,7 +654,21 @@ export function CallFrame({ className }: { className?: string }) {
               The CV you sent
             </p>
             <div className="mt-2.5 rounded-md bg-sunken p-3 ring-1 ring-hairline">
-              <Lines lit={[3, 7]} className="gap-[6px]" />
+              <Doc
+                name="Aman Sharma"
+                meta="Senior Product Manager · aman@example.com · Pune"
+                sections={[
+                  {
+                    title: "Experience",
+                    heading: "Product Manager · Veltrix Devices · 2021 – Present",
+                    lines: [
+                      { text: "Led a hardware-plus-software launch across a team of 6, cutting customer ramp time by half.", mark: true },
+                      { text: "Owned the onboarding flow end to end, from research through release." },
+                      { text: "Ran weekly reviews with engineering, design and support.", mark: true },
+                    ],
+                  },
+                ]}
+              />
             </div>
             <p className="pt-2 text-[0.62rem] text-slate" data-numeric>
               Aman_SPM_Acme_v3.pdf · sha256 9f3c…e21a · post frozen 14 Oct
