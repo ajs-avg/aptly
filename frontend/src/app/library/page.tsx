@@ -2,20 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { AnimatePresence } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 
 import { LibraryPulse } from "@/components/library/LibraryPulse";
 import { MergeBanner } from "@/components/library/MergeBanner";
-import { RecordPanel } from "@/components/library/RecordPanel";
-import { RecordCard } from "@/components/library/RecordCard";
-import {
-  EmptyLibraryArt,
-  NoMatchArt,
-  NothingSelectedArt,
-} from "@/components/visual/illustrations";
+import { RecordStage } from "@/components/library/RecordStage";
+import { ShelfCard } from "@/components/library/ShelfCard";
+import { NoMatchArt } from "@/components/visual/illustrations";
 import { AccountButton } from "@/components/marketing/AccountButton";
 import { AppBar, BarLink } from "@/components/app/AppBar";
 import { RequireAccount } from "@/components/auth/RequireAccount";
+import { EASE } from "@/components/motion/primitives";
 import {
   ApiError,
   deleteRecord,
@@ -26,6 +23,7 @@ import {
   markVersionSent,
   updateRecord,
 } from "@/lib/api";
+import { DEMO_RECORDS } from "@/lib/demo";
 import { useStage } from "@/components/stage/store";
 import { cn } from "@/lib/utils";
 import {
@@ -38,15 +36,19 @@ import {
 } from "@/lib/types";
 
 /*
- * The Library.
+ * The Library: a shelf of the CVs that went out.
+ *
+ * Each application is the document itself, small enough to see many and large
+ * enough to read the first lines of. Opening one takes it off the shelf and
+ * lays it on the desk — full size, with the job post beside it — rather than
+ * opening a panel next to a list.
  *
  * Selection lives in component state rather than the URL. That keeps the whole
- * screen one route with no navigation between rows — "open any record in
- * seconds" reads badly if opening one is a page load — and it sidesteps
+ * screen one route with no navigation between records, and it sidesteps
  * `useSearchParams`, which would otherwise need a Suspense boundary here.
  */
 function LibraryScreen() {
-  // Camera back, the filed CVs in depth behind the list.
+  // Camera back, the filed CVs in depth behind the shelf.
   useStage("library");
 
   const [records, setRecords] = useState<RecordSummary[]>([]);
@@ -55,39 +57,28 @@ function LibraryScreen() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<{ message: string; hint: string } | null>(
-    null,
-  );
+  const [error, setError] = useState<{ message: string; hint: string } | null>(null);
 
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const refresh = useCallback(
-    async (q: string, statusFilter: string | null) => {
-      try {
-        const page = await listRecords({
-          q: q || undefined,
-          status: statusFilter ?? undefined,
-        });
-        setRecords(page.records);
-        setError(null);
-      } catch (caught) {
-        const apiError = caught as ApiError;
-        setError({ message: apiError.message, hint: apiError.hint ?? "" });
-      } finally {
-        setLoading(false);
-      }
-    },
-    [],
-  );
+  const refresh = useCallback(async (q: string, statusFilter: string | null) => {
+    try {
+      const page = await listRecords({ q: q || undefined, status: statusFilter ?? undefined });
+      setRecords(page.records);
+      setError(null);
+    } catch (caught) {
+      const apiError = caught as ApiError;
+      setError({ message: apiError.message, hint: apiError.hint ?? "" });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   // Searching on every keystroke would hammer the API; waiting for a submit
   // makes it feel dead. A short debounce is the honest middle.
   useEffect(() => {
     if (debounce.current) clearTimeout(debounce.current);
-    debounce.current = setTimeout(
-      () => void refresh(query, status),
-      query ? 220 : 0,
-    );
+    debounce.current = setTimeout(() => void refresh(query, status), query ? 220 : 0);
     return () => {
       if (debounce.current) clearTimeout(debounce.current);
     };
@@ -96,30 +87,20 @@ function LibraryScreen() {
   const open = useCallback(async (id: string) => {
     try {
       setSelected(await getRecord(id));
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (caught) {
       const apiError = caught as ApiError;
       setError({ message: apiError.message, hint: apiError.hint ?? "" });
     }
   }, []);
 
-  const patch = useCallback(
-    async (id: string, changes: Parameters<typeof updateRecord>[1]) => {
-      const updated = await updateRecord(id, changes);
-      setSelected(updated);
-      setRecords((current) =>
-        current.map((row) => (row.id === id ? { ...row, ...updated } : row)),
-      );
-    },
-    [],
-  );
+  const patch = useCallback(async (id: string, changes: Parameters<typeof updateRecord>[1]) => {
+    const updated = await updateRecord(id, changes);
+    setSelected(updated);
+    setRecords((current) => current.map((row) => (row.id === id ? { ...row, ...updated } : row)));
+  }, []);
 
-  /**
-   * Say which of a record's CVs went to the employer.
-   *
-   * The card in the list carries the answer too — a "Sent: Tailored" chip and
-   * the thumbnail of that document — so the row is rewritten from the reply
-   * rather than left showing the old one until a reload.
-   */
+  /** Say which of a record's CVs went to the employer; the shelf card follows. */
   const markSent = useCallback(async (id: string, versionId: string) => {
     const updated = await markVersionSent(id, versionId);
     setSelected(updated);
@@ -127,19 +108,13 @@ function LibraryScreen() {
     setRecords((current) =>
       current.map((row) =>
         row.id === id
-          ? { ...row, sent_variant: sent?.variant ?? null, cv_count: updated.cv_count }
+          ? { ...row, sent_variant: sent?.variant ?? null, cv_count: updated.cv_count, cv_shape: updated.cv_shape ?? row.cv_shape }
           : row,
       ),
     );
   }, []);
 
-  /*
-   * Rows already filed as two for one job.
-   *
-   * Looked for once, after the list has loaded, and never again in the same
-   * visit: it is a tidy-up prompt, and one that reappears every time the
-   * search box changes is nagging rather than helping.
-   */
+  /* Rows already filed as two for one job: looked for once a visit. */
   const [duplicates, setDuplicates] = useState<DuplicateGroup[]>([]);
   const [merging, setMerging] = useState(false);
   const checkedDuplicates = useRef(false);
@@ -180,190 +155,197 @@ function LibraryScreen() {
 
   const counts = useMemo(() => {
     const tally = new Map<string, number>();
-    for (const record of records)
-      tally.set(record.status, (tally.get(record.status) ?? 0) + 1);
+    for (const record of records) tally.set(record.status, (tally.get(record.status) ?? 0) + 1);
     return tally;
   }, [records]);
 
-  /* What the pile of applications says now lives in `LibraryPulse`, which
-     counts it from these same records — no model call, no new endpoint. */
+  const searching = Boolean(query || status);
 
   return (
     <div className="relative min-h-dvh">
-      <TopBar recordCount={records.length} />
+      <AppBar
+        brandHref="/"
+        context="Library"
+        width="ultra"
+        status={
+          records.length > 0 ? (
+            <span className="shrink-0 whitespace-nowrap pr-1 text-2xs text-slate" data-numeric>
+              {records.length} {records.length === 1 ? "application" : "applications"}
+            </span>
+          ) : null
+        }
+        account={<AccountButton />}
+      >
+        <BarLink href="/tailor">Tailor a CV</BarLink>
+      </AppBar>
 
-      {/* `max-w-ultra`, from the shared ladder, rather than the 100rem it used
-          to pick for itself. A page that invents its own measure is a page that
-          almost lines up with the bar above it — near enough to look like a
-          mistake, far enough to be one. */}
-      {/* The shape of the search, above both columns. It is about the whole
-          pile, so it spans them rather than sitting inside the list. */}
-      {!loading && !error && records.length >= 2 && (
-        <div className="gutter-bar mx-auto grid max-w-ultra gap-3 pt-3">
-          <AnimatePresence>
-            {duplicates.length > 0 && (
-              <MergeBanner
-                key="merge"
-                groups={duplicates}
-                busy={merging}
-                onMerge={(group) => void merge(group)}
-                onDismiss={() => setDuplicates([])}
-              />
-            )}
-          </AnimatePresence>
-          <LibraryPulse records={records} />
-        </div>
-      )}
-
-      <div className="gutter-bar mx-auto grid max-w-ultra grid-cols-1 gap-3 pb-3 pt-3 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,32rem)_minmax(0,1fr)]">
-        <section className="min-w-0 overflow-hidden rounded-2xl bg-raised shadow-float ring-1 ring-ink/5">
-          <div className="hairline-b px-5 py-4">
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search company, role, notes, or the advert…"
-              className="w-full rounded-pill bg-sunken px-4 py-2 text-sm text-ink placeholder:text-slate/55 focus:outline-none focus:ring-1 focus:ring-signal"
+      <main className="gutter-bar mx-auto max-w-ultra pb-20 pt-5">
+        <AnimatePresence mode="wait" initial={false}>
+          {selected ? (
+            <RecordStage
+              key={selected.id}
+              record={selected}
+              onStatusChange={(next: RecordStatus) => void patch(selected.id, { status: next })}
+              onNotesChange={(notes) => void patch(selected.id, { notes })}
+              onDelete={() => void remove(selected.id)}
+              onClose={() => setSelected(null)}
+              onMarkSent={(versionId) => void markSent(selected.id, versionId)}
             />
-
-            <div className="flex flex-wrap gap-1 pt-2.5">
-              <FilterChip
-                label="All"
-                count={records.length}
-                active={status === null}
-                onClick={() => setStatus(null)}
-              />
-              {STATUS_ORDER.filter((s) => counts.get(s) || status === s).map(
-                (s) => (
-                  <FilterChip
-                    key={s}
-                    label={STATUS_LABEL[s]}
-                    count={counts.get(s) ?? 0}
-                    active={status === s}
-                    onClick={() => setStatus(status === s ? null : s)}
-                  />
-                ),
-              )}
-            </div>
-          </div>
-
-          {loading ? (
-            <p className="px-5 py-8 text-sm text-slate">
-              Opening your Library…
-            </p>
-          ) : error ? (
-            <div className="m-5 rounded-md bg-danger-soft px-4 py-3">
-              <p className="font-display text-sm font-medium text-danger">
-                {error.message}
-              </p>
-              {error.hint && (
-                <p className="pt-1 text-2xs text-ink/70">{error.hint}</p>
-              )}
-            </div>
-          ) : records.length === 0 ? (
-            <Empty searching={Boolean(query || status)} />
           ) : (
-            // Cards rather than rows, because the thing that tells two
-            // applications apart is the CV on each, and a CV is a picture.
-            <div className="grid gap-2 p-2.5">
-              {records.map((record, index) => (
-                <RecordCard
-                  key={record.id}
-                  record={record}
-                  index={index}
-                  selected={selected?.id === record.id}
-                  onOpen={() => void open(record.id)}
-                />
-              ))}
-            </div>
-          )}
-        </section>
+            <motion.div
+              key="shelf"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={EASE}
+            >
+              {/* The toolbar: one line, the search and the filters. */}
+              <div className="flex flex-wrap items-center gap-2 pb-6">
+                <div className="relative w-full sm:w-80">
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <circle cx="11" cy="11" r="7" />
+                    <path strokeLinecap="round" d="m20 20-3.5-3.5" />
+                  </svg>
+                  <input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Search company, role, notes, or the advert…"
+                    className="h-9 w-full rounded-pill bg-raised pl-9 pr-4 text-sm text-ink ring-1 ring-hairline placeholder:text-slate/55 focus:outline-none focus:ring-signal"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  <FilterChip label="All" count={records.length} active={status === null} onClick={() => setStatus(null)} />
+                  {STATUS_ORDER.filter((s) => counts.get(s) || status === s).map((s) => (
+                    <FilterChip
+                      key={s}
+                      label={STATUS_LABEL[s]}
+                      count={counts.get(s) ?? 0}
+                      active={status === s}
+                      onClick={() => setStatus(status === s ? null : s)}
+                    />
+                  ))}
+                </div>
+                <Link
+                  href="/tailor"
+                  className="ml-auto hidden h-9 items-center rounded-pill bg-ink px-4 font-display text-xs font-medium text-paper transition-opacity hover:opacity-90 sm:inline-flex"
+                >
+                  Tailor a CV
+                </Link>
+              </div>
 
-        {/*
-          * One panel, shown on a phone only when it has something in it.
-          *
-          * It used to render unconditionally, and its empty state was a
-          * `hidden lg:flex` prompt — so on every phone the page ended in a
-          * stray rounded card with a ring and a shadow, under the list,
-          * containing nothing. The prompt was correctly hidden; the box around
-          * the prompt was not.
-          *
-          * Not two sections, one per breakpoint: that mounts the record twice,
-          * gives the notes field two drafts, and lets the hidden one keep the
-          * edit you made in the visible one.
-          *
-          * The sticky offset and the height cap are `lg:` because they describe
-          * a side panel. On a phone there is no side — it is a block that
-          * follows the list, and pinning it there would fix half a screen of
-          * detail over the rows you are trying to scroll.
-          */}
-        <section
-          className={cn(
-            "min-w-0 overflow-hidden rounded-2xl bg-raised shadow-float ring-1 ring-ink/5",
-            "lg:sticky lg:top-[calc(var(--spacing-bar)+0.75rem)] lg:block lg:h-[calc(100dvh-var(--spacing-bar)-1.5rem)]",
-            selected ? "block" : "hidden",
+              {!loading && !error && records.length >= 2 && (
+                <div className="grid gap-3 pb-6">
+                  <AnimatePresence>
+                    {duplicates.length > 0 && (
+                      <MergeBanner
+                        key="merge"
+                        groups={duplicates}
+                        busy={merging}
+                        onMerge={(group) => void merge(group)}
+                        onDismiss={() => setDuplicates([])}
+                      />
+                    )}
+                  </AnimatePresence>
+                  <LibraryPulse records={records} />
+                </div>
+              )}
+
+              {loading ? (
+                <Shelf>
+                  {[0, 1, 2, 3].map((i) => (
+                    <div key={i} className="animate-pulse">
+                      <div className="aspect-[1/1.3] rounded-xl bg-raised ring-1 ring-hairline" />
+                      <div className="mt-3.5 h-3 w-2/3 rounded bg-raised" />
+                      <div className="mt-2 h-2.5 w-1/2 rounded bg-raised" />
+                    </div>
+                  ))}
+                </Shelf>
+              ) : error ? (
+                <div className="max-w-md rounded-xl bg-danger-soft px-4 py-3">
+                  <p className="font-display text-sm font-medium text-danger">{error.message}</p>
+                  {error.hint && <p className="pt-1 text-2xs text-ink/70">{error.hint}</p>}
+                </div>
+              ) : records.length === 0 ? (
+                searching ? (
+                  <div className="grid place-items-center px-5 py-16 text-center">
+                    <NoMatchArt className="max-w-[9rem] opacity-70" />
+                    <p className="max-w-xs pt-4 text-sm leading-relaxed text-slate">
+                      Nothing matches that. Try a company, a role, or a phrase you remember from
+                      the advert.
+                    </p>
+                  </div>
+                ) : (
+                  <GhostShelf />
+                )
+              ) : (
+                <Shelf>
+                  {records.map((record, index) => (
+                    <ShelfCard
+                      key={record.id}
+                      record={record}
+                      index={index}
+                      onOpen={() => void open(record.id)}
+                    />
+                  ))}
+                </Shelf>
+              )}
+            </motion.div>
           )}
-        >
-          <AnimatePresence mode="wait">
-            {selected ? (
-              <RecordPanel
-                key={selected.id}
-                record={selected}
-                onStatusChange={(next: RecordStatus) =>
-                  void patch(selected.id, { status: next })
-                }
-                onNotesChange={(notes) => void patch(selected.id, { notes })}
-                onDelete={() => void remove(selected.id)}
-                onClose={() => setSelected(null)}
-                onMarkSent={(versionId) => void markSent(selected.id, versionId)}
-              />
-            ) : (
-              <NothingSelected key="empty" />
-            )}
-          </AnimatePresence>
-        </section>
-      </div>
+        </AnimatePresence>
+      </main>
     </div>
   );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
-/**
- * The Library's bar.
- *
- * It used to carry a sign-in form, a sign-out button, an email address and two
- * notices about anonymous work — a second, parallel account interface, with its
- * own copy of the session, that the nav knew nothing about. Signing out here
- * left the nav still showing an account, which is what made the button look
- * broken: it worked, and then half the screen carried on disagreeing with it.
- *
- * All of it is gone. The page is behind `RequireAccount` in both modes now, so
- * nobody reaches it signed out and there is no anonymous state left to explain,
- * and the account lives in one control that every screen shares.
- */
-function TopBar({ recordCount }: { recordCount: number }) {
+function Shelf({ children }: { children: React.ReactNode }) {
   return (
-    <AppBar
-      brandHref="/"
-      context="Library"
-      // The same measure the two columns below it use, so the wordmark sits
-      // over the left edge of the list rather than near it.
-      width="ultra"
-      status={
-        recordCount > 0 ? (
-          <span
-            className="shrink-0 whitespace-nowrap pr-1 text-2xs text-slate"
-            data-numeric
-          >
-            {recordCount} {recordCount === 1 ? "application" : "applications"}
-          </span>
-        ) : null
-      }
-      // Outside the scrolling strip, which would clip its dropdown menu.
-      account={<AccountButton />}
-    >
-      <BarLink href="/tailor">Tailor a CV</BarLink>
-    </AppBar>
+    <div className="grid grid-cols-2 gap-x-5 gap-y-9 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+      {children}
+    </div>
+  );
+}
+
+/**
+ * The shelf with nothing on it: three applications that do not exist, faded.
+ *
+ * A picture of the full shelf says what the empty one is for better than a
+ * sentence about it, and the one real thing on the screen is the button.
+ */
+function GhostShelf() {
+  return (
+    <div className="grid gap-10 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:gap-16">
+      <div className="pt-2">
+        <p className="font-display text-2xs font-medium uppercase tracking-[0.12em] text-signal">
+          Your Library
+        </p>
+        <h2 className="pt-3 font-display text-3xl font-medium tracking-[-0.022em] text-ink">
+          Nothing filed yet.
+        </h2>
+        <p className="pt-3 text-sm leading-relaxed text-slate">
+          Tailor a CV and save it, and the job post is kept with it — so when a recruiter calls
+          five weeks later, you still have exactly what you applied with.
+        </p>
+        <Link
+          href="/tailor"
+          className="mt-6 inline-flex h-10 items-center rounded-pill bg-ink px-5 font-display text-sm font-medium text-paper shadow-cta transition-all hover:-translate-y-px hover:opacity-90"
+        >
+          Tailor your first CV
+        </Link>
+      </div>
+      <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3">
+        {DEMO_RECORDS.map((record, index) => (
+          <ShelfCard key={record.id} record={record} index={index} ghost />
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -383,78 +365,19 @@ function FilterChip({
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex items-center rounded-pill px-2.5 py-1 font-display text-2xs transition-colors",
-        // A pill grown to 44px for the thumb and left at its typed width is not
-        // a pill any more — "All" becomes a 32×44 black egg. The floor is
-        // vertical, so the answer is horizontal: enough padding that the radius
-        // still reads as the ends of a pill rather than as a circle.
-        "[@media(pointer:coarse)]:px-4",
-        active
-          ? "bg-ink text-paper"
-          : "text-slate hover:bg-sunken hover:text-ink",
+        "inline-flex h-9 items-center rounded-pill px-3 font-display text-xs transition-colors [@media(pointer:coarse)]:px-4",
+        active ? "bg-ink text-paper" : "text-slate hover:bg-white/[0.06] hover:text-ink",
       )}
     >
       {label}
       {count > 0 && (
-        <span
-          className={cn("pl-1", active ? "text-panel-ink/60" : "text-slate/60")}
-          data-numeric
-        >
+        <span className={cn("pl-1.5", active ? "text-paper/60" : "text-slate/60")} data-numeric>
           {count}
         </span>
       )}
     </button>
   );
 }
-
-function Empty({ searching }: { searching: boolean }) {
-  if (searching) {
-    return (
-      <div className="grid place-items-center px-5 py-12 text-center">
-        <NoMatchArt className="max-w-[9rem] opacity-70" />
-        <p className="max-w-xs pt-4 text-sm leading-relaxed text-slate">
-          Nothing matches that. Try a company, a role, or a phrase you remember
-          from the advert.
-        </p>
-      </div>
-    );
-  }
-  return (
-    <div className="grid place-items-center px-5 py-10 text-center">
-      <EmptyLibraryArt className="max-w-[16rem]" />
-      <p className="pt-5 font-display text-lg font-semibold text-ink">
-        Nothing filed yet.
-      </p>
-      <p className="max-w-sm pt-2 text-sm leading-relaxed text-slate">
-        Tailor a CV and save it, and the job post is kept with it — so when a
-        recruiter calls five weeks later, you still have what you applied
-        against.
-      </p>
-      <Link
-        href="/tailor"
-        className="mt-5 inline-flex h-11 items-center rounded-pill bg-signal px-5 font-display text-sm font-medium text-paper shadow-cta transition-all hover:-translate-y-px hover:bg-signal-hover"
-      >
-        Tailor your first CV
-      </Link>
-    </div>
-  );
-}
-
-function NothingSelected() {
-  // No breakpoint of its own any more. The section around it is already hidden
-  // wherever this prompt would be wrong, and two elements deciding the same
-  // thing is how one of them ends up deciding it differently.
-  return (
-    <div className="flex h-full flex-col items-center justify-center p-10">
-      <NothingSelectedArt className="max-w-[11rem] opacity-80" />
-      <p className="max-w-xs pt-5 text-center text-sm leading-relaxed text-slate">
-        Pick an application to see the CV you sent and the job post as it was on
-        the day.
-      </p>
-    </div>
-  );
-}
-
 
 /**
  * Everything here needs an account.

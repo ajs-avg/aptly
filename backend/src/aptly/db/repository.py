@@ -725,6 +725,8 @@ def _keywords(record: JobRecord) -> list[str]:
 _SHAPE_LINES = 26
 #: Characters that fill the column at thumbnail scale. Only the ratio matters.
 _SHAPE_CHARS = 92
+#: How much of a line's text a card keeps. Two wrapped lines at card size.
+_SHAPE_CHARS_KEPT = 160
 
 
 def _width(text: str | None) -> int:
@@ -734,47 +736,56 @@ def _width(text: str | None) -> int:
 
 
 def _shape_of(doc: dict[str, Any] | None) -> list[ShapeLine]:
-    """A stored CVDocument as the handful of numbers a thumbnail needs.
+    """A stored CVDocument as the first lines a card can show.
 
-    Lossy on purpose. The person recognises their own CV by where the sections
-    break and how long the lines run, which survives; the words do not need to.
+    The words themselves, cut to a card's width, so the shelf draws the real
+    document small — the person recognises their own CV by its first lines
+    the way they recognise a file by its preview.
     """
     if not doc or not isinstance(doc, dict):
         return []
 
+    def line(text: str | None, kind: str) -> ShapeLine | None:
+        if not text or not str(text).strip():
+            return None
+        words = " ".join(str(text).split())
+        return ShapeLine(w=_width(words), k=kind, t=words[:_SHAPE_CHARS_KEPT])  # type: ignore[arg-type]
+
     out: list[ShapeLine] = []
     contact = doc.get("contact") or {}
-    if contact.get("name"):
-        out.append(ShapeLine(w=46, k="n"))
+    if name := line(contact.get("name"), "n"):
+        out.append(name)
     meta = " · ".join(
         str(contact.get(key)) for key in ("email", "phone", "location") if contact.get(key)
     )
-    if meta:
-        out.append(ShapeLine(w=min(72, _width(meta) + 20), k="c"))
+    if meta_line := line(meta, "c"):
+        out.append(meta_line)
 
     for section in doc.get("sections") or []:
         if len(out) >= _SHAPE_LINES:
             break
-        if title := section.get("title"):
-            out.append(ShapeLine(w=max(18, round(_width(title) * 0.55)), k="h"))
+        if title := line(section.get("title"), "h"):
+            out.append(title)
         for node in section.get("loose_nodes") or []:
             if len(out) >= _SHAPE_LINES:
                 break
-            out.append(ShapeLine(w=_width(node.get("text")), k="b"))
+            if body := line(node.get("text"), "b"):
+                out.append(body)
         for entry in section.get("entries") or []:
             if len(out) >= _SHAPE_LINES:
                 break
             heading = " · ".join(
                 str(entry[key]) for key in ("role", "org") if entry.get(key)
             )
-            if heading:
-                out.append(ShapeLine(w=min(80, _width(heading) + 22), k="r"))
+            if role := line(heading, "r"):
+                out.append(role)
             for bullet in entry.get("bullets") or []:
                 if len(out) >= _SHAPE_LINES:
                     break
-                out.append(ShapeLine(w=_width(bullet.get("text")), k="b"))
+                if body := line(bullet.get("text"), "b"):
+                    out.append(body)
 
-    return [line for line in out[:_SHAPE_LINES] if line.w > 0]
+    return out[:_SHAPE_LINES]
 
 
 def _shown_version(versions: list[CvVersion]) -> CvVersion | None:

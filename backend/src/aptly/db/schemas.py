@@ -104,17 +104,20 @@ class CvVersionSummary(BaseModel):
 
 
 class ShapeLine(BaseModel):
-    """One line of a CV, as a thumbnail needs to draw it.
+    """One line of a CV, as a card needs to draw it.
 
-    Width as a percentage of the column and a one-letter kind, which is
-    everything a silhouette needs and a fraction of what the document weighs.
-    The Library lists dozens of records; shipping every ``doc_model`` to draw
-    forty postage stamps would be megabytes for a picture.
+    Its words, its kind, and its width as a percentage of the column. The
+    Library lists dozens of records; shipping every ``doc_model`` to draw forty
+    cards would be megabytes, where the first lines of each is a few kilobytes.
     """
 
     w: int = Field(ge=0, le=100)
     #: ``n`` name, ``c`` contact, ``h`` heading, ``r`` role, ``b`` body.
     k: Literal["n", "c", "h", "r", "b"]
+    #: The line's own words, cut to a card's width. The shelf draws the real
+    #: document small rather than a silhouette of it, and a line of a CV is a
+    #: hundred bytes — forty of them is still a fraction of one ``doc_model``.
+    t: str = ""
 
 
 class RecordSummary(BaseModel):

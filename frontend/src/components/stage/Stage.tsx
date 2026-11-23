@@ -193,9 +193,9 @@ function Depth({ max }: { max: number }) {
           away, which is the only thing it is for. */}
       <planeGeometry args={[W, H]} />
       <meshBasicMaterial
-        color="#18191d"
+        color="#17181c"
         transparent
-        opacity={0.45}
+        opacity={0.3}
         depthWrite={false}
         toneMapped={false}
       />

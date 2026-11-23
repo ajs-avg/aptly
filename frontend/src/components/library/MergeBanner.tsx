@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 
-import { ShapeThumbnail } from "@/components/visual/CvThumbnail";
+import { PaperLines } from "@/components/visual/Paper";
 import { EASE } from "@/components/motion/primitives";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
@@ -139,7 +139,7 @@ function Group({
               </span>
             )}
             <div className="w-11">
-              <ShapeThumbnail shape={record.cv_shape} className="w-full" />
+              <PaperLines lines={record.cv_shape} className="w-full" />
               <p className="truncate pt-1 text-center text-[0.6rem] text-slate">
                 {record.cv_count} {record.cv_count === 1 ? "CV" : "CVs"}
               </p>

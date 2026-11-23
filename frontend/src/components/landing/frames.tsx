@@ -3,11 +3,12 @@
 import { motion, useInView, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 
-import { ShapeThumbnail } from "@/components/visual/CvThumbnail";
+import { PaperLines } from "@/components/visual/Paper";
+import { DEMO_CV_LINES, DEMO_CV_LINES_B } from "@/lib/demo";
 import { ScoreRing } from "@/components/visual/ScoreRing";
 import { ValidatorGate } from "@/components/visual/ValidatorGate";
 import { cn } from "@/lib/utils";
-import type { RuleResult, ShapeLine } from "@/lib/types";
+import type { RuleResult } from "@/lib/types";
 
 /**
  * The product, drawn on the landing page.
@@ -76,36 +77,6 @@ function usePlay(amount = 0.35) {
   const still = useReducedMotion();
   return { ref, play: Boolean(seen || still), still: Boolean(still) };
 }
-
-/* ── A CV, as a stack of lines ────────────────────────────────────────────── */
-
-const CV_LINES: Array<{ w: number; k: "n" | "c" | "h" | "r" | "b" }> = [
-  { w: 46, k: "n" },
-  { w: 60, k: "c" },
-  { w: 30, k: "h" },
-  { w: 92, k: "b" },
-  { w: 84, k: "b" },
-  { w: 34, k: "h" },
-  { w: 70, k: "r" },
-  { w: 95, k: "b" },
-  { w: 88, k: "b" },
-  { w: 76, k: "b" },
-  { w: 66, k: "r" },
-  { w: 90, k: "b" },
-  { w: 58, k: "b" },
-];
-
-const JOB_SHAPE: ShapeLine[] = [
-  { w: 52, k: "n" },
-  { w: 40, k: "c" },
-  { w: 28, k: "h" },
-  { w: 88, k: "b" },
-  { w: 80, k: "b" },
-  { w: 72, k: "b" },
-  { w: 30, k: "h" },
-  { w: 84, k: "b" },
-  { w: 66, k: "b" },
-];
 
 /* ── A CV with words on it ────────────────────────────────────────────────── */
 
@@ -556,9 +527,9 @@ export function GateFrame({ className }: { className?: string }) {
 /* ── 6. The Library, with the CV on every card ────────────────────────────── */
 
 const RECORDS = [
-  { company: "Meridian Analytics", role: "Data Engineer", score: 61, status: "Interviewing", live: true, sent: "Tailored", shape: JOB_SHAPE, count: 2 },
-  { company: "Acme Robotics", role: "Senior Product Manager", score: 72, status: "Screening", live: true, sent: "Rebuilt", shape: CV_LINES.slice(0, 9) as ShapeLine[], count: 1 },
-  { company: "Northwind", role: "Product Manager", score: 48, status: "Applied", live: false, sent: "Tailored", shape: JOB_SHAPE.slice(0, 7), count: 1 },
+  { company: "Meridian Analytics", role: "Data Engineer", score: 61, status: "Interviewing", live: true, sent: "Tailored", shape: DEMO_CV_LINES, count: 2 },
+  { company: "Acme Robotics", role: "Senior Product Manager", score: 72, status: "Screening", live: true, sent: "Rebuilt", shape: DEMO_CV_LINES_B, count: 1 },
+  { company: "Northwind", role: "Product Manager", score: 48, status: "Applied", live: false, sent: "Tailored", shape: DEMO_CV_LINES_B.slice(0, 9), count: 1 },
 ];
 
 export function LibraryFrame({ className }: { className?: string }) {
@@ -609,8 +580,8 @@ export function LibraryFrame({ className }: { className?: string }) {
                 transition={{ duration: 0.4, delay: 0.2 + i * 0.1, ease: EASE }}
                 className="grid grid-cols-[auto_1fr_auto] items-center gap-3 bg-raised px-3 py-2.5"
               >
-                <div className="relative w-9">
-                  <ShapeThumbnail shape={r.shape} className="w-full rounded-[4px]" />
+                <div className="relative w-11">
+                  <PaperLines lines={r.shape} className="w-full" />
                   {r.count > 1 && (
                     <span className="absolute -right-1 -top-1 rounded bg-sunken px-1 font-display text-[0.55rem] text-slate ring-1 ring-hairline">
                       {r.count}

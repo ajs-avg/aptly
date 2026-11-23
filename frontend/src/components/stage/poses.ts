@@ -161,11 +161,11 @@ export const POSES = {
   library: pose({
     camera: [0, 0.2, 7],
     fov: 42,
-    sheet: { at: [-3, 0, -2.5], turn: [0.05, -0.34, 0], size: 0 },
-    second: { at: [3, -0.1, -2.5], turn: [0.05, 0.34, 0], size: 0 },
+    sheet: { at: [-3.4, 0.4, -4], turn: [0.05, -0.34, 0.03], size: 1.1 },
+    second: { at: [3.6, -0.3, -4.5], turn: [0.05, 0.34, -0.02], size: 1 },
     depth: { count: 8, spread: 13 },
     light: 2,
-    fog: [8, 26],
+    fog: [7, 22],
     presence: 0.55,
   }),
 

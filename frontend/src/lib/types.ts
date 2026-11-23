@@ -423,6 +423,8 @@ export interface ShapeLine {
   w: number;
   /** `n` name, `c` contact, `h` heading, `r` role, `b` body. */
   k: "n" | "c" | "h" | "r" | "b";
+  /** The line's words, cut to a card's width. Absent on older rows. */
+  t?: string;
 }
 
 /** Applications already in the Library that look like one job split in two. */

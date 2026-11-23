@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 
-import { CvReadout, CvThumbnail } from "@/components/visual/CvThumbnail";
+import { CvReadout, PaperDoc } from "@/components/visual/Paper";
 import { EASE, SPRING } from "@/components/motion/primitives";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
@@ -198,7 +198,7 @@ function Choice({
         className="group mt-3 block w-full"
         aria-label="Read this CV"
       >
-        <CvThumbnail
+        <PaperDoc
           document={doc}
           className="w-full transition-transform duration-200 group-hover:-translate-y-0.5"
         />
