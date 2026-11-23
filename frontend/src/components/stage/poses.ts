@@ -134,13 +134,16 @@ export const POSES = {
 
   /** The figure lands. Camera close, light up, everything else out of the way. */
   "tailor.score": pose({
-    camera: [0, 0, 3.9],
-    fov: 32,
-    sheet: { at: [0, -0.1, 0], turn: [0.04, -0.12, 0], size: 1.05 },
-    depth: { count: 4, spread: 6 },
+    camera: [0, 0, 4.4],
+    fov: 34,
+    // Out of the ring's way: low, right and back, so the figure lands in clear
+    // dark with the burst on it and the paper is the depth behind, not a
+    // card the number has to be read through.
+    sheet: { at: [1.9, -1.1, -1.6], turn: [0.14, -0.5, 0.04], size: 1.1 },
+    depth: { count: 5, spread: 8 },
     light: 3.6,
-    fog: [4.5, 14],
-    presence: 0.5,
+    fog: [4.5, 15],
+    presence: 0.6,
   }),
 
   /** The comparison. The real documents are on screen, so the room steps back. */
