@@ -415,7 +415,7 @@ function SignIn() {
                   <button
                     type="submit"
                     disabled={busy}
-                    className="mt-5 inline-flex h-12 w-full items-center justify-center rounded-pill bg-signal font-display text-sm font-medium text-paper shadow-float transition-colors hover:opacity-90 disabled:opacity-50"
+                    className="mt-5 inline-flex h-12 w-full items-center justify-center rounded-pill bg-ink font-display text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-40"
                   >
                     {busy ? "One moment…" : copy.action}
                   </button>
@@ -668,7 +668,7 @@ function LocalAccount({ next, mode, onMode, onNavigating }: {
         <button
           type="submit"
           disabled={busy}
-          className="mt-5 inline-flex h-12 w-full items-center justify-center rounded-pill bg-signal font-display text-sm font-medium text-paper shadow-float transition-colors hover:opacity-90 disabled:opacity-50"
+          className="mt-5 inline-flex h-12 w-full items-center justify-center rounded-pill bg-ink font-display text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-40"
         >
           {busy ? "One moment…" : copy.action}
         </button>
