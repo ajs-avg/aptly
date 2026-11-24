@@ -244,31 +244,50 @@ export function AgentDock({
             type="button"
             onClick={() => setOpen(true)}
             aria-label="Talk to this CV's agent"
-            initial={{ opacity: 0, scale: 0.6, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.6, y: 12 }}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 16 }}
             transition={SPRING}
-            className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-[max(1.25rem,env(safe-area-inset-right))] z-40 grid size-14 place-items-center rounded-full bg-signal text-paper shadow-hero transition-colors hover:bg-signal-hover"
+            // A bar along the bottom of the desk, in glass, rather than a
+            // bubble in the corner: it reads as the place you speak to the
+            // document from, and it is where the eye rests between edits.
+            className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 flex h-12 w-[min(40rem,calc(100vw-2rem))] -translate-x-1/2 items-center gap-3 rounded-pill border border-hairline bg-raised/75 pl-1.5 pr-1.5 text-left shadow-hero backdrop-blur-xl backdrop-saturate-150 transition-colors hover:bg-raised/90"
           >
-            {/* A ring that breathes while an offer is waiting: something to
-                look at, from a button whose job is to be looked at. */}
-            {unseenCount > 0 && (
-              <motion.span
+            <span className="relative grid size-9 shrink-0 place-items-center rounded-full bg-signal text-paper">
+              {/* A ring that breathes while an offer is waiting. */}
+              {unseenCount > 0 && (
+                <motion.span
+                  aria-hidden
+                  className="absolute inset-0 rounded-full bg-signal"
+                  initial={{ opacity: 0.5, scale: 1 }}
+                  animate={{ opacity: 0, scale: 1.7 }}
+                  transition={{ duration: 1.6, repeat: Infinity, ease: "easeOut" }}
+                />
+              )}
+              <svg viewBox="0 0 24 24" className="relative size-4" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1M7.7 16.3l-2.1 2.1" />
+              </svg>
+            </span>
+            <span className="min-w-0 flex-1 truncate text-sm text-slate">
+              Ask the agent — rewrite, trim, reorder, or add what is missing…
+            </span>
+            <span className="hidden shrink-0 items-center gap-1.5 rounded-pill bg-white/[0.06] px-2.5 py-1 font-display text-2xs text-slate sm:inline-flex">
+              <span
                 aria-hidden
-                className="absolute inset-0 rounded-full bg-signal"
-                initial={{ opacity: 0.5, scale: 1 }}
-                animate={{ opacity: 0, scale: 1.55 }}
-                transition={{ duration: 1.6, repeat: Infinity, ease: "easeOut" }}
+                className={cn("inline-block size-1.5 rounded-full", side === "rebuilt" ? "bg-amber" : "bg-signal")}
               />
-            )}
-            <svg viewBox="0 0 24 24" className="relative size-6" fill="none" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h8M8 14h5m-9 6 3-3h9a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3z" />
-            </svg>
+              {SIDE_LABEL[side]}
+            </span>
             {unseenCount > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 grid size-5 place-items-center rounded-full bg-amber text-2xs font-semibold text-ink ring-2 ring-paper">
+              <span className="grid size-6 shrink-0 place-items-center rounded-full bg-amber text-2xs font-semibold text-ink">
                 {unseenCount}
               </span>
             )}
+            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-ink text-paper">
+              <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5m0 0-6 6m6-6 6 6" />
+              </svg>
+            </span>
           </motion.button>
         )}
       </AnimatePresence>
@@ -284,7 +303,7 @@ export function AgentDock({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 28, scale: 0.97 }}
             transition={SPRING}
-            className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] right-[max(0.75rem,env(safe-area-inset-right))] z-40 flex max-h-[min(36rem,calc(100dvh-5rem))] w-[min(26rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl bg-raised shadow-hero ring-1 ring-ink/10"
+            className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 flex max-h-[min(36rem,calc(100dvh-5rem))] w-[min(40rem,calc(100vw-1.5rem))] -translate-x-1/2 flex-col overflow-hidden rounded-2xl border border-hairline bg-raised/95 shadow-hero backdrop-blur-xl"
           >
             <header className="flex items-center gap-2 border-b border-hairline px-3.5 py-2.5">
               <div className="flex min-w-0 flex-1 items-center gap-1.5">

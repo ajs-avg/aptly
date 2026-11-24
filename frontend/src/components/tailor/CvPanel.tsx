@@ -10,6 +10,7 @@ import { EditableCv } from "./EditableCv";
 import { DownloadDialog } from "./DownloadDialog";
 import { Proofread } from "./Proofread";
 import { SPRING } from "@/components/motion/primitives";
+import { PaperFrame } from "@/components/visual/Paper";
 import { useMediaQuery } from "@/lib/browser";
 import { cn } from "@/lib/utils";
 import type { ScoreResult, TargetFormat } from "@/lib/types";
@@ -114,25 +115,15 @@ export function CvPanel({
    * window and handing it a smaller number is the only lever there is.
    */
   const tight = useMediaQuery("(width < 30rem)");
-  const dialSize = tight ? 66 : expanded ? 96 : 84;
+  const dialSize = tight ? 60 : expanded ? 84 : 72;
   const pending = state.changes.filter((change) => change.status === "pending").length;
   const applied = state.changes.filter((change) => change.status === "applied").length;
 
   return (
-    <motion.section
-      layout
-      transition={SPRING}
-      className={cn(
-        "flex min-w-0 flex-col overflow-hidden rounded-2xl bg-raised ring-1 ring-ink/5",
-        expanded ? "shadow-hero" : "shadow-float",
-      )}
-    >
-      {/* ── Header ────────────────────────────────────────────────────── */}
+    <motion.section layout transition={SPRING} className="flex min-w-0 flex-col">
+      {/* ── The label above the paper ─────────────────────────────────── */}
       <header
-        className={cn(
-          "flex items-start gap-4 border-b border-hairline p-4 sm:p-5",
-          !expanded && "cursor-pointer transition-colors hover:bg-sunken/50",
-        )}
+        className={cn("flex items-end gap-4 pb-3", !expanded && "cursor-pointer")}
         onClick={!expanded ? onExpand : undefined}
       >
         <div className="min-w-0 flex-1">
@@ -143,17 +134,17 @@ export function CvPanel({
                 side === "rebuilt" ? "bg-amber" : "bg-signal",
               )}
             />
-            <h2 className="font-display text-sm font-semibold text-ink">{title}</h2>
+            <h2 className="font-display text-base font-medium tracking-[-0.01em] text-ink">{title}</h2>
             {state.approved && (
               <span className="rounded-pill bg-signal-soft px-2 py-0.5 font-display text-2xs font-medium text-signal">
-                Approved
+                Saved
               </span>
             )}
           </div>
-          <p className="pt-1.5 text-sm leading-relaxed text-slate">{blurb}</p>
+          <p className="pt-1 text-xs leading-relaxed text-slate">{blurb}</p>
 
           {state.approach && expanded && (
-            <p className="pt-2.5 text-2xs leading-relaxed text-slate">
+            <p className="pt-2 text-2xs leading-relaxed text-slate">
               <span className="font-medium text-ink">Its approach: </span>
               {state.approach}
             </p>
@@ -181,7 +172,7 @@ export function CvPanel({
 
       {/* ── Actions ───────────────────────────────────────────────────── */}
       {expanded && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-hairline px-4 py-2.5 sm:px-5">
+        <div className="flex flex-wrap items-center gap-2 pb-3">
           {pending > 0 && (
             <button
               type="button"
@@ -326,49 +317,65 @@ export function CvPanel({
         </div>
       )}
 
-      {/* ── The CV ────────────────────────────────────────────────────── */}
-      {/* The 19rem is everything stacked above and below this on a laptop — bar,
-          header, action row, footer. Subtracted from the window height it is
-          the right answer there and an absurd one on a phone held sideways,
-          where 100dvh is 390px and the result is an 86px reading window. The
-          floor is what makes it a *maximum* rather than the only height it can
-          be: below it, the panel simply grows and the page scrolls, which is
-          what a short window wants anyway. */}
-      <div
-        className={cn(
-          "min-h-0 flex-1 overflow-y-auto overscroll-contain",
-          expanded ? "max-h-[max(22rem,calc(100dvh-19rem))]" : "max-h-80",
-        )}
-      >
-        {state.document ? (
-          <EditableCv
-            document={state.document}
-            changes={state.changes}
-            editable={expanded && !skim}
-            onApply={onApply}
-            onUndo={onUndo}
-            onDismiss={onDismiss}
-            onEdit={onEdit}
-            highlight={highlight}
-            skim={expanded && skim}
-          />
-        ) : (
-          <div className="grid place-items-center px-5 py-14 text-center">
-            <p className="max-w-xs text-sm leading-relaxed text-slate">
-              {side === "rebuilt"
-                ? "Writing a new version from everything you have told us…"
-                : "Preparing your CV…"}
-            </p>
-          </div>
-        )}
-      </div>
+      {/* ── The paper ─────────────────────────────────────────────────── */}
+      {/* Resting on the desk while it is one of two; flat and square once it
+          is the one being worked on. The reading window is capped so the
+          page does not become one long document; below the cap it grows. */}
+      <PaperFrame tilt={!expanded}>
+        <div
+          onClick={!expanded ? onExpand : undefined}
+          className={cn(
+            "min-h-0 overflow-y-auto overscroll-contain",
+            expanded ? "max-h-[max(22rem,calc(100dvh-17rem))]" : "max-h-[28rem] cursor-pointer",
+          )}
+        >
+          {state.document ? (
+            <EditableCv
+              document={state.document}
+              changes={state.changes}
+              editable={expanded && !skim}
+              onApply={onApply}
+              onUndo={onUndo}
+              onDismiss={onDismiss}
+              onEdit={onEdit}
+              highlight={highlight}
+              skim={expanded && skim}
+            />
+          ) : (
+            <div className="grid place-items-center px-5 py-14 text-center">
+              <p className="max-w-xs text-sm leading-relaxed text-slate">
+                {side === "rebuilt"
+                  ? "Writing a new version from everything you have told us…"
+                  : "Preparing your CV…"}
+              </p>
+            </div>
+          )}
+        </div>
 
-      {/* ── Before you send it ────────────────────────────────────────── */}
-      {expanded && <Proofread document={state.document} />}
+        {/* The page falls away at the bottom; the one button sits on it. */}
+        {!expanded && state.document && (
+          <>
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-raised via-raised/80 to-transparent"
+            />
+            <button
+              type="button"
+              onClick={onExpand}
+              className="absolute bottom-4 left-1/2 inline-flex h-9 -translate-x-1/2 items-center rounded-pill bg-ink px-4 font-display text-xs font-medium text-paper shadow-float transition-opacity hover:opacity-90"
+            >
+              Open and edit →
+            </button>
+          </>
+        )}
+
+        {/* ── Before you send it ──────────────────────────────────────── */}
+        {expanded && <Proofread document={state.document} />}
+      </PaperFrame>
 
       {/* ── What it left out ──────────────────────────────────────────── */}
       {expanded && state.dropped.length > 0 && (
-        <div className="border-t border-hairline bg-amber-soft/40 px-4 py-3 sm:px-5">
+        <div className="mt-3 rounded-lg bg-amber-soft/40 px-4 py-3">
           <p className="font-display text-2xs font-medium uppercase tracking-[0.08em] text-amber-ink">
             {state.dropped.length} line{state.dropped.length === 1 ? "" : "s"} discarded
           </p>
@@ -416,15 +423,6 @@ export function CvPanel({
         before={baseline}
       />
 
-      {!expanded && (
-        <button
-          type="button"
-          onClick={onExpand}
-          className="border-t border-hairline px-5 py-3 font-display text-xs font-medium text-signal transition-colors hover:bg-signal-soft/50"
-        >
-          Open and edit →
-        </button>
-      )}
     </motion.section>
   );
 }

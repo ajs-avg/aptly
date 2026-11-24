@@ -456,8 +456,8 @@
 /* The highlighter. Marks the exact words to change — never used for text
    colour, only as a wash behind it. */
 @utility mark-change {
-  background-color: var(--color-amber-soft);
-  box-shadow: inset 2px 0 0 var(--color-amber);
+  background-color: color-mix(in srgb, var(--color-signal-soft) 60%, transparent);
+  box-shadow: inset 2px 0 0 var(--color-signal);
 }
 
 /* Literal CV text inside a change card: exact, quotable. (Design doc, p.9) */

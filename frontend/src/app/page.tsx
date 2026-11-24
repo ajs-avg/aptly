@@ -11,7 +11,7 @@ import {
   Pricing,
   Trust,
 } from "@/components/landing/Sections";
-import { StagePose } from "@/components/stage/StagePose";
+import { LandingStage } from "@/components/landing/LandingStage";
 import styles from "@/components/landing/landing.module.css";
 
 export const metadata = {
@@ -29,7 +29,7 @@ export const metadata = {
 export default function Home() {
   return (
     <div className={styles.landing}>
-      <StagePose name="landing.hero" />
+      <LandingStage />
       <Header />
       <main>
         <Hero />

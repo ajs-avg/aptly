@@ -670,7 +670,7 @@ function TailorScreen() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={SPRING}
-            className="gutter mx-auto max-w-ultra pb-14 pt-4"
+            className="gutter mx-auto max-w-ultra pb-32 pt-5"
           >
             {/* Expanded, the other version is off-screen — so it needs a way
                 back that is not "collapse, look, expand again". Both scores sit
@@ -752,8 +752,8 @@ function TailorScreen() {
             <div
               className={
                 state.expanded
-                  ? "grid grid-cols-1 gap-3"
-                  : "grid grid-cols-1 gap-3 lg:grid-cols-2"
+                  ? "grid grid-cols-1 gap-6"
+                  : "grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-7"
               }
             >
               {(["tailored", "rebuilt"] as const).map((side) => {
@@ -778,11 +778,18 @@ function TailorScreen() {
                       const change = state[side].changes.find(
                         (item) => item.suggestion.node_id === nodeId,
                       );
-                      if (change) actions.apply(side, change.suggestion);
+                      if (change) {
+                        actions.apply(side, change.suggestion);
+                        // The room marks it too: a change landing is light.
+                        flash();
+                      }
                     }}
                     onUndo={(nodeId, previousText) => actions.undo(side, nodeId, previousText)}
                     onDismiss={(nodeId) => actions.dismiss(side, nodeId)}
-                    onApplyAll={() => actions.applyAll(side)}
+                    onApplyAll={() => {
+                      actions.applyAll(side);
+                      flash();
+                    }}
                     onEdit={(nodeId, text) => actions.edit(side, nodeId, text)}
                     onApprove={() => void approve(side)}
                     onDownload={(format, template) => void download(side, format, template)}
@@ -815,7 +822,10 @@ function TailorScreen() {
               jobText={jobText}
               facts={agentFacts}
               onFacts={setAgentFacts}
-              onEdits={(side, edits) => actions.agentEdits(side, edits)}
+              onEdits={(side, edits) => {
+                actions.agentEdits(side, edits);
+                flash();
+              }}
               scoreFor={(side, edits) => scoreWith(side, edits)}
               onHighlight={(side, ids) =>
                 setAgentFlash({ side, ids, stamp: Date.now() })

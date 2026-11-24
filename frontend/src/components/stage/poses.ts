@@ -79,6 +79,24 @@ export const POSES = {
     presence: 0.9,
   }),
 
+  /**
+   * Past the hero, the page is pictures of the product over body text, and a
+   * sheet with words on it behind body text is two documents fighting. The
+   * two sheets retreat into the fog at either edge and stay there.
+   */
+  "landing.scroll": pose({
+    camera: [0, 0.2, 4.6],
+    fov: 42,
+    // Mostly past the frame's edges: an edge of paper each side, no words
+    // under anybody's sentence.
+    sheet: { at: [4.4, 1.1, -4.8], turn: [0.1, -0.5, 0.03], size: 1.1 },
+    second: { at: [-4.7, -0.9, -5.4], turn: [0.05, 0.42, -0.02], size: 0.95 },
+    depth: { count: 7, spread: 9 },
+    light: 2,
+    fog: [6, 20],
+    presence: 0.55,
+  }),
+
   "landing.read": pose({
     camera: [0, 0, 5],
     sheet: { at: [-0.8, 0.02, 0], turn: [0.06, -0.22, 0], size: 1 },
@@ -149,11 +167,11 @@ export const POSES = {
   /** The comparison. The real documents are on screen, so the room steps back. */
   "tailor.compare": pose({
     camera: [0, 0, 6.4],
-    sheet: { at: [-2.6, -0.4, -2.2], turn: [0.04, -0.3, 0], size: 0 },
-    second: { at: [2.6, -0.4, -2.2], turn: [0.04, 0.3, 0], size: 0 },
+    sheet: { at: [-3.6, 0.6, -4.4], turn: [0.06, -0.3, 0.02], size: 1.1 },
+    second: { at: [3.8, 0.2, -4.8], turn: [0.06, 0.3, -0.02], size: 1 },
     depth: { count: 6, spread: 12 },
     light: 2.1,
-    fog: [7, 24],
+    fog: [6.5, 22],
     presence: 0.5,
   }),
 

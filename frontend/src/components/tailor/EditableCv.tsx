@@ -288,9 +288,18 @@ function Line({
               // see which lines had been changed — and the undo underneath them
               // read as belonging to the whole document rather than that line.
               key={node.text}
-              initial={applied ? { backgroundColor: "var(--color-amber-soft)" } : false}
-              animate={{ backgroundColor: "rgba(0,0,0,0)" }}
-              transition={{ duration: 1.1, ease: "easeOut" }}
+              // Teal light on the line the moment a change lands, breathing
+              // out; then the permanent rule in the margin.
+              initial={
+                applied
+                  ? {
+                      backgroundColor: "var(--color-signal-soft)",
+                      boxShadow: "0 0 0 8px var(--color-signal-soft), 0 0 32px 4px rgba(69,191,172,0.35)",
+                    }
+                  : false
+              }
+              animate={{ backgroundColor: "rgba(0,0,0,0)", boxShadow: "0 0 0 0px rgba(0,0,0,0), 0 0 0px 0px rgba(0,0,0,0)" }}
+              transition={{ duration: 1.4, ease: "easeOut" }}
               onClick={canType ? () => setDraft(node.text) : undefined}
               className={cn(
                 "rounded-sm text-sm leading-relaxed text-ink",
@@ -314,7 +323,16 @@ function Line({
             transition={EASE}
             className="overflow-hidden"
           >
-            <div className={cn("mt-1.5 rounded-md bg-amber-soft/60 p-2.5", bullet && "ml-4")}>
+            <div
+              className={cn(
+                "mt-2 rounded-lg bg-raised p-3 shadow-float ring-1 ring-hairline",
+                "shadow-[inset_2px_0_0_var(--color-amber),var(--shadow-float)]",
+                bullet && "ml-4",
+              )}
+            >
+              <p className="pb-1.5 font-display text-[10px] font-medium uppercase tracking-[0.1em] text-amber-ink">
+                Suggested
+              </p>
               <p className="cv-literal text-ink">{change!.suggestion.after}</p>
               <p className="pt-1.5 text-2xs leading-relaxed text-slate">
                 {change!.suggestion.reason}
@@ -354,7 +372,7 @@ function Line({
             transition={SPRING}
             className={cn("flex flex-wrap items-baseline gap-x-2 pt-1", bullet && "ml-4")}
           >
-            <span className="font-display text-2xs font-medium uppercase tracking-[0.08em] text-amber-ink">
+            <span className="font-display text-2xs font-medium uppercase tracking-[0.08em] text-signal">
               Changed
             </span>
             {/* The line it replaced, struck through. Undo is far more useful
