@@ -169,14 +169,14 @@ export const POSES = {
     presence: 0.55,
   }),
 
-  /** A working screen: light and depth only, so a form has a ground. */
+  /** The profile: one sheet low on the right, filling in as the profile does. */
   profile: pose({
     camera: [0, 0, 6.2],
-    sheet: { at: [3, -0.3, -2.4], turn: [0.06, 0.4, 0], size: 0 },
+    sheet: { at: [2.7, -1.4, -2.2], turn: [0.24, -0.5, 0.04], size: 1.25 },
     depth: { count: 6, spread: 12 },
     light: 2.1,
     fog: [8, 26],
-    presence: 0.5,
+    presence: 0.55,
   }),
 
   /** At rest, waiting to be let in. */
