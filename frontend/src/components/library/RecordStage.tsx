@@ -58,6 +58,8 @@ interface Props {
   onClose: () => void;
   /** Say which of this record's CVs went to the employer. */
   onMarkSent?: (versionId: string) => void;
+  /** Open with call mode already up — the phone is ringing. */
+  initialCallMode?: boolean;
 }
 
 export function RecordStage({
@@ -67,6 +69,7 @@ export function RecordStage({
   onDelete,
   onClose,
   onMarkSent,
+  initialCallMode = false,
 }: Props) {
   const [notes, setNotes] = useState(record.notes ?? "");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -74,7 +77,7 @@ export function RecordStage({
   const [prepOpen, setPrepOpen] = useState(false);
   const [prepBusy, setPrepBusy] = useState(false);
   const [prepError, setPrepError] = useState<string | null>(null);
-  const [callMode, setCallMode] = useState(false);
+  const [callMode, setCallMode] = useState(initialCallMode);
   const router = useRouter();
 
   /* The version on the desk: the sent one, else the newest that was stored. */

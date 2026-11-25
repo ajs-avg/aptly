@@ -484,6 +484,26 @@ export interface InterviewPrep {
   opener: string;
 }
 
+/** One answer to "who is calling?", with its working. */
+export interface FindCandidate {
+  record: RecordSummary;
+  score: number;
+  /** Why it matched, as short phrases: "company: Meridian", "“Priya” in your notes". */
+  why: string[];
+}
+
+export interface FindResult {
+  query: string;
+  best: FindCandidate | null;
+  confidence: "sure" | "likely" | "unsure" | "none";
+  /** The runners-up, strongest first. */
+  others: FindCandidate[];
+  /** One line the screen can say: what was found, or what was not. */
+  note: string;
+  /** Whether the model was asked to choose between close candidates. */
+  used_model: boolean;
+}
+
 export interface RecordDetail extends RecordSummary {
   notes: string | null;
   source_url: string | null;

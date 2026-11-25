@@ -9,6 +9,7 @@
 
 import { accessToken } from "./supabase";
 import type {
+  FindResult,
   AgentResponse,
   AgentTurn,
   AuthSession,
@@ -628,6 +629,22 @@ export async function listRecords(
 
   const suffix = search.toString() ? `?${search}` : "";
   const response = await call(`${API}/api/records${suffix}`, await authed());
+  if (!response.ok) await fail(response);
+  return response.json();
+}
+
+/**
+ * Which application a caller means, from what the person heard.
+ *
+ * Deterministic and explained; the model only breaks ties between close
+ * records, and only ever chooses from the shortlist.
+ */
+export async function findRecord(query: string): Promise<FindResult> {
+  const response = await call(`${API}/api/records/find`, {
+    ...(await authed({ headers: { "Content-Type": "application/json" } })),
+    method: "POST",
+    body: JSON.stringify({ query }),
+  });
   if (!response.ok) await fail(response);
   return response.json();
 }

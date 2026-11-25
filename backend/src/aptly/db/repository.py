@@ -435,6 +435,30 @@ async def list_records(
     ]
 
 
+async def fetch_records(
+    session: AsyncSession, *, owner_id: UUID, limit: int = 300
+) -> list[tuple[JobRecord, list[CvVersion]]]:
+    """Every application, with its versions, for something that reads them all.
+
+    The finder scores each record on its notes and its frozen advert as well
+    as the summary, so it needs the rows rather than the Library's list.
+    """
+    statement = (
+        select(JobRecord)
+        .where(JobRecord.profile_id == owner_id)
+        .options(selectinload(JobRecord.cv_versions))
+        .order_by(JobRecord.created_at.desc())
+        .limit(limit)
+    )
+    rows = (await session.execute(statement)).scalars()
+    return [(record, sorted(record.cv_versions, key=lambda v: v.created_at)) for record in rows]
+
+
+def summary_of(record: JobRecord, versions: list[CvVersion]) -> RecordSummary:
+    """One row as the Library lists it."""
+    return _to_summary(record, versions)
+
+
 async def get_record(
     session: AsyncSession, *, owner_id: UUID, record_id: UUID
 ) -> RecordDetail | None:

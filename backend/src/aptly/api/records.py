@@ -31,7 +31,9 @@ from aptly.db.schemas import (
     SaveRecordRequest,
     UpdateRecordRequest,
 )
+from aptly.config import get_settings
 from aptly.errors import AptlyError
+from aptly.finder import FindRequest, FindResult, entry_from_row, find
 from aptly.interview import prepare_interview
 from aptly.llm.client import GeminiClient
 from aptly.logging import get_logger
@@ -117,6 +119,31 @@ async def merge(
             hint="One of them may have been deleted since this screen was opened.",
         )
     return merged
+
+
+@router.post("/find", response_model=FindResult)
+async def find_record(payload: FindRequest, caller: CallerDep, session: SessionDep) -> FindResult:
+    """Which application a caller means, from what the person heard.
+
+    Deterministic first and explained; the model is asked only to break a
+    tie between close records, and only ever chooses from the shortlist.
+    """
+    rows = await repository.fetch_records(session, owner_id=caller.owner_id)
+    entries = [
+        entry_from_row(
+            repository.summary_of(record, versions),
+            notes=record.notes,
+            snapshot=record.frozen_snapshot,
+        )
+        for record, versions in rows
+    ]
+    client: GeminiClient | None = None
+    if get_settings().gemini_api_key:
+        try:
+            client = GeminiClient()
+        except Exception as exc:  # noqa: BLE001 — the first layer answers alone.
+            log.warning("find.no_model", error=str(exc)[:200])
+    return await find(payload.query, entries, client=client)
 
 
 @router.post("/{record_id}/versions/{version_id}/sent", response_model=RecordDetail)

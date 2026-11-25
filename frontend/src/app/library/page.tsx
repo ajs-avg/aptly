@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 
+import { CallFinder } from "@/components/library/CallFinder";
 import { LibraryPulse } from "@/components/library/LibraryPulse";
 import { MergeBanner } from "@/components/library/MergeBanner";
 import { RecordStage } from "@/components/library/RecordStage";
@@ -53,6 +54,8 @@ function LibraryScreen() {
 
   const [records, setRecords] = useState<RecordSummary[]>([]);
   const [selected, setSelected] = useState<RecordDetail | null>(null);
+  /** Whether the opened record should come up in call mode. */
+  const [callOnOpen, setCallOnOpen] = useState(false);
 
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<string | null>(null);
@@ -84,9 +87,11 @@ function LibraryScreen() {
     };
   }, [query, status, refresh]);
 
-  const open = useCallback(async (id: string) => {
+  const open = useCallback(async (id: string, call = false) => {
     try {
-      setSelected(await getRecord(id));
+      const record = await getRecord(id);
+      setCallOnOpen(call);
+      setSelected(record);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (caught) {
       const apiError = caught as ApiError;
@@ -190,6 +195,7 @@ function LibraryScreen() {
               onDelete={() => void remove(selected.id)}
               onClose={() => setSelected(null)}
               onMarkSent={(versionId) => void markSent(selected.id, versionId)}
+              initialCallMode={callOnOpen}
             />
           ) : (
             <motion.div
@@ -199,6 +205,11 @@ function LibraryScreen() {
               exit={{ opacity: 0, y: -6 }}
               transition={EASE}
             >
+              {/* The phone is ringing: the first thing on the shelf. */}
+              {!loading && !error && records.length > 0 && (
+                <CallFinder onOpen={(id, call) => void open(id, call)} className="mb-6" />
+              )}
+
               {/* The toolbar: one line, the search and the filters. */}
               <div className="flex flex-wrap items-center gap-2 pb-6">
                 <div className="relative w-full sm:w-80">
