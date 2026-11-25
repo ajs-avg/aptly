@@ -153,7 +153,7 @@ export function CallFinder({
           aria-label="Who is calling?"
           autoComplete="off"
           className={cn(
-            "h-12 w-full rounded-pill bg-sunken pl-5 pr-[7.5rem] text-[1rem] text-ink ring-1 ring-hairline placeholder:text-slate/55 focus:outline-none focus:ring-signal sm:text-sm",
+            "h-12 w-full rounded-pill bg-sunken pl-5 pr-[9.5rem] text-[1rem] text-ink ring-1 ring-hairline placeholder:text-slate/55 focus:outline-none focus:ring-signal sm:text-sm",
             listening && "ring-signal",
           )}
         />
